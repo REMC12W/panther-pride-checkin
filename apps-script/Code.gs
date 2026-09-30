@@ -33,6 +33,10 @@ const KIOSK_ACCOUNTS = [];
 const KIOSK_SESSION_DAYS = 30;
 
 const ROSTER_NAME = 'Roster';
+// The roster lives in its own spreadsheet so staff who fill it in never see check-in data.
+// "Pride Center Roster": https://docs.google.com/spreadsheets/d/1KrnT0Uxswi7Avz6IZn7xwHYBZ7YB-hPZA6myjMKo-wI/edit
+// Leave empty to use a Roster tab inside this spreadsheet instead.
+const ROSTER_SPREADSHEET_ID = '1KrnT0Uxswi7Avz6IZn7xwHYBZ7YB-hPZA6myjMKo-wI';
 
 // Must match KIOSK_TOKEN in the app's config.js. Check-ins without it are rejected.
 // Leave empty to accept any POST (not recommended once the app is live).
@@ -452,16 +456,33 @@ function rosterMap_() {
 }
 
 function rosterSheet_() {
+  if (ROSTER_SPREADSHEET_ID) {
+    const book = SpreadsheetApp.openById(ROSTER_SPREADSHEET_ID);
+    return book.getSheetByName(ROSTER_NAME) || book.getSheets()[0];
+  }
   const ss = SpreadsheetApp.getActiveSpreadsheet();
   let sheet = ss.getSheetByName(ROSTER_NAME);
   if (!sheet) {
     sheet = ss.insertSheet(ROSTER_NAME);
-    sheet.getRange(1, 1, 1, 4).setValues([['Student ID', 'First Name', 'Last Name', 'Grade']])
-      .setFontWeight('bold').setBackground('#d61f26').setFontColor('#ffffff');
-    sheet.setFrozenRows(1);
-    sheet.getRange('A:A').setNumberFormat('@'); // keep leading zeros
+    sheet.getRange(1, 1, 1, 4).setValues([['Student ID', 'First Name', 'Last Name', 'Grade']]);
   }
   return sheet;
+}
+
+/** Formats the roster for staff: header, frozen row, text IDs, grade dropdown, instructions. Safe to re-run. */
+function formatRoster_() {
+  const sheet = rosterSheet_();
+  if (sheet.getName() !== ROSTER_NAME) sheet.setName(ROSTER_NAME);
+  if (!sheet.getRange('A1').getValue()) sheet.getRange(1, 1, 1, 4).setValues([['Student ID', 'First Name', 'Last Name', 'Grade']]);
+  sheet.getRange(1, 1, 1, 4).setFontWeight('bold').setBackground('#d61f26').setFontColor('#ffffff');
+  sheet.setFrozenRows(1);
+  sheet.getRange('A2:A').setNumberFormat('@'); // keep leading zeros exactly as on the badge
+  sheet.setColumnWidth(1, 140); sheet.setColumnWidth(2, 160); sheet.setColumnWidth(3, 160); sheet.setColumnWidth(4, 90);
+  sheet.getRange('D2:D').setDataValidation(SpreadsheetApp.newDataValidation()
+    .requireValueInList(['6', '7', '8'], true).setAllowInvalid(true).build());
+  sheet.getRange('A1').setNote('One student per row. Student ID = the number on the badge (or what the scanner types). ' +
+    'First Name = what the student goes by; the kiosk says "Hi, <First Name>!". Last Name is optional; only its first letter is shown. ' +
+    'Grade is optional (6, 7, 8). Changes are picked up within 10 minutes.');
 }
 
 /** Run from the editor after pasting a new roster, so lookups see it right away. */
@@ -498,7 +519,7 @@ function ensureHeader_(sheet, col, name) {
 function setup() {
   const ss = SpreadsheetApp.getActiveSpreadsheet();
 
-  rosterSheet_();
+  formatRoster_();
   let sheet = ss.getSheetByName(SHEET_NAME);
   if (!sheet) sheet = ss.insertSheet(SHEET_NAME);
   if (sheet.getLastRow() === 0) sheet.appendRow(HEADERS);
