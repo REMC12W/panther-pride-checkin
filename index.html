@@ -161,6 +161,16 @@
   #visit { justify-content: center; }
   #visit p { font-size: clamp(1.15rem, 2.6vw, 1.6rem); text-align: center; margin: 0 0 22px; max-width: 760px; }
   #visit .cards { margin: 0; }
+  /* iPad sign-in (badge lookup) */
+  .kiosk-pill { display: none; margin-top: 18px; font: inherit; font-size: 0.95rem; color: #7a5a00; background: #fff3cd; border: 1px solid #e7d08a; border-radius: 999px; padding: 8px 14px; cursor: pointer; }
+  .kiosk-pill.show { display: inline-block; }
+  #kiosk { justify-content: center; text-align: center; }
+  #kiosk p { font-size: 1.1rem; max-width: 620px; margin: 0 auto 16px; color: var(--ink); line-height: 1.4; }
+  #kiosk .gsi { display: flex; justify-content: center; min-height: 48px; margin: 8px 0 14px; }
+  #kiosk .row { display: flex; gap: 10px; justify-content: center; flex-wrap: wrap; margin-top: 10px; }
+  #kiosk .row button { font: inherit; font-size: 1rem; padding: 10px 18px; border-radius: 12px; border: 1px solid #cfcfcf; background: #f4f4f4; cursor: pointer; }
+  .name-msg { min-height: 1.4em; font-size: 1.1rem; color: #9a1b20; font-weight: 500; text-align: center; margin: -10px 0 14px; }
+  .greet { color: var(--red); }
   /* Keep every screen's content clear of the floating feedback button. */
   body.fb-on .screen { padding-bottom: 76px; }
   /* Start screen: check-out link */
@@ -254,13 +264,23 @@
     <div class="subtitle">Student Check-In</div>
     <button class="big-btn" type="button" data-go="name">Click here to get started!</button>
     <button class="text-btn" type="button" id="checkoutBtn">Leaving? Tap here to check out</button>
+    <button class="kiosk-pill" type="button" id="kioskPill">🔒 Badge scanning is off. Staff: sign in this iPad</button>
+  </section>
+
+  <!-- iPad setup: a staff member signs the iPad in so badge / ID lookup works -->
+  <section class="screen" id="kiosk" data-step="0">
+    <h1>iPad setup <span class="sub">For Pride Center staff</span></h1>
+    <p id="kioskMsg"></p>
+    <div class="gsi" id="kioskGsi"></div>
+    <div class="row"><button type="button" id="kioskSignOut" hidden>Sign this iPad out</button><button type="button" id="kioskBack">Back to check-in</button></div>
   </section>
 
   <!-- 2. Name -->
   <section class="screen" id="name" data-step="1">
     <h1 id="nameTitle">First, who are you?</h1>
-    <input class="field" id="nameInput" type="text" autocomplete="off" autocorrect="off" autocapitalize="words" spellcheck="false" placeholder="Your name or student ID" enterkeyhint="next">
-    <div class="hint">Type your first and last name, or your student ID number.</div>
+    <input class="field" id="nameInput" type="text" autocomplete="off" autocorrect="off" autocapitalize="words" spellcheck="false" placeholder="Scan your badge, or type your ID or name" enterkeyhint="next">
+    <div class="name-msg" id="nameMsg" aria-live="polite"></div>
+    <div class="hint" id="nameHint">Scan your badge, or type your student ID or your first and last name.</div>
     <button class="big-btn" type="button" id="nameNext">Next</button>
   </section>
 
@@ -273,7 +293,7 @@
 
   <!-- 3. Referral -->
   <section class="screen" id="referral" data-step="2">
-    <h1>Why are you here today?</h1>
+    <h1 id="referralTitle">Why are you here today?</h1>
     <div class="cards">
       <button class="card" style="background:var(--card-green)" data-answer="referral" data-value="Self Referred"><span>Self Referred<br><small>(I have a need)</small></span></button>
       <button class="card" style="background:var(--card-pink)"  data-answer="referral" data-value="Staff Referred"><span>Staff Referred<br><small>(A teacher sent me)</small></span></button>
@@ -426,7 +446,7 @@
 <script src="config.js"></script>
 <script>
 (function () {
-  const APP_VERSION = "2026.09.30d";
+  const APP_VERSION = "2026.09.30e";
   const CFG = Object.assign({
     SCRIPT_URL: "", KIOSK_TOKEN: "", KIOSK_NAME: "Kiosk",
     RESET_SECONDS: 8, IDLE_SECONDS: 120,
@@ -522,7 +542,9 @@
     document.getElementById(id).scrollTop = 0;
     // Shared screens read differently on the way out.
     $("#nameTitle").textContent = mode === "checkout" ? "Who's checking out?" : "First, who are you?";
-    $("#energyTitle").textContent = mode === "checkout" ? "Before you go: how is your body + brain feeling now?" : "How is your body + brain feeling right now?";
+    const fn = firstOf();
+    $("#referralTitle").innerHTML = (fn ? `<span class="greet">Hi, ${escapeHtml(fn)}!</span> ` : "") + "Why are you here today?";
+    $("#energyTitle").innerHTML = mode === "checkout" ? `Before you go${fn ? ", " + escapeHtml(fn) : ""}: how is your body + brain feeling now?` : "How is your body + brain feeling right now?";
     $("#moodTitle").innerHTML = (mode === "checkout" ? "Pick the word that fits how you feel now." : "Pick the word that fits how you feel.") + '<span class="sub">Not sure? Tap the color bar under the words.</span>';
     if (id === "name") setTimeout(() => $("#nameInput").focus(), 120);
     else document.activeElement && document.activeElement.blur();
@@ -542,6 +564,8 @@
     clearTimeout(resetTimer); clearTimeout(idleTimer);
     answers = {}; history = []; mode = "checkin";
     ["#nameInput", "#incStory", "#incWho", "#incWitness"].forEach(sel => $(sel).value = "");
+    $("#nameMsg").textContent = ""; $("#nameInput").placeholder = "Scan your badge, or type your ID or name";
+    $("#nameHint").textContent = "Scan your badge, or type your student ID or your first and last name.";
     ["#saveStatus", "#countdown", "#coStatus", "#coCountdown"].forEach(s => $(s).textContent = "");
     show("start", false);
   }
@@ -566,11 +590,51 @@
   document.querySelectorAll("[data-go]").forEach(b => b.addEventListener("click", () => { mode = "checkin"; show(b.dataset.go); }));
   $("#checkoutBtn").addEventListener("click", () => { mode = "checkout"; show("name"); });
 
-  function submitName() {
-    const v = $("#nameInput").value.trim();
+  // ---------- Name / badge step ----------
+  const SESSION_KEY = "ppc_kiosk_session";
+  const getSession = () => { try { return JSON.parse(localStorage.getItem(SESSION_KEY) || "null"); } catch { return null; } };
+  const looksLikeId = v => !/\s/.test(v) && /\d{3,}/.test(v) && /^[A-Za-z0-9-]+$/.test(v);
+  const cleanId = v => String(v || "").replace(/[^0-9A-Za-z]/g, "").replace(/^0+(?=\d)/, "").toUpperCase();
+  const firstOf = () => { const n = answers.firstName || String(answers.name || "").trim().split(/\s+/)[0] || ""; return n ? n.charAt(0).toUpperCase() + n.slice(1) : ""; };
+  let busy = false;
+  async function submitName(raw) {
+    if (busy) return;
+    const v = String(typeof raw === "string" ? raw : $("#nameInput").value).trim();
     if (!v) { $("#nameInput").focus(); $("#nameInput").style.borderColor = "var(--red)"; return; }
-    answers.name = v;
-    const open = openVisit(v);
+    $("#nameMsg").textContent = "";
+    if (looksLikeId(v)) {
+      answers.studentId = cleanId(v);
+      const s = getSession();
+      let found = null;
+      if (CFG.SCRIPT_URL && s && s.session) {
+        busy = true; $("#nameNext").textContent = "Looking you up…";
+        try {
+          const ctl = new AbortController(); const t = setTimeout(() => ctl.abort(), 6000);
+          const res = await fetch(CFG.SCRIPT_URL, { method: "POST", headers: { "Content-Type": "text/plain;charset=utf-8" }, body: JSON.stringify({ type: "lookup", session: s.session, id: v }), redirect: "follow", signal: ctl.signal });
+          clearTimeout(t);
+          const d = await res.json();
+          if (d.ok && d.found) found = d;
+          if (!d.ok && /not signed in|expired/i.test(d.error || "")) { try { localStorage.removeItem(SESSION_KEY); } catch {} updateKioskPill(); }
+        } catch { /* offline or slow: fall back to typing a name */ }
+        busy = false; $("#nameNext").textContent = "Next";
+      }
+      if (!found) {
+        $("#nameInput").value = "";
+        $("#nameMsg").textContent = "Thanks! Now type your first and last name.";
+        $("#nameInput").placeholder = "First and last name";
+        $("#nameHint").textContent = "We'll keep your ID with your check-in.";
+        $("#nameInput").focus();
+        return;
+      }
+      answers.firstName = found.firstName;
+      answers.name = found.firstName + (found.lastInitial ? " " + found.lastInitial + "." : "");
+    } else {
+      answers.name = v;
+    }
+    routeAfterName();
+  }
+  function routeAfterName() {
+    const open = openVisit(answers.name, answers.studentId);
     if (mode === "checkin" && open) return askVisit("already", open);
     if (mode === "checkout" && !open) return askVisit("none", null);
     if (mode === "checkout") answers.openVisit = open;
@@ -578,20 +642,20 @@
   }
 
   // The student's open visit on this iPad: checked in today, within 4 hours, not checked out.
-  function openVisit(name) {
+  function openVisit(name, sid) {
     const key = String(name).trim().toLowerCase(), all = readJSON(LOCAL_KEY);
-    const ins = all.filter(r => (!r.type || r.type === "checkin") && String(r.name || "").trim().toLowerCase() === key
+    const same = r => sid && r.studentId ? r.studentId === sid : String(r.name || "").trim().toLowerCase() === key;
+    const ins = all.filter(r => (!r.type || r.type === "checkin") && same(r)
       && Date.now() - new Date(r.timestamp).getTime() < 4 * 3600000 && new Date(r.timestamp).toDateString() === new Date().toDateString());
     const last = ins.pop();
     if (!last) return null;
-    const out = all.some(r => r.type === "checkout" && String(r.name || "").trim().toLowerCase() === key
+    const out = all.some(r => r.type === "checkout" && same(r)
       && (r.checkinTimestamp === last.timestamp || new Date(r.timestamp) > new Date(last.timestamp)));
     return out ? null : last;
   }
   const hhmm = ts => new Date(ts).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" });
   function askVisit(kind, open) {
-    const cap = w => w.charAt(0).toUpperCase() + w.slice(1);
-    const firstName = cap(String(answers.name).trim().split(/\s+/)[0]);
+    const firstName = firstOf();
     const card = (bg, label, fn) => { const b = document.createElement("button"); b.type = "button"; b.className = "card"; b.style.background = bg; b.innerHTML = `<span>${label}</span>`; b.addEventListener("click", fn); return b; };
     const cards = $("#visitCards"); cards.innerHTML = "";
     if (kind === "already") {
@@ -611,7 +675,7 @@
     }
     show("visit");
   }
-  $("#nameNext").addEventListener("click", submitName);
+  $("#nameNext").addEventListener("click", () => submitName());
   $("#nameInput").addEventListener("keydown", e => { if (e.key === "Enter") { e.preventDefault(); submitName(); } });
   $("#nameInput").addEventListener("input", e => e.target.style.borderColor = "");
 
@@ -704,6 +768,7 @@
       type: "incident",
       timestamp: checkinTs,
       name: answers.name,
+      studentId: answers.studentId || "",
       grade: answers.incGrade || "",
       safe: answers.incSafe || "",
       types: (answers.incTypes || []).join(", "),
@@ -834,6 +899,7 @@
       type: "checkin",
       timestamp: answers.checkinTimestamp || new Date().toISOString(),
       name: answers.name,
+      studentId: answers.studentId || "",
       referral: answers.referral || "",
       reason: answers.reason,
       energy: answers.energy || "",
@@ -887,6 +953,7 @@
       type: "checkout",
       timestamp: new Date().toISOString(),
       name: answers.name,
+      studentId: answers.studentId || "",
       energy: answers.energy || "",
       moodGroup: outGroup || "",
       moodWord: answers.moodWord || "",
@@ -959,6 +1026,70 @@
   flushQueue();
 
   // Boot
+  // ---------- iPad sign-in (turns on badge / ID lookup) ----------
+  function updateKioskPill() {
+    const need = !!(CFG.SCRIPT_URL && CFG.GOOGLE_CLIENT_ID) && !getSession();
+    $("#kioskPill").classList.toggle("show", need);
+  }
+  function openKioskSetup() {
+    const s = getSession();
+    $("#kioskSignOut").hidden = !s;
+    $("#kioskMsg").innerHTML = s
+      ? `This iPad is signed in as <b>${escapeHtml(s.email)}</b> until ${new Date(s.expires).toLocaleDateString()}. Badge scanning and student ID lookup are on.`
+      : "Sign in with a Pride Center staff Google account to turn on badge scanning and student ID lookup. Students never see this sign-in, and the iPad stays signed in for about a month.";
+    $("#kioskGsi").innerHTML = "";
+    if (!s && CFG.GOOGLE_CLIENT_ID) {
+      const render = () => {
+        google.accounts.id.initialize({ client_id: CFG.GOOGLE_CLIENT_ID, hd: CFG.ALLOWED_DOMAIN || undefined, auto_select: false, ux_mode: "popup", callback: kioskCredential });
+        google.accounts.id.renderButton($("#kioskGsi"), { theme: "outline", size: "large", text: "signin_with", shape: "pill", width: 300 });
+      };
+      if (window.google && google.accounts) render();
+      else { const sc = document.createElement("script"); sc.src = "https://accounts.google.com/gsi/client"; sc.async = true; sc.onload = render; sc.onerror = () => { $("#kioskMsg").textContent = "Couldn't reach Google sign-in. Check the Wi-Fi and try again."; }; document.head.appendChild(sc); }
+    }
+    show("kiosk");
+  }
+  async function kioskCredential(resp) {
+    $("#kioskMsg").textContent = "Signing in…";
+    try {
+      const res = await fetch(CFG.SCRIPT_URL, { method: "POST", headers: { "Content-Type": "text/plain;charset=utf-8" }, body: JSON.stringify({ type: "kioskSignIn", idToken: resp.credential, kiosk: CFG.KIOSK_NAME }), redirect: "follow" });
+      const d = await res.json();
+      if (!d.ok) throw new Error(/Bad token|Unknown request/.test(d.error || "") ? "The script in the Sheet needs updating (paste the new Code.gs and deploy a new version)." : d.error);
+      localStorage.setItem(SESSION_KEY, JSON.stringify({ session: d.session, email: d.email, expires: d.expires }));
+      updateKioskPill(); openKioskSetup();
+    } catch (err) { $("#kioskMsg").textContent = "Couldn't sign in: " + (err.message || err); }
+  }
+  $("#kioskPill").addEventListener("click", openKioskSetup);
+  $("#kioskBack").addEventListener("click", reset);
+  $("#kioskSignOut").addEventListener("click", () => { try { localStorage.removeItem(SESSION_KEY); } catch {} updateKioskPill(); openKioskSetup(); });
+  // Staff can also open setup by tapping the panther logo 5 times quickly.
+  let logoTaps = [];
+  $("#start img").addEventListener("click", () => { const now = Date.now(); logoTaps = logoTaps.filter(t => now - t < 2500).concat(now); if (logoTaps.length >= 5) { logoTaps = []; openKioskSetup(); } });
+  // Make sure a saved sign-in is still valid (it may have been revoked).
+  (async () => {
+    const s = getSession();
+    if (s && CFG.SCRIPT_URL) {
+      try {
+        const res = await fetch(CFG.SCRIPT_URL, { method: "POST", headers: { "Content-Type": "text/plain;charset=utf-8" }, body: JSON.stringify({ type: "kioskStatus", session: s.session }), redirect: "follow" });
+        const d = await res.json();
+        if (d.ok && d.signedIn === false) localStorage.removeItem(SESSION_KEY);
+      } catch {}
+    }
+    updateKioskPill();
+  })();
+
+  // ---------- Badge scan from the start screen ----------
+  // Scanners type the number quickly and press Enter. On the start screen, that starts a check-in.
+  let scanBuf = "", scanStart = 0;
+  document.addEventListener("keydown", e => {
+    if (current !== "start") { scanBuf = ""; return; }
+    if (e.key === "Enter") {
+      const fast = Date.now() - scanStart < 1500;
+      if (scanBuf.length >= 3 && fast) { const v = scanBuf; mode = "checkin"; show("name"); $("#nameInput").value = v; submitName(v); }
+      scanBuf = ""; return;
+    }
+    if (e.key.length === 1) { if (!scanBuf) scanStart = Date.now(); scanBuf += e.key; }
+  });
+
   renderDots(0);
   show("start", false);
 })();

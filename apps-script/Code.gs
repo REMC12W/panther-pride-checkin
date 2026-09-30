@@ -24,6 +24,16 @@ const ALLOWED_DOMAIN = 'kresa.org';
 //   const ADMIN_EMAILS = ['ben.tomlinson@kresa.org', 'someone@kresa.org'];
 const ADMIN_EMAILS = [];
 
+// Who may sign in the kiosk iPad (which turns on badge / student ID lookup).
+// Empty = any ALLOWED_DOMAIN account. Add emails to restrict it, e.g. a shared
+// Pride Center account:  const KIOSK_ACCOUNTS = ['pridecenter@kresa.org'];
+const KIOSK_ACCOUNTS = [];
+
+// How long an iPad stays signed in before a staff member must sign it in again.
+const KIOSK_SESSION_DAYS = 30;
+
+const ROSTER_NAME = 'Roster';
+
 // Must match KIOSK_TOKEN in the app's config.js. Check-ins without it are rejected.
 // Leave empty to accept any POST (not recommended once the app is live).
 const KIOSK_TOKEN = '7b4a5c379eb19ea01f851fea';
@@ -36,8 +46,9 @@ const HEADERS = [
   'Mood Group', 'Mood Word', 'What Happened', 'Need', 'Basic Needs', 'Outcome', 'Kiosk',
   'Station Suggested', 'Station',
   'Checkout Time', 'Minutes in Room', 'Checkout Energy', 'Checkout Mood Group', 'Checkout Mood Word', 'What Helped',
-  'Checked Out By'
+  'Checked Out By', 'Student ID'
 ];
+const COL_STUDENT_ID = 24;
 // Column numbers (1-based) used by the check-out matcher.
 const COL_CHECKOUT_TIME = 17;
 
@@ -49,6 +60,9 @@ function doPost(e) {
     if (data.type === 'dashboard') return json_(dashboard_(data));
     if (data.type === 'review') return json_(review_(data));
     if (data.type === 'staffCheckout') return json_(staffCheckout_(data));
+    if (data.type === 'kioskSignIn') return json_(kioskSignIn_(data));
+    if (data.type === 'kioskStatus') return json_(kioskStatus_(data));
+    if (data.type === 'lookup') return json_(lookup_(data));
     if (KIOSK_TOKEN && String(data.token || '') !== KIOSK_TOKEN) {
       return json_({ ok: false, error: 'Bad token. KIOSK_TOKEN in config.js must match Code.gs.' });
     }
@@ -78,8 +92,10 @@ function doPost(e) {
       data.kiosk      || '',
       data.stationSuggested || '',
       data.station    || '',
-      '', '', '', '', '', ''
+      '', '', '', '', '', '', '',
+      cleanId_(data.studentId)
     ]);
+    ensureHeader_(sheet, COL_STUDENT_ID, 'Student ID');
     return json_({ ok: true });
   } catch (err) {
     return json_({ ok: false, error: String(err) });
@@ -98,14 +114,17 @@ function checkout_(data, byStaff) {
   const nameKey = String(data.name || '').trim().toLowerCase();
   const outVals = [ts, '', data.energy || '', data.moodGroup || '', data.moodWord || '', data.helped || '', byStaff || 'Student'];
   const target = data.checkinTimestamp ? new Date(data.checkinTimestamp).getTime() : 0;
+  const sid = cleanId_(data.studentId);
 
   const lastRow = sheet.getLastRow();
   if (lastRow > 1) {
     const start = Math.max(2, lastRow - 500);
-    const vals = sheet.getRange(start, 1, lastRow - start + 1, COL_CHECKOUT_TIME).getValues();
+    const vals = sheet.getRange(start, 1, lastRow - start + 1, Math.min(COL_STUDENT_ID, sheet.getMaxColumns())).getValues();
     for (let i = vals.length - 1; i >= 0; i--) {
       const r = vals[i];
-      if (String(r[3]).trim().toLowerCase() !== nameKey) continue;
+      const rowId = cleanId_(r[COL_STUDENT_ID - 1]);
+      if (sid && rowId) { if (rowId !== sid) continue; }        // badge / ID match wins
+      else if (String(r[3]).trim().toLowerCase() !== nameKey) continue;
       if (!(r[0] instanceof Date)) continue;
       if (byStaff && target && Math.abs(r[0].getTime() - target) > 1000) continue; // staff pick an exact visit
       const diff = ts - r[0];
@@ -120,7 +139,7 @@ function checkout_(data, byStaff) {
   sheet.appendRow([
     ts, dateOnly, Utilities.formatDate(ts, tz, 'h:mm a'), String(data.name || '').trim(),
     '', '', '', '', '', '', '', '', 'Check Out (no check-in found)', data.kiosk || '', '', ''
-  ].concat(outVals));
+  ].concat(outVals, [sid]));
   if (byStaff) throw new Error('That visit is already checked out, or could not be found.');
   return { ok: true, matched: false };
 }
@@ -138,7 +157,7 @@ function staffCheckout_(data) {
 
 const INCIDENT_NAME = 'Incident Reports';
 const INCIDENT_HEADERS = ['Timestamp', 'Date', 'Time', 'Name / ID', 'Grade', 'Safe now?', 'Urgent', 'What happened', 'Where', 'When (hour)',
-  'Story', 'Who was involved', 'Witnesses', 'Wants to talk', 'Kiosk', 'Reviewed by', 'Notes'];
+  'Story', 'Who was involved', 'Witnesses', 'Wants to talk', 'Kiosk', 'Reviewed by', 'Notes', 'Student ID'];
 
 function incidentSheet_() {
   const ss = SpreadsheetApp.getActiveSpreadsheet();
@@ -169,8 +188,9 @@ function incident_(data) {
   sheet.appendRow([
     ts, new Date(Utilities.formatDate(ts, tz, 'yyyy/MM/dd')), Utilities.formatDate(ts, tz, 'h:mm a'),
     String(data.name || '').trim(), data.grade || '', data.safe || '', data.urgent || '', data.types || '', data.place || '', data.period || '',
-    data.story || '', data.who || '', data.witness || '', data.talk || '', data.kiosk || '', '', ''
+    data.story || '', data.who || '', data.witness || '', data.talk || '', data.kiosk || '', '', '', cleanId_(data.studentId)
   ]);
+  ensureHeader_(sheet, 18, 'Student ID');
   return { ok: true };
 }
 
@@ -185,7 +205,7 @@ function incidentRows_(days) {
     const r = values[i];
     if (!(r[0] instanceof Date) || r[0] < cutoff) continue;
     rows.push({ timestamp: r[0].toISOString(), name: r[3], grade: r[4], safe: r[5], urgent: r[6], types: r[7], place: r[8], period: r[9],
-      story: r[10], who: r[11], witness: r[12], talk: r[13], reviewed: r[15], notes: r[16] });
+      story: r[10], who: r[11], witness: r[12], talk: r[13], reviewed: r[15], notes: r[16], studentId: String(r[17] || '') });
   }
   return rows;
 }
@@ -277,7 +297,7 @@ function review_(data) {
  * Verifies a Google ID token from "Sign in with Google" and returns the email.
  * Throws with a message staff.html shows on the sign-in page.
  */
-function verifyIdToken_(idToken) {
+function verifyIdToken_(idToken, forKiosk) {
   if (!GOOGLE_CLIENT_ID) throw new Error('Sign-in is not set up: GOOGLE_CLIENT_ID is empty in Code.gs.');
   if (!idToken) throw new Error('Please sign in.');
   const res = UrlFetchApp.fetch('https://oauth2.googleapis.com/tokeninfo?id_token=' + encodeURIComponent(idToken), { muteHttpExceptions: true });
@@ -288,6 +308,12 @@ function verifyIdToken_(idToken) {
   if (Number(info.exp) * 1000 < Date.now()) throw new Error('Your sign-in expired. Please sign in again.');
   if (String(info.email_verified) !== 'true') throw new Error('This Google account is not verified.');
   const email = String(info.email || '').toLowerCase();
+  if (forKiosk) {
+    const inDomain = !ALLOWED_DOMAIN || String(info.hd || '').toLowerCase() === ALLOWED_DOMAIN || email.endsWith('@' + ALLOWED_DOMAIN);
+    const listed = !KIOSK_ACCOUNTS.length || KIOSK_ACCOUNTS.map(x => String(x).toLowerCase()).indexOf(email) !== -1;
+    if (!inDomain || !listed) throw new Error(email + ' is not allowed to sign in the kiosk iPad.');
+    return email;
+  }
   if (!isAdmin_(email, info.hd)) throw new Error(email + ' is not authorized. Use a ' + ALLOWED_DOMAIN + ' account, or ask to be added to ADMIN_EMAILS.');
   return email;
 }
@@ -314,7 +340,7 @@ function checkinRows_(days) {
       stationSuggested: r[14], station: r[15],
       checkoutTime: r[16] instanceof Date ? r[16].toISOString() : '',
       minutes: r[17] === '' ? '' : Number(r[17]),
-      outEnergy: r[18], outMoodGroup: r[19], outMoodWord: r[20], helped: r[21], checkedOutBy: r[22] || ''
+      outEnergy: r[18], outMoodGroup: r[19], outMoodWord: r[20], helped: r[21], checkedOutBy: r[22] || '', studentId: String(r[23] || '')
     });
   }
   return rows;
@@ -329,12 +355,122 @@ function doGet() {
   ).setTitle('Pride Center');
 }
 
+// ---- Kiosk sign-in + roster lookup ------------------------------------------
+
+/**
+ * A staff member signs the iPad in with Google. We verify that sign-in once and
+ * hand the iPad its own session pass (random, stored hashed in Script Properties),
+ * so it stays signed in for KIOSK_SESSION_DAYS instead of Google's one hour.
+ */
+function kioskSignIn_(data) {
+  const email = verifyIdToken_(String(data.idToken || ''), true);
+  const session = Utilities.getUuid() + Utilities.getUuid();
+  const exp = Date.now() + KIOSK_SESSION_DAYS * 86400000;
+  PropertiesService.getScriptProperties().setProperty('kiosk_' + sha_(session),
+    JSON.stringify({ email: email, exp: exp, kiosk: String(data.kiosk || '').slice(0, 80), at: Date.now() }));
+  return { ok: true, session: session, email: email, expires: new Date(exp).toISOString() };
+}
+
+function kioskSession_(session) {
+  if (!session) throw new Error('iPad not signed in.');
+  const props = PropertiesService.getScriptProperties();
+  const raw = props.getProperty('kiosk_' + sha_(String(session)));
+  if (!raw) throw new Error('iPad not signed in.');
+  const s = JSON.parse(raw);
+  if (s.exp < Date.now()) { props.deleteProperty('kiosk_' + sha_(String(session))); throw new Error('iPad sign-in expired.'); }
+  return s;
+}
+
+function kioskStatus_(data) {
+  try { const s = kioskSession_(data.session); return { ok: true, signedIn: true, email: s.email, expires: new Date(s.exp).toISOString() }; }
+  catch (err) { return { ok: true, signedIn: false }; }
+}
+
+/** Student ID -> first name (and last initial, grade). Needs a signed-in iPad. */
+function lookup_(data) {
+  kioskSession_(data.session);
+  const id = cleanId_(data.id);
+  if (!id) return { ok: true, found: false };
+  const r = rosterMap_()[id];
+  return r ? { ok: true, found: true, id: id, firstName: r.first, lastInitial: r.last, grade: r.grade } : { ok: true, found: false };
+}
+
+/** Reads the Roster tab. Header names are matched loosely, so most exports work as pasted. */
+function rosterMap_() {
+  const cache = CacheService.getScriptCache();
+  const hit = cache.get('roster_v1');
+  if (hit) return JSON.parse(hit);
+  const sheet = rosterSheet_();
+  const values = sheet.getDataRange().getValues();
+  const head = (values[0] || []).map(h => String(h).trim().toLowerCase());
+  const find = re => head.findIndex(h => re.test(h));
+  const cId = find(/(student\s*(id|number|#|no)|^id$|^number$|badge)/);
+  const cFirst = find(/(first|preferred|nick)/);
+  const cLast = find(/(last|surname|family)/);
+  const cGrade = find(/grade/);
+  const map = {};
+  if (cId < 0 || cFirst < 0) return map;
+  for (let i = 1; i < values.length; i++) {
+    const id = cleanId_(values[i][cId]);
+    if (!id) continue;
+    map[id] = {
+      first: String(values[i][cFirst] || '').trim(),
+      last: cLast >= 0 ? String(values[i][cLast] || '').trim().charAt(0).toUpperCase() : '',
+      grade: cGrade >= 0 ? String(values[i][cGrade] || '').trim() : ''
+    };
+  }
+  try { cache.put('roster_v1', JSON.stringify(map), 600); } catch (err) {} // 10 minutes; skipped if too large
+  return map;
+}
+
+function rosterSheet_() {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  let sheet = ss.getSheetByName(ROSTER_NAME);
+  if (!sheet) {
+    sheet = ss.insertSheet(ROSTER_NAME);
+    sheet.getRange(1, 1, 1, 4).setValues([['Student ID', 'First Name', 'Last Name', 'Grade']])
+      .setFontWeight('bold').setBackground('#d61f26').setFontColor('#ffffff');
+    sheet.setFrozenRows(1);
+    sheet.getRange('A:A').setNumberFormat('@'); // keep leading zeros
+  }
+  return sheet;
+}
+
+/** Run from the editor after pasting a new roster, so lookups see it right away. */
+function refreshRoster() {
+  CacheService.getScriptCache().remove('roster_v1');
+  Logger.log(Object.keys(rosterMap_()).length + ' students in the roster.');
+}
+
+/** Run from the editor to sign every iPad out (for example, if one is lost). */
+function signOutAllKiosks() {
+  const props = PropertiesService.getScriptProperties();
+  const keys = props.getKeys().filter(k => k.indexOf('kiosk_') === 0);
+  keys.forEach(k => props.deleteProperty(k));
+  Logger.log('Signed out ' + keys.length + ' iPad session(s).');
+}
+
+function cleanId_(v) {
+  // Badge scanners sometimes add spaces or a prefix/suffix; keep letters and digits only.
+  return String(v == null ? '' : v).replace(/[^0-9A-Za-z]/g, '').replace(/^0+(?=\d)/, '').toUpperCase().slice(0, 32);
+}
+
+function sha_(s) {
+  return Utilities.computeDigest(Utilities.DigestAlgorithm.SHA_256, s).map(b => ('0' + (b & 255).toString(16)).slice(-2)).join('');
+}
+
+function ensureHeader_(sheet, col, name) {
+  const cell = sheet.getRange(1, col);
+  if (!cell.getValue()) cell.setValue(name).setFontWeight('bold').setBackground('#d61f26').setFontColor('#ffffff');
+}
+
 // ---- One-time setup ---------------------------------------------------------
 
 /** Run this once from the editor. Creates the Check-Ins and Summary tabs. */
 function setup() {
   const ss = SpreadsheetApp.getActiveSpreadsheet();
 
+  rosterSheet_();
   let sheet = ss.getSheetByName(SHEET_NAME);
   if (!sheet) sheet = ss.insertSheet(SHEET_NAME);
   if (sheet.getLastRow() === 0) sheet.appendRow(HEADERS);

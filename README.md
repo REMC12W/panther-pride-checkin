@@ -127,6 +127,18 @@ The **Today** button in the header (with today's check-in count) slides out a ti
 
 The window selector (7, 14, 30, 90 days) drives sections 4 through 9. Sections 1 through 3 are always about today and this week. Mood colors were checked for color-blind safety in light and dark mode, and every color is paired with a word.
 
+## Badges, student IDs, and the roster
+
+Students can scan their badge (or type their student ID) instead of typing a name. The kiosk then greets them by first name ("Hi, Riley!") and every check-in, check-out, and incident report carries the student ID, so visits match on ID instead of spelling.
+
+**Scanner.** Use a USB or Bluetooth barcode scanner paired to the iPad in keyboard mode. On the start screen, a scan starts a check-in by itself. On the name screen, a scan fills the box and continues. Manual entry works the same way: type the ID, or type a first and last name.
+
+**Roster.** `setup` creates a **Roster** tab in the Sheet with Student ID, First Name, Last Name, Grade. Paste your export there. Header names are matched loosely (Student Number, ID, Preferred Name, Surname, Grade Level all work), and leading zeros are ignored. After pasting a new roster, run **refreshRoster** in Apps Script so lookups see it right away (otherwise within 10 minutes). The roster lives only in the Sheet, never in this public repository.
+
+**iPad sign-in.** Lookups only work on an iPad that a staff member has signed in, so nobody can pull names from the roster with the public kiosk token. On the start screen, tap **"Badge scanning is off. Staff: sign in this iPad"** (or tap the panther logo 5 times) and sign in with Google. The script checks the account and gives the iPad its own pass for `KIOSK_SESSION_DAYS` (30). Students never see a login. `KIOSK_ACCOUNTS` in `Code.gs` limits which accounts may sign an iPad in (empty = any kresa.org account). To sign every iPad out, for example if one goes missing, run **signOutAllKiosks** in Apps Script. Sign the iPad in before turning on Guided Access, since the sign-in opens a Google popup.
+
+If the iPad isn't signed in, is offline, or an ID isn't on the roster, the student is asked to type their name and the ID is still saved with the visit.
+
 ## Trial feedback portal
 
 `feedback.html` is a one-minute form for anyone trialing the app: who they are, what they tried, a five-face rating, what worked, what to change, anything else, and optional contact. Responses land in a **Feedback** tab in the Sheet and at the bottom of the admin dashboard. A "Provide feedback during trial" button floats in the bottom-right corner of every kiosk screen and the staff dashboard while `FEEDBACK_ENABLED` is true in `config.js`. Feedback records which screen it was started from, and the back link returns there. Set it to false when the trial ends.

@@ -388,7 +388,7 @@
       <h2>Visit log</h2>
       <p class="sub">Tap a name, or search, to see one student's visits.</p>
       <div class="logbar">
-        <input id="search" type="search" placeholder="Find a student by name or ID" autocomplete="off">
+        <input id="search" type="search" placeholder="Find a student by name or student ID" autocomplete="off">
       </div>
       <div class="panel student" id="student"></div>
       <div class="table">
@@ -553,10 +553,10 @@
     try { fb = JSON.parse(localStorage.getItem("ppc_feedback_local") || "[]"); } catch {}
     const ins = raw.filter(r => r.type !== "checkout" && r.type !== "incident").map(r => Object.assign({}, r));
     raw.filter(r => r.type === "checkout").forEach(c => {
-      const key = norm(c.name);
+      const key = who(c);
       const m = ins.find(r => r.timestamp === c.checkinTimestamp) || [...ins].reverse().find(r => {
         const d = new Date(c.timestamp) - new Date(r.timestamp);
-        return norm(r.name) === key && d >= 0 && d < 6 * 3600000 && !r.checkoutTime;
+        return who(r) === key && d >= 0 && d < 6 * 3600000 && !r.checkoutTime;
       });
       if (m) Object.assign(m, { checkoutTime: c.timestamp, minutes: Math.round((new Date(c.timestamp) - new Date(m.timestamp)) / 60000), outEnergy: c.energy, outMoodGroup: c.moodGroup, outMoodWord: c.moodWord, helped: c.helped, checkedOutBy: c.checkedOutBy || "Student" });
     });
@@ -570,6 +570,8 @@
   // ---------- Helpers ----------
   const esc = s => String(s ?? "").replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
   const norm = s => String(s || "").trim().toLowerCase();
+  // One student = one badge ID when we have it, otherwise the typed name.
+  const who = r => r.studentId ? "id:" + String(r.studentId).toLowerCase() : "n:" + norm(r.name);
   const dayKey = d => { const x = new Date(d); return `${x.getFullYear()}-${String(x.getMonth() + 1).padStart(2, "0")}-${String(x.getDate()).padStart(2, "0")}`; };
   const todayKey = () => dayKey(new Date());
   const time = ts => new Date(ts).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" });
@@ -636,13 +638,13 @@
     // Scheduled breaks are planned, so they don't count toward a pattern.
     const week = all.filter(r => inWindow(r.timestamp, 7) && r.reason !== "Scheduled Break");
     const by = {};
-    week.forEach(r => { const k = norm(r.name); if (k) (by[k] = by[k] || []).push(r); });
+    week.forEach(r => { const k = who(r); if (k !== "n:") (by[k] = by[k] || []).push(r); });
     Object.values(by).forEach(v => {
       const hard = v.filter(r => unpleasant(r.moodGroup)).length;
       if (v.length < 3 && hard < 2) return;
       const reason = v.length >= 3 ? `${v.length} drop-in visits in 7 days${hard ? `, ${hard} came in red or blue` : ""}` : `Came in ${v.filter(r => unpleasant(r.moodGroup)).map(r => r.moodGroup.toLowerCase()).join(", ")} this week`;
       items.push({
-        key: "pat:" + norm(v[0].name) + ":" + dayKey(v.at(-1).timestamp), rank: 5, score: hard * 2 + v.length, level: "info", icon: "↻", label: "Pattern to check in on",
+        key: "pat:" + who(v[0]) + ":" + dayKey(v.at(-1).timestamp), rank: 5, score: hard * 2 + v.length, level: "info", icon: "↻", label: "Pattern to check in on",
         title: v.at(-1).name, detail: reason, dots: v.map(r => r.moodGroup)
       });
     });
@@ -825,7 +827,7 @@
   // 8. Log + student lookup
   function renderLog(rows) {
     const q = norm($("#search").value);
-    const list = rows.filter(r => !q || norm(r.name).includes(q)).slice().reverse();
+    const list = rows.filter(r => !q || norm(r.name).includes(q) || String(r.studentId || "").toLowerCase().includes(q)).slice().reverse();
     $("#tbody").innerHTML = list.length ? list.map(r => `<tr>
       <td>${esc(when(r.timestamp))}</td>
       <td><span class="name" data-name="${esc(r.name)}">${esc(r.name)}</span></td>
@@ -842,15 +844,15 @@
   function lookup(name) { $("#search").value = name; renderLog(data.checkins.filter(r => inWindow(r.timestamp, win()))); $("#search").scrollIntoView({ behavior: "smooth", block: "center" }); }
   function renderStudent(q) {
     const box = $("#student");
-    const names = [...new Set(data.checkins.map(r => norm(r.name)).filter(n => q && n.includes(q)))];
-    if (!q || names.length !== 1) { box.classList.remove("show"); return; }
-    const key = names[0];
-    if (!data.checkins.some(r => norm(r.name) === key && inWindow(r.timestamp, win()))) { box.classList.remove("show"); return; }
-    const v = data.checkins.filter(r => norm(r.name) === key && inWindow(r.timestamp, win())).sort((a, b) => new Date(a.timestamp) - new Date(b.timestamp));
-    const incs = (data.incidents || []).filter(r => norm(r.name) === key);
+    const keys = [...new Set(data.checkins.filter(r => q && (norm(r.name).includes(q) || String(r.studentId || "").toLowerCase().includes(q))).map(who))];
+    if (!q || keys.length !== 1) { box.classList.remove("show"); return; }
+    const key = keys[0];
+    if (!data.checkins.some(r => who(r) === key && inWindow(r.timestamp, win()))) { box.classList.remove("show"); return; }
+    const v = data.checkins.filter(r => who(r) === key && inWindow(r.timestamp, win())).sort((a, b) => new Date(a.timestamp) - new Date(b.timestamp));
+    const incs = (data.incidents || []).filter(r => who(r) === key || (!r.studentId && "n:" + norm(r.name) === key));
     const hard = v.filter(r => unpleasant(r.moodGroup)).length;
     const outs = v.filter(r => r.outMoodGroup);
-    box.innerHTML = `<div class="top"><b>${esc(v.at(-1).name)}</b>
+    box.innerHTML = `<div class="top"><b>${esc(v.at(-1).name)}</b>${v.at(-1).studentId ? `<span class="facts">ID ${esc(v.at(-1).studentId)}</span>` : ""}
       <span class="facts">${v.length} visit${v.length === 1 ? "" : "s"} in the last ${win()} days · last ${esc(when(v.at(-1).timestamp))}${hard ? ` · came in red or blue ${hard} time${hard === 1 ? "" : "s"}` : ""}${incs.length ? ` · ${incs.length} incident report${incs.length === 1 ? "" : "s"}` : ""}</span></div>
       <div class="dots"><span class="lab">Mood in, oldest → newest</span>${v.map(r => r.moodGroup ? `<i style="background:${MOOD[r.moodGroup].v}" data-tip="${esc(when(r.timestamp))}: ${esc(r.moodWord)}"></i>` : "").join("")}</div>
       ${outs.length ? `<div class="dots"><span class="lab">Mood out</span>${outs.map(r => `<i style="background:${MOOD[r.outMoodGroup].v}" data-tip="${esc(when(r.checkoutTime))}: ${esc(r.outMoodWord)}"></i>`).join("")}</div>` : ""}`;
@@ -1034,8 +1036,8 @@
     $("#coSave").disabled = true; $("#coSkip").disabled = true; btn.textContent = "Saving…";
     // Skipping records only the time they left: no mood, no word, no what-helped.
     const rec = skip
-      ? { name: co.r.name, checkinTimestamp: co.r.timestamp, energy: "", moodGroup: "", moodWord: "", helped: "" }
-      : { name: co.r.name, checkinTimestamp: co.r.timestamp, energy: ENERGY_OF[co.group], moodGroup: co.group, moodWord: co.word || co.group, helped: co.helped.join(", ") };
+      ? { name: co.r.name, studentId: co.r.studentId || "", checkinTimestamp: co.r.timestamp, energy: "", moodGroup: "", moodWord: "", helped: "" }
+      : { name: co.r.name, studentId: co.r.studentId || "", checkinTimestamp: co.r.timestamp, energy: ENERGY_OF[co.group], moodGroup: co.group, moodWord: co.word || co.group, helped: co.helped.join(", ") };
     try {
       if (TEST) {
         const raw = JSON.parse(localStorage.getItem("ppc_local") || "[]");
@@ -1064,7 +1066,7 @@
   // ---------- CSV ----------
   $("#csv").addEventListener("click", () => {
     const rows = data.checkins.filter(r => inWindow(r.timestamp, win()));
-    const cols = ["timestamp", "name", "referral", "reason", "energy", "moodGroup", "moodWord", "happened", "need", "basicNeeds", "outcome", "kiosk", "stationSuggested", "station", "checkoutTime", "minutes", "outEnergy", "outMoodGroup", "outMoodWord", "helped", "checkedOutBy"];
+    const cols = ["timestamp", "name", "referral", "reason", "energy", "moodGroup", "moodWord", "happened", "need", "basicNeeds", "outcome", "kiosk", "stationSuggested", "station", "checkoutTime", "minutes", "outEnergy", "outMoodGroup", "outMoodWord", "helped", "checkedOutBy", "studentId"];
     const q = v => `"${String(v ?? "").replace(/"/g, '""')}"`;
     const csv = [cols.join(",")].concat(rows.map(r => cols.map(c => q(r[c])).join(","))).join("\n");
     const a = document.createElement("a");
