@@ -5,6 +5,10 @@ window.PPC_CONFIG = {
   // Leave it empty to run in test mode: check-ins are saved only on this device.
   SCRIPT_URL: "",
 
+  // Shared secret the kiosk sends with every check-in. Must match KIOSK_TOKEN in
+  // Code.gs. Stops junk rows from anyone who finds the script URL.
+  KIOSK_TOKEN: "7b4a5c379eb19ea01f851fea",
+
   // Admin dashboard: the Apps Script deployment with access "Anyone within kresa.org"
   // (README step 5). staff.html sends staff here; Google asks them to sign in.
   DASHBOARD_URL: "",

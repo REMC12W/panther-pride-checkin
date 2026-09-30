@@ -196,6 +196,8 @@
   .done .countdown { margin-top: 6px; color: var(--muted); font-size: 1rem; }
   .done .finish { margin-top: 18px; min-width: 200px; padding: 16px 34px; font-size: 1.2rem; background: #f1f1f1; }
 
+  .ver { position: fixed; left: 8px; bottom: 4px; font-size: 10px; color: #bbb; z-index: 4; pointer-events: none; }
+
   /* Banner */
   .banner {
     display: none; position: fixed; left: 0; right: 0; bottom: 0; z-index: 5;
@@ -340,13 +342,24 @@
 </main>
 
 <div class="banner" id="banner"></div>
+<div class="ver" id="ver"></div>
 
 <script src="config.js"></script>
 <script>
 (function () {
+  const APP_VERSION = "2026.09.30";
   const CFG = Object.assign({
-    SCRIPT_URL: "", KIOSK_NAME: "Kiosk", RESET_SECONDS: 8, IDLE_SECONDS: 120
+    SCRIPT_URL: "", DASHBOARD_URL: "", KIOSK_TOKEN: "", KIOSK_NAME: "Kiosk",
+    RESET_SECONDS: 8, IDLE_SECONDS: 120,
+    FORM_INCIDENT_URL: "", FORM_SIGNIN_URL: "",
+    BASIC_NEEDS: [], STATIONS: [], STAFF_FIRST_WORDS: [], WHAT_HELPED: []
   }, window.PPC_CONFIG || {});
+  document.getElementById("ver").textContent = "v" + APP_VERSION;
+
+  // Service worker: lets the app open with no Wi-Fi and keeps files fresh when online.
+  if ("serviceWorker" in navigator && location.protocol.startsWith("http")) {
+    navigator.serviceWorker.register("sw.js", { updateViaCache: "none" }).catch(() => {});
+  }
 
   // ---------- Mood word grids (from the original deck) ----------
   const GRIDS = {
@@ -699,7 +712,7 @@
     const res = await fetch(CFG.SCRIPT_URL, {
       method: "POST",
       headers: { "Content-Type": "text/plain;charset=utf-8" }, // avoids a CORS preflight Apps Script can't answer
-      body: JSON.stringify(record),
+      body: JSON.stringify(Object.assign({ token: CFG.KIOSK_TOKEN }, record)),
       redirect: "follow"
     });
     const data = await res.json();

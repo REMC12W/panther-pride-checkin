@@ -20,6 +20,10 @@
 //   const ADMIN_EMAILS = ['ben.tomlinson@kresa.org', 'someone@kresa.org'];
 const ADMIN_EMAILS = [];
 
+// Must match KIOSK_TOKEN in the app's config.js. Check-ins without it are rejected.
+// Leave empty to accept any POST (not recommended once the app is live).
+const KIOSK_TOKEN = '7b4a5c379eb19ea01f851fea';
+
 const SHEET_NAME   = 'Check-Ins';
 const SUMMARY_NAME = 'Summary';
 
@@ -37,6 +41,9 @@ const COL_CHECKOUT_TIME = 17;
 function doPost(e) {
   try {
     const data = JSON.parse(e.postData.contents);
+    if (KIOSK_TOKEN && String(data.token || '') !== KIOSK_TOKEN) {
+      return json_({ ok: false, error: 'Bad token. KIOSK_TOKEN in config.js must match Code.gs.' });
+    }
     if (data.type === 'checkout') return json_(checkout_(data));
     const sheet = getSheet_();
     const ts = data.timestamp ? new Date(data.timestamp) : new Date();
@@ -258,7 +265,7 @@ function buildSummary_(ss) {
   s.setColumnWidth(2, 100);
   s.setColumnWidth(3, 100);
   for (let i = 0; i < rows.length; i++) {
-    if (rows[i][1] === 'Count' || rows[i][1] === 'Today' || rows[i][1] === 'Count') {
+    if (rows[i][1] === 'Count' || rows[i][1] === 'Today') {
       s.getRange(i + 1, 1, 1, 3).setFontWeight('bold').setBackground('#f3f3f3');
     }
   }
@@ -286,7 +293,7 @@ function testInsert() {
     postData: { contents: JSON.stringify({
       timestamp: new Date().toISOString(), name: 'Test Student', referral: 'Self Referred', reason: 'Drop In: I need a reset',
       energy: 'Moving Fast', moodGroup: 'Red', moodWord: 'Frustrated', happened: 'With a friend',
-      need: '', basicNeeds: '', outcome: 'Check In', kiosk: 'Editor test'
+      need: '', basicNeeds: '', outcome: 'Check In', kiosk: 'Editor test', token: KIOSK_TOKEN
     }) }
   };
   Logger.log(doPost(fake).getContent());

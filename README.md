@@ -16,6 +16,7 @@ A tap-through check-in kiosk for the Pride Center, rebuilt from the Google Slide
 | `apps-script/Code.gs` | Backend that lives inside the Google Sheet. Also serves the admin dashboard. |
 | `apps-script/Dashboard.html` | The admin dashboard page, served by Apps Script behind a Google sign-in. |
 | `apps-script/appsscript.json` | Optional manifest (sets the Michigan time zone). |
+| `sw.js` | Service worker. Lets the kiosk open with no Wi-Fi and keeps files fresh when online. |
 | `assets/` | Panther logo and app icons. |
 
 ## The flow
@@ -48,7 +49,8 @@ The sheet already exists: [Pride Center Check-Ins](https://docs.google.com/sprea
 2. Delete the sample code in `Code.gs` and paste in everything from `apps-script/Code.gs`.
 3. Click the **+** next to Files → **HTML**, name it `Dashboard` (Apps Script adds `.html`), delete its sample content, and paste in everything from `apps-script/Dashboard.html`.
 4. Optional: to limit the dashboard to specific people, add their emails to `ADMIN_EMAILS` near the top of `Code.gs`. Leave it empty to allow anyone with a kresa.org account.
-5. Click **Save**.
+5. `KIOSK_TOKEN` in `Code.gs` must match `KIOSK_TOKEN` in `config.js`. They already match in this repo. If you ever change one, change the other.
+6. Click **Save**.
 
 ### 3. Run setup once
 
@@ -112,6 +114,10 @@ Ranges: Today, Yesterday, This week, or everything loaded (14 to 365 days).
 
 The **Summary** tab in the Sheet has the same counts as formulas, so it works without the dashboard.
 
+## Offline and updates
+
+The kiosk registers a service worker. After the first successful load, the app opens even with no Wi-Fi, and check-ins made offline are queued on the iPad and synced when the connection returns. When online, every file is revalidated on open, so a `config.js` change reaches the iPad the next time the app is opened, not a day later. The version number in the bottom-left corner of the kiosk comes from `APP_VERSION` in `index.html`; bump it when you change the app so staff can tell which version an iPad is running.
+
 ## Test mode
 
 With `SCRIPT_URL` empty, the kiosk saves check-ins in the browser on that device only, and `staff.html` shows them. Good for a first look and for training staff before the Sheet is connected.
@@ -121,7 +127,7 @@ With `SCRIPT_URL` empty, the kiosk saves check-ins in the browser on that device
 - Student names are stored only in the district Google Sheet. Nothing goes to any other service.
 - The kiosk keeps a copy of the last 500 check-ins in the iPad browser's local storage so nothing is lost offline. Clear Safari website data on the iPad if you ever retire it.
 - The dashboard login is Google's own. There is no password or PIN to manage. The `ADMIN_EMAILS` list in `Code.gs` controls who gets in.
-- The repo is public (GitHub Pages needs that on a free plan). It contains no student data and no secrets. The script URLs in `config.js` are unguessable but not secret: the kiosk URL only accepts check-ins, and the dashboard URL requires a district sign-in.
+- The repo is public (GitHub Pages needs that on a free plan). It contains no student data. The script URLs and the kiosk token in `config.js` are visible to anyone who reads the repo; the token stops casual junk rows, not a determined person. The kiosk URL only accepts check-ins, and the dashboard URL requires a district sign-in.
 
 ## Customizing
 
