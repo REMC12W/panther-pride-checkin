@@ -68,15 +68,18 @@ Reload `index.html`. The yellow "test mode" banner disappears. Do a check-in and
 
 **If you later edit Code.gs** you must publish a new version: **Deploy → Manage deployments → pencil icon → Version: New version → Deploy**. The URL stays the same.
 
-### 6. Put it online (GitHub Pages)
+### 6. It is online (GitHub Pages)
 
-From this folder:
+The repo is https://github.com/REMC12W/panther-pride-checkin and GitHub Pages serves the `master` branch.
+
+- Kiosk: https://remc12w.github.io/panther-pride-checkin/
+- Dashboard: https://remc12w.github.io/panther-pride-checkin/staff.html
+
+To publish a change, commit and push to `master`. Pages rebuilds in about a minute:
 
 ```bash
-gh repo create panther-pride-checkin --public --source=. --push
+git add -A && git commit -m "Describe the change" && git push
 ```
-
-Then in the GitHub repo: **Settings → Pages → Source: Deploy from a branch → main / (root) → Save**. In a minute the app is live at `https://<your-username>.github.io/panther-pride-checkin/`. The dashboard is at the same address with `/staff.html`.
 
 Prefer a private repo? GitHub Pages on private repos needs a paid plan. Any static host works too: Netlify Drop, Google Sites embed, or your district web server. It's just files.
 
