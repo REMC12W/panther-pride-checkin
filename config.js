@@ -15,6 +15,11 @@ window.PPC_CONFIG = {
   // so the next student never sees a previous student's answers.
   IDLE_SECONDS: 120,
 
+  // The Google Forms the original slide deck linked to. Leave a URL empty to hide
+  // that button and finish in-app instead. Both forms require a KRESA Google login.
+  FORM_INCIDENT_URL: "https://docs.google.com/forms/d/e/1FAIpQLSdje0uEmj6XIAjNtu8oVpvtO9ix5l7jL_QO7txhiTFJTzJg0g/viewform?usp=header",
+  FORM_SIGNIN_URL:   "https://docs.google.com/forms/d/e/1FAIpQLSff7BwiBHnNVS7DDczWokE5al_T83F7ubH3DCsG_YAsfJCKXg/viewform?usp=header",
+
   // How many days of check-ins the staff dashboard loads.
   DASHBOARD_DAYS: 14,
 };

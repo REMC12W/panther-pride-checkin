@@ -161,6 +161,9 @@
     font-weight: 600; font-size: clamp(1.2rem, 2.8vw, 1.7rem); border: 2px solid #4a86e8; box-shadow: var(--shadow);
   }
   .done .badge small { display: block; font-weight: 500; font-size: 0.8em; opacity: 0.95; }
+  .done .form-link { display: none; margin-top: 18px; text-decoration: none; color: #fff; border-color: #4a86e8; text-transform: uppercase; font-size: clamp(1.3rem, 3vw, 1.9rem); }
+  .done .form-link.show { display: inline-block; }
+  .done .form-link small { display: block; text-transform: none; font-size: 0.72em; font-weight: 500; }
   .done .status { margin-top: 22px; color: var(--muted); font-size: 1rem; }
   .done .countdown { margin-top: 6px; color: var(--muted); font-size: 1rem; }
   .done .finish { margin-top: 18px; min-width: 200px; padding: 16px 34px; font-size: 1.2rem; background: #f1f1f1; }
@@ -189,7 +192,7 @@
     <img src="assets/panther.png" alt="Panther">
     <div class="title">Panther Pride Center</div>
     <div class="subtitle">Student Check-In</div>
-    <button class="big-btn" type="button" data-go="name">Tap here to get started!</button>
+    <button class="big-btn" type="button" data-go="name">Click here to get started!</button>
   </section>
 
   <!-- 2. Name -->
@@ -223,7 +226,7 @@
 
   <!-- 5. Mood words -->
   <section class="screen" id="mood" data-step="4">
-    <h1>Which word best describes how you are feeling?<span class="sub">Tap one word.</span></h1>
+    <h1>Which group of words do you think best describes how you are feeling?<span class="sub">Tap the one word that fits best.</span></h1>
     <div class="grids" id="grids"></div>
   </section>
 
@@ -251,8 +254,10 @@
   <section class="screen done" id="done" data-step="7">
     <h1 id="doneTitle">Thanks for answering those questions!</h1>
     <p>That's a good start. Let's find a way to get you feeling ok again.</p>
+    <p>The next step is to make sure we get you ALL the way signed in.</p>
     <p id="doneMsg"></p>
     <div class="badge" id="doneBadge"></div>
+    <a class="big-btn form-link" id="formLink" target="_blank" rel="noopener"></a>
     <div class="status" id="saveStatus"></div>
     <div class="countdown" id="countdown"></div>
     <button class="big-btn finish" type="button" id="finishBtn">Done</button>
@@ -403,10 +408,10 @@
 
   function next(afterKey) {
     switch (afterKey) {
-      case "reason":   return show("energy");
+      case "reason":   return answers.reason === "Drop In: I have a need" ? show("need") : show("energy");
       case "energy":   buildGrids(answers.energy); return show("mood");
       case "mood":     return show("happened");
-      case "happened": return answers.reason === "Drop In: I have a need" ? show("need") : finish("Check In");
+      case "happened": return finish("Check In");
       case "need":     return finish(answers.need);
     }
   }
@@ -441,12 +446,12 @@
 
   // ---------- Finish + save ----------
   const OUTCOMES = {
-    "Check In":        { color: "var(--done-checkin)",  label: "Checked In",
-                         msg: "you're all the way signed in. Find a spot and let a staff member know you're here." },
-    "Incident Report": { color: "var(--done-incident)", label: "Incident Report",
-                         msg: "you're signed in. A staff member will help you fill out an incident report." },
-    "Basic Need":      { color: "var(--done-basic)",    label: "Basic Need",
-                         msg: "you're signed in. Let a staff member know what you need and we'll help." }
+    "Check In":        { color: "var(--done-checkin)",  label: "Checked In", form: "FORM_SIGNIN_URL", formLabel: "for Check In",
+                         msg: "you're checked in. Find a spot and let a staff member know you're here." },
+    "Incident Report": { color: "var(--done-incident)", label: "Incident Report", form: "FORM_INCIDENT_URL", formLabel: "For Incident Report",
+                         msg: "a staff member will help you fill out an incident report." },
+    "Basic Need":      { color: "var(--done-basic)",    label: "Basic Need", form: "FORM_SIGNIN_URL", formLabel: "Basic Need",
+                         msg: "let a staff member know what you need and we'll help." }
   };
 
   function finish(outcome) {
@@ -457,6 +462,14 @@
     const badge = $("#doneBadge");
     badge.style.background = o.color; badge.style.borderColor = o.color;
     badge.innerHTML = `✓ ${o.label}<small>${escapeHtml(answers.moodWord || "")}</small>`;
+    const link = $("#formLink");
+    const formUrl = CFG[o.form] || "";
+    link.classList.toggle("show", !!formUrl);
+    if (formUrl) {
+      link.href = formUrl;
+      link.style.background = o.color;
+      link.innerHTML = `Click here<small>${escapeHtml(o.formLabel)}</small>`;
+    }
     show("done");
 
     const record = {
@@ -473,7 +486,7 @@
     };
     save(record);
 
-    let n = CFG.RESET_SECONDS;
+    let n = formUrl ? Math.max(CFG.RESET_SECONDS, 30) : CFG.RESET_SECONDS;
     const tick = () => {
       $("#countdown").textContent = `Starting over for the next student in ${n}…`;
       if (n-- <= 0) return reset();

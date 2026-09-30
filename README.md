@@ -17,11 +17,13 @@ A tap-through check-in kiosk for the Pride Center, rebuilt from the Google Slide
 
 1. Start → student types name or ID
 2. Why are you here? (Sent by staff / Scheduled Break / Drop In: reset / Drop In: need)
-3. How is your body + brain feeling? (Fast / Slow / Ok)
-4. Which word describes how you feel? Fast shows the red and yellow grids, Slow shows blue, Ok shows green.
-5. What happened? (Home / Teacher / Friend / Myself)
-6. Only on the "I have a need" path: Incident Report or Basic Need
-7. "You're checked in" screen, then the app resets for the next student
+3. **Drop In: I have a need** skips the feelings questions and goes straight to: Incident Report or Basic Need
+4. Everyone else: How is your body + brain feeling? (Fast / Slow / Ok)
+5. Which group of words describes how you feel? Fast shows the red and yellow grids, Slow shows blue, Ok shows green. Student taps one word.
+6. What happened? (Home / Teacher / Friend / Myself)
+7. End screen with the deck's CLICK HERE button: Incident Report opens the incident form, Check In and Basic Need open the sign-in form. Both forms need a KRESA Google login, exactly as before. Clear `FORM_INCIDENT_URL` or `FORM_SIGNIN_URL` in `config.js` to hide a button and finish in-app instead. The app resets for the next student after 30 seconds.
+
+This matches the hyperlinks in the original slide deck.
 
 Every check-in is saved the moment the last screen appears. If Wi-Fi drops, it's kept on the iPad and synced automatically when the connection returns.
 
@@ -107,7 +109,7 @@ The **Summary** tab in the Sheet has the same counts as formulas, so it works wi
 
 ## Customizing
 
-- **Timers, kiosk name:** `config.js`
+- **Timers, kiosk name, end-screen form links:** `config.js`
 - **Question text and colors:** `index.html`, each screen is a `<section>`
 - **Mood words:** the `GRIDS` object near the top of the script in `index.html`
 - **Sheet columns:** `HEADERS` and `doPost` in `Code.gs` (re-run `setup` after changing headers on a fresh sheet)
