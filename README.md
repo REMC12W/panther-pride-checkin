@@ -37,6 +37,110 @@ Matches the hyperlinks in the current PowerPoint deck.
 
 Every check-in is saved the moment the end screen appears. If Wi-Fi drops, it's kept on the iPad and synced automatically when the connection returns. If a student walks away mid-flow, the app returns to the start after two minutes so nobody sees their answers.
 
+## How it connects to the Google Sheet
+
+Nothing in this repo calls the Google Sheets API directly. The bridge is the Apps Script web app that lives inside the Sheet: the pages on GitHub Pages POST JSON to the script's URL, and the script writes the rows. Until `SCRIPT_URL` in `config.js` is filled in (Setup step 4), the kiosk runs in test mode and nothing reaches the Sheet.
+
+### The pieces
+
+```mermaid
+flowchart LR
+  subgraph pages["GitHub Pages · remc12w.github.io"]
+    cfg["config.js<br/>SCRIPT_URL · KIOSK_TOKEN · GOOGLE_CLIENT_ID"]
+    kiosk["index.html<br/>student kiosk"]
+    fb["feedback.html<br/>trial feedback"]
+    staff["staff.html<br/>admin dashboard"]
+    cfg --> kiosk
+    cfg --> fb
+    cfg --> staff
+  end
+
+  subgraph sheet["Google Sheet · Pride Center Check-Ins"]
+    script["Apps Script web app<br/>Code.gs · doPost()<br/>Execute as: Me · Access: Anyone"]
+    checkins[("Check-Ins tab")]
+    incidents[("Incident Reports tab")]
+    feedback[("Feedback tab")]
+    summary["Summary tab<br/>COUNTIF and QUERY formulas"]
+  end
+
+  gsi["Sign in with Google"]
+  tokeninfo["Google tokeninfo"]
+
+  kiosk -->|"POST JSON + KIOSK_TOKEN<br/>type: checkin · checkout · incident"| script
+  fb -->|"POST JSON + KIOSK_TOKEN<br/>type: feedback"| script
+  gsi -->|"ID token"| staff
+  staff -->|"POST type: dashboard + ID token"| script
+  script -->|"verify ID token"| tokeninfo
+  script -->|"checkin: appendRow<br/>checkout: fill columns Q to V on the matching row"| checkins
+  script -->|"incident: appendRow<br/>urgent rows turn red"| incidents
+  script -->|"feedback: appendRow"| feedback
+  script -->|"JSON: checkins, incidents, feedback, sheetUrl"| staff
+  checkins -.->|"live counts"| summary
+```
+
+Setup wires this together in order: paste `Code.gs` into the Sheet (step 2), run `setup` to build the tabs (step 3), deploy as a web app and paste its URL into `config.js` (step 4), create the OAuth Client ID for the dashboard (step 5), then push so GitHub Pages serves the new config (step 6).
+
+### One check-in, step by step
+
+```mermaid
+sequenceDiagram
+  autonumber
+  participant S as Student
+  participant K as Kiosk (index.html)
+  participant L as iPad localStorage
+  participant A as Apps Script doPost()
+  participant T as Check-Ins tab
+
+  S->>K: Taps through to the end screen
+  K->>K: finish() builds the record: type checkin, timestamp, name, every answer
+  K->>L: save() appends it to ppc_local (last 500 kept)
+  alt SCRIPT_URL is empty (test mode)
+    K-->>S: "Test mode: saved on this device only."
+  else SCRIPT_URL is set
+    K->>A: fetch POST SCRIPT_URL, Content-Type text/plain, body = JSON + token
+    Note over K,A: text/plain avoids a CORS preflight that Apps Script cannot answer.<br/>redirect: follow handles the Apps Script redirect.
+    A->>A: JSON.parse, check token equals KIOSK_TOKEN
+    A->>T: appendRow: 16 values + 6 blank check-out cells, Detroit time zone
+    A-->>K: { ok: true }
+    K-->>S: "Saved ✓"
+  end
+  opt fetch throws or ok is false (offline, bad token)
+    K->>L: push the record onto ppc_queue
+    K-->>S: "Saved on this iPad. It will sync when Wi-Fi is back."
+    Note over K,L: flushQueue() retries oldest first: on open, on the online event, every 30 s
+    K->>A: POST queued records until one fails
+  end
+```
+
+Check-out, incident, and feedback records travel the same road. The differences are on the Sheet side: a check-out does not add a row but finds the same name checked in within 6 hours with no check-out yet and fills columns Q to V of that row (or adds a "no check-in found" row), an incident goes to the Incident Reports tab (created on first use, urgent rows highlighted), and feedback goes to the Feedback tab.
+
+### Dashboard read path
+
+```mermaid
+sequenceDiagram
+  autonumber
+  participant U as Staff member
+  participant D as Dashboard (staff.html)
+  participant G as Sign in with Google
+  participant A as Apps Script doPost()
+  participant V as Google tokeninfo
+  participant SH as Sheet tabs
+
+  U->>D: Opens staff.html
+  D->>G: Loads the sign-in button with GOOGLE_CLIENT_ID, hd = kresa.org
+  G-->>D: ID token, kept in sessionStorage for the tab
+  D->>A: POST type dashboard, idToken, days (on load, when the day count changes, every minute)
+  A->>V: GET tokeninfo?id_token=...
+  V-->>A: aud, iss, exp, email_verified, email, hd
+  A->>A: aud must equal GOOGLE_CLIENT_ID, email must be on ALLOWED_DOMAIN or in ADMIN_EMAILS
+  A->>SH: getDataRange() on Check-Ins, Incident Reports, Feedback, filtered to the last N days
+  A-->>D: { ok, email, sheetUrl, checkins, incidents, feedback }
+  D-->>U: Tiles, bars, table, CSV download, Open Sheet button
+  Note over D,A: Any token error signs the page out and shows the reason on the sign-in screen.
+```
+
+The Summary tab needs none of this. It is COUNTIF and QUERY formulas pointing at the Check-Ins tab, so it updates the moment a row lands.
+
 ## Setup (about 15 minutes, one time)
 
 ### 1. Open the Google Sheet
