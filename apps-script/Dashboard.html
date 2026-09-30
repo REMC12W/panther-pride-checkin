@@ -86,9 +86,9 @@
     <div class="table">
       <table>
         <thead><tr>
-          <th>Time</th><th>Name / ID</th><th>Referral</th><th>Reason</th><th>Energy</th><th>Mood</th><th>What happened</th><th>Outcome</th><th>Basic needs</th>
+          <th>Time</th><th>Name / ID</th><th>Referral</th><th>Reason</th><th>Energy</th><th>Mood</th><th>What happened</th><th>Outcome</th><th>Basic needs</th><th>Station</th><th>Out</th><th>Min</th><th>Mood out</th>
         </tr></thead>
-        <tbody id="tbody"><tr><td colspan="9" class="loading">Loading check-ins…</td></tr></tbody>
+        <tbody id="tbody"><tr><td colspan="13" class="loading">Loading check-ins…</td></tr></tbody>
       </table>
     </div>
   </div>
@@ -105,6 +105,8 @@
   const MOODS    = ["Red", "Yellow", "Blue", "Green"];
   const HAPPENED = ["At Home", "With my Teacher", "With a friend", "Just with myself"];
   const MOOD_COLORS = { Red: "var(--m-red)", Yellow: "var(--m-yellow)", Blue: "var(--m-blue)", Green: "var(--m-green)" };
+  const STATION_COLORS = Object.assign({ "Staff first": "#7e6bb0" }, MOOD_COLORS);
+  const STATIONS = ["Red", "Yellow", "Blue", "Green", "Staff first"];
 
   function load() {
     $("#status").textContent = "Loading…";
@@ -142,9 +144,10 @@
     const keys = order ? order.filter(k => k in m).concat(Object.keys(m).filter(k => !order.includes(k))) : Object.keys(m).sort((a, b) => m[b] - m[a]);
     return keys.map(k => [k, m[k]]);
   }
-  function countNeeds(rows) {
+  function countNeeds(rows) { return countSplit(rows, "basicNeeds"); }
+  function countSplit(rows, key) {
     const m = {};
-    rows.forEach(r => String(r.basicNeeds || "").split(",").map(s => s.trim()).filter(Boolean).forEach(k => { m[k] = (m[k] || 0) + 1; }));
+    rows.forEach(r => String(r[key] || "").split(",").map(s => s.trim()).filter(Boolean).forEach(k => { m[k] = (m[k] || 0) + 1; }));
     return Object.keys(m).sort((a, b) => m[b] - m[a]).map(k => [k, m[k]]);
   }
   function bars(title, pairs, colorFn) {
@@ -162,9 +165,11 @@
     const rows = all.filter(r => inRange(r.timestamp)).sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
     const n = rows.length;
     const by = k => rows.filter(r => r.outcome === k).length;
+    const outs = rows.filter(r => r.checkoutTime);
     const uniq = new Set(rows.map(r => String(r.name || "").trim().toLowerCase())).size;
     $("#tiles").innerHTML = [
-      ["Check-ins", n], ["Students", uniq], ["Check In", by("Check In")], ["Incident Reports", by("Incident Report")], ["Basic Needs", by("Basic Need")]
+      ["Check-ins", n], ["Students", uniq], ["Check In", by("Check In")], ["Incident Reports", by("Incident Report")], ["Basic Needs", by("Basic Need")],
+      ["Checked out", outs.length], ["Avg minutes", outs.length ? Math.round(outs.reduce((s, r) => s + Number(r.minutes || 0), 0) / outs.length) : "–"]
     ].map(([k, v]) => `<div class="tile"><div class="k">${k}</div><div class="v">${v}</div></div>`).join("");
 
     $("#charts").innerHTML =
@@ -174,7 +179,10 @@
       bars("Mood group", count(rows, "moodGroup", MOODS), k => MOOD_COLORS[k] || "var(--bar)") +
       bars("What happened", count(rows, "happened", HAPPENED)) +
       bars("Top feelings", count(rows, "moodWord").slice(0, 8)) +
-      bars("Basic needs requested", countNeeds(rows));
+      bars("Basic needs requested", countNeeds(rows)) +
+      bars("Station", count(rows, "station", STATIONS), k => STATION_COLORS[k] || "var(--bar)") +
+      bars("Mood at check-out", count(rows, "outMoodGroup", MOODS), k => MOOD_COLORS[k] || "var(--bar)") +
+      bars("What helped", countSplit(rows, "helped"));
 
     $("#tbody").innerHTML = rows.length ? rows.map(r => {
       const t = new Date(r.timestamp);
@@ -186,13 +194,15 @@
         <td>${esc(when)}</td><td>${esc(r.name)}</td><td>${esc(r.referral)}</td><td>${esc(r.reason)}</td><td>${esc(r.energy)}</td>
         <td>${r.moodGroup ? `<span class="pill g-${esc(r.moodGroup)}">${esc(r.moodWord)}</span>` : ""}</td>
         <td>${esc(r.happened)}</td><td class="${oc}">${esc(r.outcome)}</td><td>${esc(r.basicNeeds)}</td>
+        <td>${esc(r.station)}</td><td>${r.checkoutTime ? esc(new Date(r.checkoutTime).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" })) : ""}</td><td>${esc(r.minutes)}</td>
+        <td>${r.outMoodGroup ? `<span class="pill g-${esc(r.outMoodGroup)}">${esc(r.outMoodWord)}</span>` : ""}</td>
       </tr>`;
-    }).join("") : `<tr><td colspan="9" class="empty">No check-ins in this range.</td></tr>`;
+    }).join("") : `<tr><td colspan="13" class="empty">No check-ins in this range.</td></tr>`;
   }
 
   $("#csv").addEventListener("click", () => {
     const rows = all.filter(r => inRange(r.timestamp));
-    const cols = ["timestamp", "name", "referral", "reason", "energy", "moodGroup", "moodWord", "happened", "need", "basicNeeds", "outcome", "kiosk"];
+    const cols = ["timestamp", "name", "referral", "reason", "energy", "moodGroup", "moodWord", "happened", "need", "basicNeeds", "outcome", "kiosk", "stationSuggested", "station", "checkoutTime", "minutes", "outEnergy", "outMoodGroup", "outMoodWord", "helped"];
     const q = v => `"${String(v ?? "").replace(/"/g, '""')}"`;
     const csv = [cols.join(",")].concat(rows.map(r => cols.map(c => q(r[c])).join(","))).join("\n");
     const a = document.createElement("a");

@@ -41,6 +41,37 @@ window.PPC_CONFIG = {
     { icon: "❓", label: "Something else" },
   ],
 
+  // Regulation stations, color-coded to the mood meter quadrants. The app suggests
+  // the station matching the student's mood word, then lets them choose.
+  STATIONS: [
+    { color: "Red",    label: "Red station",    hint: "Move it out, then slow it down" },
+    { color: "Yellow", label: "Yellow station", hint: "Put the energy to work" },
+    { color: "Blue",   label: "Blue station",   hint: "Settle in, take your time" },
+    { color: "Green",  label: "Green station",  hint: "Keep it steady" },
+  ],
+
+  // Mood words that mean a staff member should come to the student before any
+  // station. The app shows "a staff member is coming to you" instead of the picker.
+  STAFF_FIRST_WORDS: [
+    "Enraged", "Livid", "Fuming", "Panicked", "Frightened",
+    "Despair", "Hopeless", "Desolate", "Despondent", "Depressed",
+  ],
+
+  // Check-out: what helped. Students can pick more than one.
+  WHAT_HELPED: [
+    { icon: "🫁", label: "Breathing" },
+    { icon: "🚶", label: "Moving my body" },
+    { icon: "🎧", label: "Music" },
+    { icon: "📓", label: "Writing or drawing" },
+    { icon: "🤫", label: "Quiet time alone" },
+    { icon: "💬", label: "Talking to a staff member" },
+    { icon: "🧸", label: "Fidget or weighted item" },
+    { icon: "🍎", label: "Snack or water" },
+    { icon: "🎲", label: "A game or puzzle" },
+    { icon: "❓", label: "Something else" },
+    { icon: "🤷", label: "Nothing really helped" },
+  ],
+
   // How many days of check-ins the staff dashboard loads.
   DASHBOARD_DAYS: 14,
 };

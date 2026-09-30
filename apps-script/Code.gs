@@ -25,14 +25,19 @@ const SUMMARY_NAME = 'Summary';
 
 const HEADERS = [
   'Timestamp', 'Date', 'Time', 'Name / ID', 'Referral', 'Reason', 'Energy',
-  'Mood Group', 'Mood Word', 'What Happened', 'Need', 'Basic Needs', 'Outcome', 'Kiosk'
+  'Mood Group', 'Mood Word', 'What Happened', 'Need', 'Basic Needs', 'Outcome', 'Kiosk',
+  'Station Suggested', 'Station',
+  'Checkout Time', 'Minutes in Room', 'Checkout Energy', 'Checkout Mood Group', 'Checkout Mood Word', 'What Helped'
 ];
+// Column numbers (1-based) used by the check-out matcher.
+const COL_CHECKOUT_TIME = 17;
 
 // ---- Kiosk: one check-in per POST -------------------------------------------
 
 function doPost(e) {
   try {
     const data = JSON.parse(e.postData.contents);
+    if (data.type === 'checkout') return json_(checkout_(data));
     const sheet = getSheet_();
     const ts = data.timestamp ? new Date(data.timestamp) : new Date();
     const tz = Session.getScriptTimeZone();
@@ -52,12 +57,51 @@ function doPost(e) {
       data.need       || '',
       data.basicNeeds || '',
       data.outcome    || '',
-      data.kiosk      || ''
+      data.kiosk      || '',
+      data.stationSuggested || '',
+      data.station    || '',
+      '', '', '', '', '', ''
     ]);
     return json_({ ok: true });
   } catch (err) {
     return json_({ ok: false, error: String(err) });
   }
+}
+
+/**
+ * Check-out: find the student's most recent check-in today that has no check-out
+ * yet and fill in the check-out columns on that same row. If none is found,
+ * append a standalone row so nothing is lost.
+ */
+function checkout_(data) {
+  const sheet = getSheet_();
+  const ts = data.timestamp ? new Date(data.timestamp) : new Date();
+  const tz = Session.getScriptTimeZone();
+  const nameKey = String(data.name || '').trim().toLowerCase();
+  const outVals = [ts, '', data.energy || '', data.moodGroup || '', data.moodWord || '', data.helped || ''];
+
+  const lastRow = sheet.getLastRow();
+  if (lastRow > 1) {
+    const start = Math.max(2, lastRow - 500);
+    const vals = sheet.getRange(start, 1, lastRow - start + 1, COL_CHECKOUT_TIME).getValues();
+    for (let i = vals.length - 1; i >= 0; i--) {
+      const r = vals[i];
+      if (String(r[3]).trim().toLowerCase() !== nameKey) continue;
+      if (!(r[0] instanceof Date)) continue;
+      const diff = ts - r[0];
+      if (diff < 0 || diff > 6 * 3600000) continue;      // same visit = within 6 hours
+      if (r[COL_CHECKOUT_TIME - 1]) continue;             // already checked out
+      outVals[1] = Math.round(diff / 60000);
+      sheet.getRange(start + i, COL_CHECKOUT_TIME, 1, outVals.length).setValues([outVals]);
+      return { ok: true, matched: true, minutes: outVals[1] };
+    }
+  }
+  const dateOnly = new Date(Utilities.formatDate(ts, tz, 'yyyy/MM/dd'));
+  sheet.appendRow([
+    ts, dateOnly, Utilities.formatDate(ts, tz, 'h:mm a'), String(data.name || '').trim(),
+    '', '', '', '', '', '', '', '', 'Check Out (no check-in found)', data.kiosk || '', '', ''
+  ].concat(outVals));
+  return { ok: true, matched: false };
 }
 
 // ---- Admin dashboard: served by doGet, guarded by Google sign-in -------------
@@ -97,7 +141,11 @@ function getCheckins(days) {
     rows.push({
       timestamp: r[0].toISOString(),
       name: r[3], referral: r[4], reason: r[5], energy: r[6], moodGroup: r[7], moodWord: r[8],
-      happened: r[9], need: r[10], basicNeeds: r[11], outcome: r[12], kiosk: r[13]
+      happened: r[9], need: r[10], basicNeeds: r[11], outcome: r[12], kiosk: r[13],
+      stationSuggested: r[14], station: r[15],
+      checkoutTime: r[16] instanceof Date ? r[16].toISOString() : '',
+      minutes: r[17] === '' ? '' : Number(r[17]),
+      outEnergy: r[18], outMoodGroup: r[19], outMoodWord: r[20], helped: r[21]
     });
   }
   return {
@@ -133,6 +181,7 @@ function setup() {
   sheet.setFrozenRows(1);
   sheet.getRange('A:A').setNumberFormat('yyyy-mm-dd h:mm am/pm');
   sheet.getRange('B:B').setNumberFormat('yyyy-mm-dd');
+  sheet.getRange('Q:Q').setNumberFormat('h:mm am/pm');
   sheet.setColumnWidth(1, 160);
   sheet.setColumnWidth(4, 180);
   sheet.setColumnWidth(6, 200);
@@ -182,6 +231,16 @@ function buildSummary_(ss) {
   section('By mood group', 'H', ['Red', 'Yellow', 'Blue', 'Green']);
   section('By what happened', 'J', ['At Home', 'With my Teacher', 'With a friend', 'Just with myself']);
   section('By outcome', 'M', ['Check In', 'Incident Report', 'Basic Need']);
+  section('By station', 'P', ['Red', 'Yellow', 'Blue', 'Green', 'Staff first']);
+  section('Mood at check-out', 'T', ['Red', 'Yellow', 'Blue', 'Green']);
+
+  push('Check-outs', 'Today', 'All time');
+  push('Checked out', `=COUNTIFS(${C}Q:Q, "<>", ${C}B:B, TODAY())`, `=COUNTA(${C}Q2:Q)`);
+  push('Average minutes in room', `=IFERROR(ROUND(AVERAGEIFS(${C}R:R, ${C}B:B, TODAY()), 0), "")`, `=IFERROR(ROUND(AVERAGE(${C}R2:R), 0), "")`);
+  push('');
+  push('What helped (all time)', 'Count');
+  push(`=IFERROR(QUERY(FLATTEN(ARRAYFORMULA(SPLIT(FILTER(${C}V2:V, ${C}V2:V<>""), ", ", FALSE))), "select Col1, count(Col1) where Col1 <> '' group by Col1 order by count(Col1) desc label count(Col1) ''"), "None yet")`);
+  push(''); push(''); push(''); push(''); push(''); push(''); push(''); push(''); push(''); push(''); push('');
 
   push('Most common feelings (all time)', 'Count');
   const q = `QUERY(${C}I2:I, "select I, count(I) where I <> '' group by I label count(I) ''")`;
@@ -199,7 +258,7 @@ function buildSummary_(ss) {
   s.setColumnWidth(2, 100);
   s.setColumnWidth(3, 100);
   for (let i = 0; i < rows.length; i++) {
-    if (rows[i][1] === 'Count' || rows[i][1] === 'Today') {
+    if (rows[i][1] === 'Count' || rows[i][1] === 'Today' || rows[i][1] === 'Count') {
       s.getRange(i + 1, 1, 1, 3).setFontWeight('bold').setBackground('#f3f3f3');
     }
   }

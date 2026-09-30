@@ -29,7 +29,10 @@ Matches the hyperlinks in the current PowerPoint deck.
 5. How is your body + brain feeling? (Fast / Slow / Ok)
 6. Which group of words describes how you feel? Fast shows the red and yellow grids, Slow shows blue, Ok shows green. Student taps one word.
 7. What happened? (Home / Teacher / Friend / Myself)
-8. End screen with the deck's CLICK HERE button: Incident Report opens the incident form, Check In and Basic Need open the sign-in form. Both need a KRESA Google login, exactly as before. Clear `FORM_INCIDENT_URL` or `FORM_SIGNIN_URL` in `config.js` to hide a button. The app resets for the next student after 30 seconds.
+8. Station suggestion. The mood word's color picks a regulation station (Red, Yellow, Blue, Green). The app says "The blue station is set up for how you're feeling. Go there, or pick another," and records both the suggestion and the choice. Words in `STAFF_FIRST_WORDS` (enraged, hopeless, and so on) skip the picker and show "A staff member is coming to you" instead.
+9. End screen with the deck's CLICK HERE button: Incident Report opens the incident form, Check In and Basic Need open the sign-in form. Both need a KRESA Google login, exactly as before. Clear `FORM_INCIDENT_URL` or `FORM_SIGNIN_URL` in `config.js` to hide a button. The app resets for the next student after 30 seconds.
+
+**Check-out.** The start screen has a "Leaving? Tap here to check out" link. The student types their name, answers the body + brain question and the word grid again, then taps what helped (from `WHAT_HELPED` in `config.js`). The Sheet fills in the check-out columns on that student's check-in row: check-out time, minutes in room, mood at check-out, and what helped. The end screen tells the student "You came in Blue and you're leaving Green."
 
 Every check-in is saved the moment the end screen appears. If Wi-Fi drops, it's kept on the iPad and synced automatically when the connection returns. If a student walks away mid-flow, the app returns to the start after two minutes so nobody sees their answers.
 
@@ -100,7 +103,8 @@ GitHub Pages updates in about a minute. The yellow "test mode" banner disappears
 Sign in with a district account. You get:
 
 - Tiles: check-ins, unique students, and counts by outcome
-- Bars: referral, reason, energy, mood group, what happened, top feelings, basic needs requested
+- Bars: referral, reason, energy, mood group, what happened, top feelings, basic needs requested, station, mood at check-out, what helped
+- Tiles for checked-out count and average minutes in room
 - A table of every check-in in the selected range
 - CSV download of the current view, a link to the Sheet, and auto-refresh every minute
 
@@ -121,7 +125,7 @@ With `SCRIPT_URL` empty, the kiosk saves check-ins in the browser on that device
 
 ## Customizing
 
-- **Timers, kiosk name, form links, basic-needs list:** `config.js`
+- **Timers, kiosk name, form links, basic-needs list, stations, staff-first words, what-helped list:** `config.js`
 - **Question text and colors:** `index.html`, each screen is a `<section>`
 - **Mood words:** the `GRIDS` object near the top of the script in `index.html`
 - **Sheet columns:** `HEADERS` and `doPost` in `Code.gs`. If you change headers after the sheet has data, insert or rename the columns in the Sheet by hand to match.
