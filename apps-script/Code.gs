@@ -16,7 +16,7 @@ const SUMMARY_NAME = 'Summary';
 
 const HEADERS = [
   'Timestamp', 'Date', 'Time', 'Name / ID', 'Reason', 'Energy',
-  'Mood Group', 'Mood Word', 'What Happened', 'Need', 'Outcome', 'Kiosk'
+  'Mood Group', 'Mood Word', 'What Happened', 'Need', 'Basic Needs', 'Outcome', 'Kiosk'
 ];
 
 // ---- Web app entry points ---------------------------------------------------
@@ -41,6 +41,7 @@ function doPost(e) {
       data.moodWord  || '',
       data.happened  || '',
       data.need      || '',
+      data.basicNeeds || '',
       data.outcome   || '',
       data.kiosk     || ''
     ]);
@@ -68,7 +69,7 @@ function doGet(e) {
     rows.push({
       timestamp: r[0].toISOString(),
       name: r[3], reason: r[4], energy: r[5], moodGroup: r[6], moodWord: r[7],
-      happened: r[8], need: r[9], outcome: r[10], kiosk: r[11]
+      happened: r[8], need: r[9], basicNeeds: r[10], outcome: r[11], kiosk: r[12]
     });
   }
   return json_({ ok: true, days: days, rows: rows });
@@ -95,6 +96,7 @@ function setup() {
   sheet.setColumnWidth(4, 180);
   sheet.setColumnWidth(5, 200);
   sheet.setColumnWidth(9, 150);
+  sheet.setColumnWidth(11, 220);
 
   // Remove the default empty "Sheet1" if it is still around and empty
   const s1 = ss.getSheetByName('Sheet1');
@@ -138,7 +140,7 @@ function buildSummary_(ss) {
   section('By energy', 'F', ['Moving Fast', 'Moving Slow', 'Moving Ok']);
   section('By mood group', 'G', ['Red', 'Yellow', 'Blue', 'Green']);
   section('By what happened', 'I', ['At Home', 'With my Teacher', 'With a friend', 'Just with myself']);
-  section('By outcome', 'K', ['Check In', 'Incident Report', 'Basic Need']);
+  section('By outcome', 'L', ['Check In', 'Incident Report', 'Basic Need']);
 
   push('Most common feelings (all time)', 'Count');
   const r0 = rows.length + 1;
@@ -148,6 +150,11 @@ function buildSummary_(ss) {
     push(`=IFERROR(INDEX(SORT(QUERY(${C}H2:H, "select H, count(H) where H <> '' group by H label count(H) ''"), 2, FALSE), ${i}, 1), "")`,
          `=IFERROR(INDEX(SORT(QUERY(${C}H2:H, "select H, count(H) where H <> '' group by H label count(H) ''"), 2, FALSE), ${i}, 2), "")`);
   }
+
+  push('');
+  push('Basic needs requested (all time)', 'Count');
+  // One formula that spills: splits the comma-separated Basic Needs column and counts each item.
+  push(`=IFERROR(QUERY(FLATTEN(ARRAYFORMULA(SPLIT(FILTER(${C}K2:K, ${C}K2:K<>""), ", ", FALSE))), "select Col1, count(Col1) where Col1 <> '' group by Col1 order by count(Col1) desc label count(Col1) ''"), "None yet")`);
 
   s.getRange(1, 1, rows.length, 3).setValues(rows);
   s.getRange('A1').setFontSize(16).setFontWeight('bold').setFontColor('#d61f26');
@@ -184,7 +191,7 @@ function testInsert() {
     postData: { contents: JSON.stringify({
       timestamp: new Date().toISOString(), name: 'Test Student', reason: 'Drop In: I need a reset',
       energy: 'Moving Fast', moodGroup: 'Red', moodWord: 'Frustrated', happened: 'With a friend',
-      need: '', outcome: 'Check In', kiosk: 'Editor test'
+      need: '', basicNeeds: '', outcome: 'Check In', kiosk: 'Editor test'
     }) }
   };
   Logger.log(doPost(fake).getContent());

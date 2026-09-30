@@ -121,7 +121,17 @@
   }
   .card:active { transform: translateY(3px); box-shadow: none; filter: brightness(0.96); }
   .card b { font-weight: 700; }
+  /* Basic needs: multi-select */
+  .cards.needs { grid-template-columns: repeat(3, 1fr); gap: 14px; width: min(96vw, 960px); margin: 0 0 16px; }
+  .cards.needs .card { min-height: clamp(84px, 14vh, 118px); padding: 16px 12px; font-size: clamp(1rem, 2.1vw, 1.3rem); position: relative; flex-direction: column; gap: 6px; background: #f3f3f3; border-color: #cfcfcf; }
+  .cards.needs .card .icon { font-size: 2em; line-height: 1; }
+  .cards.needs .card.selected { background: var(--card-green); border-color: var(--border); }
+  .cards.needs .card.selected::after { content: "✓"; position: absolute; top: 8px; right: 12px; font-weight: 700; font-size: 1.2em; }
+  .needs-next { position: sticky; bottom: 0; margin: 4px 0 0; padding: 18px 40px; min-width: min(70vw, 360px); font-size: clamp(1.1rem, 2.4vw, 1.5rem); box-shadow: 0 -6px 16px rgba(255,255,255,0.95), var(--shadow); }
+  #basic { padding-bottom: 48px; }
+  .needs-next:disabled { opacity: 0.45; cursor: default; }
   @media (max-width: 560px) {
+    .cards.needs { grid-template-columns: repeat(2, 1fr); gap: 10px; }
     .cards, .cards.three { grid-template-columns: 1fr; gap: 14px; }
     .cards.three .card:last-child { width: 100%; }
     .card { min-height: 96px; padding: 20px 16px; }
@@ -250,8 +260,15 @@
     </div>
   </section>
 
-  <!-- 8. Done -->
-  <section class="screen done" id="done" data-step="7">
+  <!-- 8. Basic needs (only after "I have a basic need") -->
+  <section class="screen" id="basic" data-step="7">
+    <h1>What do you need?<span class="sub">Tap everything that fits.</span></h1>
+    <div class="cards needs" id="needsGrid"></div>
+    <button class="big-btn needs-next" type="button" id="needsNext" disabled>That's everything</button>
+  </section>
+
+  <!-- 9. Done -->
+  <section class="screen done" id="done" data-step="8">
     <h1 id="doneTitle">Thanks for answering those questions!</h1>
     <p>That's a good start. Let's find a way to get you feeling ok again.</p>
     <p>The next step is to make sure we get you ALL the way signed in.</p>
@@ -335,7 +352,7 @@
 
   const $ = (s) => document.querySelector(s);
   const screens = [...document.querySelectorAll(".screen")];
-  const STEPS = 7; // number of dots
+  const STEPS = 8; // number of dots
 
   function show(id, push = true) {
     if (push && current !== id) history.push(current);
@@ -357,7 +374,7 @@
     [...d.children].forEach((el, i) => {
       el.className = i + 1 < step ? "done" : (i + 1 === step ? "on" : "");
     });
-    d.style.visibility = (step === 0 || step === 7) ? "hidden" : "visible";
+    d.style.visibility = (step === 0 || step === STEPS) ? "hidden" : "visible";
   }
 
   function reset() {
@@ -412,9 +429,37 @@
       case "energy":   buildGrids(answers.energy); return show("mood");
       case "mood":     return show("happened");
       case "happened": return finish("Check In");
-      case "need":     return finish(answers.need);
+      case "need":     if (answers.need === "Basic Need") { buildNeeds(); return show("basic"); } return finish(answers.need);
+      case "basic":    return finish("Basic Need");
     }
   }
+
+  function buildNeeds() {
+    const grid = $("#needsGrid");
+    grid.innerHTML = "";
+    answers.basicNeeds = [];
+    (CFG.BASIC_NEEDS || []).forEach(item => {
+      const label = typeof item === "string" ? item : item.label;
+      const icon = typeof item === "string" ? "" : (item.icon || "");
+      const b = document.createElement("button");
+      b.type = "button";
+      b.className = "card";
+      b.setAttribute("aria-pressed", "false");
+      b.innerHTML = `${icon ? `<span class="icon">${icon}</span>` : ""}<span>${escapeHtml(label)}</span>`;
+      b.addEventListener("click", () => {
+        const on = b.classList.toggle("selected");
+        b.setAttribute("aria-pressed", String(on));
+        answers.basicNeeds = on
+          ? answers.basicNeeds.concat(label)
+          : answers.basicNeeds.filter(x => x !== label);
+        $("#needsNext").disabled = answers.basicNeeds.length === 0;
+        touch();
+      });
+      grid.appendChild(b);
+    });
+    $("#needsNext").disabled = true;
+  }
+  $("#needsNext").addEventListener("click", () => { if (answers.basicNeeds && answers.basicNeeds.length) next("basic"); });
 
   function buildGrids(energy) {
     const wrap = $("#grids");
@@ -451,7 +496,7 @@
     "Incident Report": { color: "var(--done-incident)", label: "Incident Report", form: "FORM_INCIDENT_URL", formLabel: "For Incident Report",
                          msg: "a staff member will help you fill out an incident report." },
     "Basic Need":      { color: "var(--done-basic)",    label: "Basic Need", form: "FORM_SIGNIN_URL", formLabel: "Basic Need",
-                         msg: "let a staff member know what you need and we'll help." }
+                         msg: "a staff member will help you with what you need." }
   };
 
   function finish(outcome) {
@@ -461,7 +506,8 @@
     $("#doneMsg").innerHTML = `<span class="name">${escapeHtml(answers.name)}</span>, ${o.msg}`;
     const badge = $("#doneBadge");
     badge.style.background = o.color; badge.style.borderColor = o.color;
-    badge.innerHTML = `✓ ${o.label}<small>${escapeHtml(answers.moodWord || "")}</small>`;
+    const basicNeeds = (answers.basicNeeds || []).join(", ");
+    badge.innerHTML = `✓ ${o.label}<small>${escapeHtml(outcome === "Basic Need" ? basicNeeds : (answers.moodWord || ""))}</small>`;
     const link = $("#formLink");
     const formUrl = CFG[o.form] || "";
     link.classList.toggle("show", !!formUrl);
@@ -481,6 +527,7 @@
       moodWord: answers.moodWord || "",
       happened: answers.happened || "",
       need: answers.need || "",
+      basicNeeds: basicNeeds,
       outcome: outcome,
       kiosk: CFG.KIOSK_NAME
     };

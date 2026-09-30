@@ -99,7 +99,7 @@
     <div class="table">
       <table>
         <thead><tr>
-          <th>Time</th><th>Name / ID</th><th>Reason</th><th>Energy</th><th>Mood</th><th>What happened</th><th>Outcome</th>
+          <th>Time</th><th>Name / ID</th><th>Reason</th><th>Energy</th><th>Mood</th><th>What happened</th><th>Outcome</th><th>Basic needs</th>
         </tr></thead>
         <tbody id="tbody"></tbody>
       </table>
@@ -177,6 +177,11 @@
     const keys = order ? order.filter(k => k in m).concat(Object.keys(m).filter(k => !order.includes(k))) : Object.keys(m).sort((a, b) => m[b] - m[a]);
     return keys.map(k => [k, m[k]]);
   }
+  function countNeeds(rows) {
+    const m = {};
+    rows.forEach(r => String(r.basicNeeds || "").split(",").map(s => s.trim()).filter(Boolean).forEach(k => { m[k] = (m[k] || 0) + 1; }));
+    return Object.keys(m).sort((a, b) => m[b] - m[a]).map(k => [k, m[k]]);
+  }
   function bars(title, pairs, colorFn) {
     const max = Math.max(1, ...pairs.map(p => p[1]));
     const body = pairs.length ? pairs.map(([k, n]) => `
@@ -202,7 +207,8 @@
       bars("Energy", count(rows, "energy", ENERGY)) +
       bars("Mood group", count(rows, "moodGroup", MOODS), k => MOOD_COLORS[k] || "var(--bar)") +
       bars("What happened", count(rows, "happened", HAPPENED)) +
-      bars("Top feelings", count(rows, "moodWord").slice(0, 8));
+      bars("Top feelings", count(rows, "moodWord").slice(0, 8)) +
+      bars("Basic needs requested", countNeeds(rows));
 
     $("#tbody").innerHTML = rows.length ? rows.map(r => {
       const t = new Date(r.timestamp);
@@ -213,15 +219,15 @@
       return `<tr>
         <td>${esc(when)}</td><td>${esc(r.name)}</td><td>${esc(r.reason)}</td><td>${esc(r.energy)}</td>
         <td>${r.moodGroup ? `<span class="pill g-${esc(r.moodGroup)}">${esc(r.moodWord)}</span>` : ""}</td>
-        <td>${esc(r.happened)}</td><td class="${oc}">${esc(r.outcome)}</td>
+        <td>${esc(r.happened)}</td><td class="${oc}">${esc(r.outcome)}</td><td>${esc(r.basicNeeds)}</td>
       </tr>`;
-    }).join("") : `<tr><td colspan="7" class="empty">No check-ins in this range.</td></tr>`;
+    }).join("") : `<tr><td colspan="8" class="empty">No check-ins in this range.</td></tr>`;
   }
 
   // ---- CSV export of the current view ----
   $("#csv").addEventListener("click", () => {
     const rows = all.filter(r => inRange(r.timestamp));
-    const cols = ["timestamp", "name", "reason", "energy", "moodGroup", "moodWord", "happened", "need", "outcome", "kiosk"];
+    const cols = ["timestamp", "name", "reason", "energy", "moodGroup", "moodWord", "happened", "need", "basicNeeds", "outcome", "kiosk"];
     const q = v => `"${String(v ?? "").replace(/"/g, '""')}"`;
     const csv = [cols.join(",")].concat(rows.map(r => cols.map(c => q(r[c])).join(","))).join("\n");
     const a = document.createElement("a");

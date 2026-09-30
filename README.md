@@ -17,7 +17,7 @@ A tap-through check-in kiosk for the Pride Center, rebuilt from the Google Slide
 
 1. Start → student types name or ID
 2. Why are you here? (Sent by staff / Scheduled Break / Drop In: reset / Drop In: need)
-3. **Drop In: I have a need** skips the feelings questions and goes straight to: Incident Report or Basic Need
+3. **Drop In: I have a need** skips the feelings questions and goes straight to: Incident Report or Basic Need. Basic Need opens a "What do you need?" screen where the student taps one or more items (food, water, clothing, hygiene, and so on). The list lives in `config.js` under `BASIC_NEEDS`.
 4. Everyone else: How is your body + brain feeling? (Fast / Slow / Ok)
 5. Which group of words describes how you feel? Fast shows the red and yellow grids, Slow shows blue, Ok shows green. Student taps one word.
 6. What happened? (Home / Teacher / Friend / Myself)
@@ -114,5 +114,6 @@ The **Summary** tab in the Sheet has the same counts as formulas, so it works wi
 
 - **Timers, kiosk name, end-screen form links:** `config.js`
 - **Question text and colors:** `index.html`, each screen is a `<section>`
+- **Basic needs list:** `BASIC_NEEDS` in `config.js`. Each entry is an icon and a label.
 - **Mood words:** the `GRIDS` object near the top of the script in `index.html`
 - **Sheet columns:** `HEADERS` and `doPost` in `Code.gs` (re-run `setup` after changing headers on a fresh sheet)
