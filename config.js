@@ -3,7 +3,7 @@
 window.PPC_CONFIG = {
   // Kiosk endpoint: the Apps Script deployment with access "Anyone" (README step 4).
   // Leave it empty to run in test mode: check-ins are saved only on this device.
-  SCRIPT_URL: "",
+  SCRIPT_URL: "https://script.google.com/macros/s/AKfycbzneBQPNeLkP0xcEIERfIdeXWirEBYhfPIArTAnEFoOXQpBfmb7bQygDL9LthYzHLRJmQ/exec",
 
   // Shared secret the kiosk sends with every check-in. Must match KIOSK_TOKEN in
   // Code.gs. Stops junk rows from anyone who finds the script URL.
