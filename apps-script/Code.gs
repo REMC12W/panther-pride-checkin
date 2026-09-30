@@ -35,7 +35,8 @@ const HEADERS = [
   'Timestamp', 'Date', 'Time', 'Name / ID', 'Referral', 'Reason', 'Energy',
   'Mood Group', 'Mood Word', 'What Happened', 'Need', 'Basic Needs', 'Outcome', 'Kiosk',
   'Station Suggested', 'Station',
-  'Checkout Time', 'Minutes in Room', 'Checkout Energy', 'Checkout Mood Group', 'Checkout Mood Word', 'What Helped'
+  'Checkout Time', 'Minutes in Room', 'Checkout Energy', 'Checkout Mood Group', 'Checkout Mood Word', 'What Helped',
+  'Checked Out By'
 ];
 // Column numbers (1-based) used by the check-out matcher.
 const COL_CHECKOUT_TIME = 17;
@@ -47,6 +48,7 @@ function doPost(e) {
     const data = JSON.parse(e.postData.contents);
     if (data.type === 'dashboard') return json_(dashboard_(data));
     if (data.type === 'review') return json_(review_(data));
+    if (data.type === 'staffCheckout') return json_(staffCheckout_(data));
     if (KIOSK_TOKEN && String(data.token || '') !== KIOSK_TOKEN) {
       return json_({ ok: false, error: 'Bad token. KIOSK_TOKEN in config.js must match Code.gs.' });
     }
@@ -88,12 +90,13 @@ function doPost(e) {
  * yet and fill in the check-out columns on that same row. If none is found,
  * append a standalone row so nothing is lost.
  */
-function checkout_(data) {
+function checkout_(data, byStaff) {
   const sheet = getSheet_();
   const ts = data.timestamp ? new Date(data.timestamp) : new Date();
   const tz = Session.getScriptTimeZone();
   const nameKey = String(data.name || '').trim().toLowerCase();
-  const outVals = [ts, '', data.energy || '', data.moodGroup || '', data.moodWord || '', data.helped || ''];
+  const outVals = [ts, '', data.energy || '', data.moodGroup || '', data.moodWord || '', data.helped || '', byStaff || 'Student'];
+  const target = data.checkinTimestamp ? new Date(data.checkinTimestamp).getTime() : 0;
 
   const lastRow = sheet.getLastRow();
   if (lastRow > 1) {
@@ -103,6 +106,7 @@ function checkout_(data) {
       const r = vals[i];
       if (String(r[3]).trim().toLowerCase() !== nameKey) continue;
       if (!(r[0] instanceof Date)) continue;
+      if (byStaff && target && Math.abs(r[0].getTime() - target) > 1000) continue; // staff pick an exact visit
       const diff = ts - r[0];
       if (diff < 0 || diff > 6 * 3600000) continue;      // same visit = within 6 hours
       if (r[COL_CHECKOUT_TIME - 1]) continue;             // already checked out
@@ -116,7 +120,17 @@ function checkout_(data) {
     ts, dateOnly, Utilities.formatDate(ts, tz, 'h:mm a'), String(data.name || '').trim(),
     '', '', '', '', '', '', '', '', 'Check Out (no check-in found)', data.kiosk || '', '', ''
   ].concat(outVals));
+  if (byStaff) throw new Error('That visit is already checked out, or could not be found.');
   return { ok: true, matched: false };
+}
+
+/** A staff member checks a student out from the dashboard, using their own read of the student. */
+function staffCheckout_(data) {
+  const email = verifyIdToken_(String(data.idToken || ''));
+  const sheet = getSheet_();
+  const head = sheet.getRange(1, COL_CHECKOUT_TIME + 6);
+  if (!head.getValue()) head.setValue('Checked Out By').setFontWeight('bold').setBackground('#d61f26').setFontColor('#ffffff');
+  return checkout_(Object.assign({}, data, { timestamp: new Date().toISOString() }), 'Staff: ' + email);
 }
 
 // ---- Incident reports ---------------------------------------------------------
@@ -299,7 +313,7 @@ function checkinRows_(days) {
       stationSuggested: r[14], station: r[15],
       checkoutTime: r[16] instanceof Date ? r[16].toISOString() : '',
       minutes: r[17] === '' ? '' : Number(r[17]),
-      outEnergy: r[18], outMoodGroup: r[19], outMoodWord: r[20], helped: r[21]
+      outEnergy: r[18], outMoodGroup: r[19], outMoodWord: r[20], helped: r[21], checkedOutBy: r[22] || ''
     });
   }
   return rows;

@@ -139,8 +139,10 @@
   .needs-next:disabled { opacity: 0.45; cursor: default; }
   #helped { padding-bottom: 48px; }
 
-  .feedback-link { display: none; position: fixed; right: 12px; bottom: 6px; font-size: 0.85rem; color: #aaa; text-decoration: underline; z-index: 4; padding: 8px; }
-  .feedback-link.show { display: block; }
+  .fb-btn { display: none; position: fixed; right: 14px; bottom: 14px; z-index: 40; align-items: center; gap: 6px; padding: 10px 16px; border-radius: 999px; background: #1f1f1e; color: #fff; font: inherit; font-weight: 600; font-size: 0.9rem; text-decoration: none; box-shadow: 0 6px 18px rgba(0,0,0,0.18); }
+  .fb-btn.show { display: inline-flex; }
+  .fb-btn:hover { background: #000; }
+  .banner.show ~ .fb-btn { bottom: 52px; }
   /* Start screen: check-out link */
   .text-btn { margin-top: 22px; background: none; border: 0; font: inherit; font-weight: 500; font-size: clamp(1rem, 2.2vw, 1.25rem); color: var(--muted); text-decoration: underline; cursor: pointer; padding: 10px 16px; }
 
@@ -232,7 +234,6 @@
     <div class="subtitle">Student Check-In</div>
     <button class="big-btn" type="button" data-go="name">Click here to get started!</button>
     <button class="text-btn" type="button" id="checkoutBtn">Leaving? Tap here to check out</button>
-    <a class="feedback-link" id="feedbackLink" href="feedback.html">Trying the app? Give feedback</a>
   </section>
 
   <!-- 2. Name -->
@@ -392,12 +393,13 @@
 </main>
 
 <div class="banner" id="banner"></div>
+<a class="fb-btn" id="feedbackLink" href="feedback.html?from=kiosk">💬 Provide feedback during trial</a>
 <div class="ver" id="ver"></div>
 
 <script src="config.js"></script>
 <script>
 (function () {
-  const APP_VERSION = "2026.09.30";
+  const APP_VERSION = "2026.09.30b";
   const CFG = Object.assign({
     SCRIPT_URL: "", KIOSK_TOKEN: "", KIOSK_NAME: "Kiosk",
     RESET_SECONDS: 8, IDLE_SECONDS: 120,
@@ -407,6 +409,8 @@
   }, window.PPC_CONFIG || {});
   document.getElementById("ver").textContent = "v" + APP_VERSION;
   document.getElementById("feedbackLink").classList.toggle("show", !!CFG.FEEDBACK_ENABLED);
+  // Record which screen feedback was started from.
+  document.getElementById("feedbackLink").addEventListener("click", e => { e.currentTarget.href = "feedback.html?from=kiosk-" + current; });
 
   // Service worker: lets the app open with no Wi-Fi and keeps files fresh when online.
   if ("serviceWorker" in navigator && location.protocol.startsWith("http")) {

@@ -77,7 +77,7 @@
       <div class="sub">Help us make the check-in app better</div>
     </div>
   </header>
-  <a class="back" href="index.html">← Back to the app</a>
+  <a class="back" id="backLink" href="index.html">← Back to the app</a>
   <div class="banner" id="banner"></div>
 
   <form id="form" novalidate>
@@ -156,6 +156,12 @@
 (function () {
   const CFG = Object.assign({ SCRIPT_URL: "", KIOSK_TOKEN: "", KIOSK_NAME: "Kiosk" }, window.PPC_CONFIG || {});
   const $ = s => document.querySelector(s);
+  // Where the person came from (kiosk screen or staff dashboard), so feedback has context.
+  const FROM = (new URLSearchParams(location.search).get("from") || "direct").slice(0, 60);
+  const BACK = FROM.startsWith("staff") ? "staff.html" : "index.html";
+  $("#backLink").href = BACK;
+  $("#backLink").textContent = FROM.startsWith("staff") ? "← Back to the dashboard" : "← Back to the app";
+  document.querySelectorAll('#thanks a[href="index.html"]').forEach(a => { a.href = BACK; a.textContent = FROM.startsWith("staff") ? "Back to the dashboard" : "Back to the app"; });
   const QUEUE_KEY = "ppc_feedback_queue", LOCAL_KEY = "ppc_feedback_local";
   const readJSON = k => { try { return JSON.parse(localStorage.getItem(k) || "[]"); } catch { return []; } };
   const writeJSON = (k, v) => { try { localStorage.setItem(k, JSON.stringify(v)); } catch {} };
@@ -209,7 +215,7 @@
       worked, change, ideas,
       contact: $("#contact").value.trim(),
       device: (navigator.userAgent.match(/iPad|iPhone|Android|Macintosh|Windows|CrOS/) || ["Unknown"])[0] + (navigator.maxTouchPoints > 1 ? " (touch)" : ""),
-      version: (document.referrer || "").slice(0, 120),
+      version: FROM,
       kiosk: CFG.KIOSK_NAME
     };
     const local = readJSON(LOCAL_KEY); local.push(record); writeJSON(LOCAL_KEY, local.slice(-200));

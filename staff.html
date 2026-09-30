@@ -210,6 +210,33 @@
   .ctl.today { font-weight: 600; }
   .ctl.today b { display: inline-grid; place-items: center; min-width: 20px; height: 20px; padding: 0 5px; margin-left: 4px; border-radius: 999px; background: var(--brand); color: #fff; font-size: 0.74rem; }
 
+  /* Staff check-out dialog */
+  .person .co { font-size: 0.8rem; padding: 5px 10px; border-radius: 8px; border: 1px solid var(--line); background: var(--panel); cursor: pointer; margin-left: 8px; }
+  .person .co:hover { border-color: var(--ink-3); }
+  .person .right { display: flex; align-items: center; }
+  dialog.co-dlg { border: 1px solid var(--line); border-radius: 18px; padding: 0; width: min(560px, 94vw); background: var(--panel); color: var(--ink); box-shadow: 0 20px 50px rgba(0,0,0,0.25); }
+  dialog.co-dlg::backdrop { background: rgba(0,0,0,0.3); }
+  .co-in { padding: 18px 20px 20px; }
+  .co-in h2 { margin: 0 0 2px; }
+  .co-in .q { font-weight: 600; margin: 16px 0 8px; font-size: 0.95rem; }
+  .co-in .q small { color: var(--ink-3); font-weight: 400; }
+  .quads { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; }
+  .quads button { border-radius: 12px; padding: 12px 6px; cursor: pointer; font-weight: 600; border: 2px solid color-mix(in srgb, var(--q) 55%, transparent); background: color-mix(in srgb, var(--q) var(--tint), var(--panel)); }
+  .quads button small { display: block; font-weight: 400; font-size: 0.72rem; color: var(--ink-2); margin-top: 2px; }
+  .quads button[aria-pressed="true"] { border-color: var(--q); box-shadow: 0 0 0 2px var(--q); }
+  .pick { display: flex; flex-wrap: wrap; gap: 6px; }
+  .pick button { border: 1px solid var(--line); background: var(--panel); border-radius: 999px; padding: 5px 11px; font-size: 0.84rem; cursor: pointer; color: var(--ink-2); }
+  .pick button[aria-pressed="true"] { background: var(--ink); color: var(--panel); border-color: var(--ink); }
+  .co-foot { display: flex; justify-content: flex-end; gap: 8px; margin-top: 18px; }
+  .co-foot button { padding: 9px 16px; border-radius: 10px; border: 1px solid var(--line); background: var(--panel); cursor: pointer; font-weight: 600; }
+  .co-foot button.primary { background: var(--ink); color: var(--panel); border-color: var(--ink); }
+  .co-foot button:disabled { opacity: 0.45; cursor: default; }
+  .co-err { color: var(--st-critical); font-size: 0.86rem; margin-top: 8px; min-height: 1em; }
+
+  .fb-btn { display: none; position: fixed; right: 14px; bottom: 14px; z-index: 40; align-items: center; gap: 6px; padding: 10px 16px; border-radius: 999px; background: #1f1f1e; color: #fff; font: inherit; font-weight: 600; font-size: 0.9rem; text-decoration: none; box-shadow: 0 6px 18px rgba(0,0,0,0.18); }
+  .fb-btn.show { display: inline-flex; }
+  .fb-btn:hover { background: #000; }
+
   /* Tooltip */
   .tip { position: fixed; pointer-events: none; background: var(--ink); color: var(--panel); font-size: 0.82rem; padding: 6px 9px; border-radius: 8px; z-index: 20; opacity: 0; transition: opacity .08s; max-width: 260px; }
   .tip.on { opacity: 1; }
@@ -271,7 +298,7 @@
       </div>
       <div class="panel">
         <h2>In the room now</h2>
-        <p class="sub">Checked in within the last 3 hours, not yet checked out.</p>
+        <p class="sub">Checked in within the last 3 hours. Check a student out here, or they can at the kiosk.</p>
         <div class="room" id="room"></div>
       </div>
     </section>
@@ -405,12 +432,29 @@
   <div class="dr-body" id="drBody"></div>
 </aside>
 
+<dialog class="co-dlg" id="coDlg" aria-labelledby="coTitle">
+  <div class="co-in">
+    <h2 id="coTitle">Check out</h2>
+    <div class="sub" id="coSub"></div>
+    <div class="q">How do they seem now? <small>Your read of the student</small></div>
+    <div class="quads" id="coQuads"></div>
+    <div class="q">Feeling word <small>optional</small></div>
+    <div class="pick" id="coWords"><span class="empty">Pick a color first.</span></div>
+    <div class="q">What helped? <small>optional, pick any</small></div>
+    <div class="pick" id="coHelped"></div>
+    <div class="co-err" id="coErr"></div>
+    <div class="co-foot"><button type="button" id="coCancel">Cancel</button><button type="button" class="primary" id="coSave" disabled>Check out</button></div>
+  </div>
+</dialog>
+
 <div class="tip" id="tip"></div>
+<a class="fb-btn" id="feedbackLink" href="feedback.html?from=staff">💬 Provide feedback during trial</a>
 
 <script src="config.js"></script>
 <script>
 (function () {
   const CFG = Object.assign({ SCRIPT_URL: "", GOOGLE_CLIENT_ID: "", ALLOWED_DOMAIN: "kresa.org", DASHBOARD_DAYS: 14 }, window.PPC_CONFIG || {});
+  document.getElementById("feedbackLink").classList.toggle("show", !!CFG.FEEDBACK_ENABLED);
   const $ = s => document.querySelector(s);
   const TEST = !CFG.SCRIPT_URL;
   let idToken = sessionStorage.getItem("ppc_id_token") || "";
@@ -514,7 +558,7 @@
         const d = new Date(c.timestamp) - new Date(r.timestamp);
         return norm(r.name) === key && d >= 0 && d < 6 * 3600000 && !r.checkoutTime;
       });
-      if (m) Object.assign(m, { checkoutTime: c.timestamp, minutes: Math.round((new Date(c.timestamp) - new Date(m.timestamp)) / 60000), outEnergy: c.energy, outMoodGroup: c.moodGroup, outMoodWord: c.moodWord, helped: c.helped });
+      if (m) Object.assign(m, { checkoutTime: c.timestamp, minutes: Math.round((new Date(c.timestamp) - new Date(m.timestamp)) / 60000), outEnergy: c.energy, outMoodGroup: c.moodGroup, outMoodWord: c.moodWord, helped: c.helped, checkedOutBy: c.checkedOutBy || "Student" });
     });
     let reviews = {}; try { reviews = JSON.parse(localStorage.getItem("ppc_local_reviews") || "{}"); } catch {}
     const incs = raw.filter(r => r.type === "incident").map(r => Object.assign({}, r, reviews[r.timestamp] || {}));
@@ -637,9 +681,10 @@
         <div><div class="n">${esc(r.name)}</div>
           <div class="m">${r.station ? esc(r.station) + (r.station === "Staff first" ? "" : " station") : esc(REASON_SHORT[r.reason] || r.outcome || "")}${r.moodWord ? " · " + esc(r.moodWord) : ""}</div>
           ${r.basicNeeds ? `<div class="need">Needs: ${esc(r.basicNeeds)}</div>` : ""}</div>
-        <div class="mins" title="Minutes since check-in">${mins} min</div>
+        <div class="right"><span class="mins" title="Minutes since check-in">${mins} min</span><button type="button" class="co" data-co="${esc(r.timestamp)}">Check out</button></div>
       </div>`;
     }).join("") : `<div class="empty">No one is checked in right now.</div>`;
+    $("#room").querySelectorAll("[data-co]").forEach(b => b.addEventListener("click", () => openCheckout(here.find(r => r.timestamp === b.dataset.co))));
   }
 
   // 3. Today tiles with a 14-school-day sparkline
@@ -709,7 +754,7 @@
     };
     $("#flow").innerHTML = `
       <p class="callout">${startedHard ? `<b>${better} of ${startedHard}</b> who came in red or blue left feeling yellow or green.` : `<b>${done.length}</b> check-outs, none arrived red or blue.`}</p>
-      <p class="sub">${done.length} check-outs${median !== null ? ` · typical stay ${median} min` : ""}</p>
+      <p class="sub">${done.length} check-out${done.length === 1 ? "" : "s"}${done.filter(r => /^staff/i.test(r.checkedOutBy || "")).length ? ` (${done.filter(r => /^staff/i.test(r.checkedOutBy || "")).length} by staff)` : ""}${median !== null ? ` · typical stay ${median} min` : ""}</p>
       <div class="flow">
         <div class="fr"><div class="fl">Arrived</div>${stack("moodGroup")}</div>
         <div class="fr"><div class="fl">Left</div>${stack("outMoodGroup")}</div>
@@ -787,7 +832,7 @@
       <td>${pill(r.moodGroup, r.moodWord)}</td>
       <td>${r.station ? pill(r.station, r.station) : ""}</td>
       <td>${r.minutes === "" || r.minutes == null ? "" : esc(r.minutes)}</td>
-      <td>${pill(r.outMoodGroup, r.outMoodWord)}</td>
+      <td>${pill(r.outMoodGroup, r.outMoodWord)}${/^staff/i.test(r.checkedOutBy || "") ? ' <span class="tag">by staff</span>' : ""}</td>
       <td>${esc(r.basicNeeds)}</td>
     </tr>`).join("") : `<tr><td colspan="8" class="empty">No visits in this window${q ? " for that search" : ""}.</td></tr>`;
     $("#tbody").querySelectorAll("[data-name]").forEach(el => el.addEventListener("click", () => lookup(el.dataset.name)));
@@ -894,7 +939,7 @@
         (r.basicNeeds ? r.basicNeeds.split(",").map(x => chip("Needs " + x.trim().toLowerCase())).join("") : "");
     } else if (e.kind === "out") {
       sq = true; dotColor = MOOD[r.outMoodGroup] ? MOOD[r.outMoodGroup].v : "var(--ink-3)";
-      kind = "checked out";
+      kind = /^staff/i.test(r.checkedOutBy || "") ? "checked out by staff" : "checked out";
       const moved = r.moodGroup && r.outMoodGroup ? (unpleasant(r.moodGroup) && !unpleasant(r.outMoodGroup) ? "Felt better" : unpleasant(r.outMoodGroup) ? "Still " + r.outMoodGroup.toLowerCase() : "") : "";
       chips = moodChip(r.moodGroup, r.moodWord, "in") + moodChip(r.outMoodGroup, r.outMoodWord, "out") +
         (r.minutes !== "" && r.minutes != null ? chip(r.minutes + " min") : "") + chip(moved, moved.startsWith("Still") ? "" : "") +
@@ -942,6 +987,63 @@
     renderTimeline();
   }));
 
+  // ---------- Staff check-out ----------
+  const WORDS = {
+    Red: ["Stressed", "Frustrated", "Angry", "Anxious", "Worried", "Nervous", "Irritated", "Annoyed", "Tense", "Restless"],
+    Yellow: ["Happy", "Excited", "Energized", "Hyper", "Cheerful", "Focused", "Proud", "Hopeful", "Playful", "Motivated"],
+    Blue: ["Tired", "Sad", "Down", "Bored", "Lonely", "Disappointed", "Discouraged", "Drained", "Exhausted", "Glum"],
+    Green: ["Calm", "Relaxed", "Content", "Chill", "Peaceful", "At Ease", "Secure", "Balanced", "Mellow", "Thoughtful"]
+  };
+  const ENERGY_OF = { Red: "Moving Fast", Yellow: "Moving Fast", Blue: "Moving Slow", Green: "Moving Ok" };
+  let co = null;
+  function openCheckout(r) {
+    if (!r) return;
+    co = { r, group: "", word: "", helped: [] };
+    $("#coTitle").textContent = "Check out " + r.name;
+    $("#coSub").textContent = `Checked in ${time(r.timestamp)}${r.moodWord ? ` feeling ${r.moodWord.toLowerCase()} (${r.moodGroup.toLowerCase()})` : ""}${r.station ? " · " + r.station + (r.station === "Staff first" ? "" : " station") : ""}. Saved as a staff check-out.`;
+    $("#coErr").textContent = "";
+    $("#coSave").disabled = true; $("#coSave").textContent = "Check out";
+    $("#coQuads").innerHTML = MOODS.map(g => `<button type="button" data-g="${g}" aria-pressed="false" style="--q:${MOOD[g].v}">${g}<small>${MOOD[g].desc}</small></button>`).join("");
+    $("#coQuads").querySelectorAll("button").forEach(b => b.addEventListener("click", () => {
+      co.group = b.dataset.g; co.word = "";
+      $("#coQuads").querySelectorAll("button").forEach(x => x.setAttribute("aria-pressed", String(x === b)));
+      $("#coWords").innerHTML = WORDS[co.group].map(w => `<button type="button" aria-pressed="false">${w}</button>`).join("");
+      $("#coWords").querySelectorAll("button").forEach(w => w.addEventListener("click", () => {
+        const on = w.getAttribute("aria-pressed") !== "true";
+        $("#coWords").querySelectorAll("button").forEach(x => x.setAttribute("aria-pressed", "false"));
+        w.setAttribute("aria-pressed", String(on)); co.word = on ? w.textContent : "";
+      }));
+      $("#coSave").disabled = false;
+    }));
+    const helpedList = (CFG.WHAT_HELPED || []).map(x => typeof x === "string" ? x : x.label);
+    $("#coHelped").innerHTML = helpedList.map(h => `<button type="button" aria-pressed="false">${esc(h)}</button>`).join("");
+    $("#coHelped").querySelectorAll("button").forEach(b => b.addEventListener("click", () => {
+      const on = b.getAttribute("aria-pressed") !== "true"; b.setAttribute("aria-pressed", String(on));
+      co.helped = [...$("#coHelped").querySelectorAll('button[aria-pressed="true"]')].map(x => x.textContent);
+    }));
+    $("#coDlg").showModal();
+  }
+  $("#coCancel").addEventListener("click", () => $("#coDlg").close());
+  $("#coSave").addEventListener("click", async () => {
+    if (!co || !co.group) return;
+    $("#coSave").disabled = true; $("#coSave").textContent = "Saving…";
+    const rec = { name: co.r.name, checkinTimestamp: co.r.timestamp, energy: ENERGY_OF[co.group], moodGroup: co.group, moodWord: co.word || co.group, helped: co.helped.join(", ") };
+    try {
+      if (TEST) {
+        const raw = JSON.parse(localStorage.getItem("ppc_local") || "[]");
+        raw.push(Object.assign({ type: "checkout", timestamp: new Date().toISOString(), checkedOutBy: "Staff (test mode)" }, rec));
+        localStorage.setItem("ppc_local", JSON.stringify(raw));
+        $("#coDlg").close(); loadLocal(); return;
+      }
+      const d = await post(Object.assign({ type: "staffCheckout" }, rec));
+      if (!d.ok) throw new Error(/Bad token/.test(d.error || "") ? "The script in the Sheet needs updating to save staff check-outs (paste the new Code.gs and deploy a new version)." : d.error);
+      $("#coDlg").close(); load();
+    } catch (err) {
+      $("#coErr").textContent = "Couldn't save: " + (err.message || err);
+      $("#coSave").disabled = false; $("#coSave").textContent = "Check out";
+    }
+  });
+
   // ---------- Tooltip ----------
   const tip = $("#tip");
   function bindTips(root) {
@@ -954,7 +1056,7 @@
   // ---------- CSV ----------
   $("#csv").addEventListener("click", () => {
     const rows = data.checkins.filter(r => inWindow(r.timestamp, win()));
-    const cols = ["timestamp", "name", "referral", "reason", "energy", "moodGroup", "moodWord", "happened", "need", "basicNeeds", "outcome", "kiosk", "stationSuggested", "station", "checkoutTime", "minutes", "outEnergy", "outMoodGroup", "outMoodWord", "helped"];
+    const cols = ["timestamp", "name", "referral", "reason", "energy", "moodGroup", "moodWord", "happened", "need", "basicNeeds", "outcome", "kiosk", "stationSuggested", "station", "checkoutTime", "minutes", "outEnergy", "outMoodGroup", "outMoodWord", "helped", "checkedOutBy"];
     const q = v => `"${String(v ?? "").replace(/"/g, '""')}"`;
     const csv = [cols.join(",")].concat(rows.map(r => cols.map(c => q(r[c])).join(","))).join("\n");
     const a = document.createElement("a");
