@@ -31,7 +31,10 @@ window.PPC_CONFIG = {
   // To ALSO show the old district Google Form button on the end screen, put its URL back:
   // "https://docs.google.com/forms/d/e/1FAIpQLSdje0uEmj6XIAjNtu8oVpvtO9ix5l7jL_QO7txhiTFJTzJg0g/viewform?usp=header"
   FORM_INCIDENT_URL: "",
-  FORM_SIGNIN_URL:   "https://docs.google.com/forms/d/e/1FAIpQLSff7BwiBHnNVS7DDczWokE5al_T83F7ubH3DCsG_YAsfJCKXg/viewform?usp=header",
+  // The app records check-ins itself, so the old sign-in form (which asked students to
+  // log in and sign in a second time) is off. To bring its button back, put this URL back:
+  // "https://docs.google.com/forms/d/e/1FAIpQLSff7BwiBHnNVS7DDczWokE5al_T83F7ubH3DCsG_YAsfJCKXg/viewform?usp=header"
+  FORM_SIGNIN_URL:   "",
 
   // Basic needs a student can request after tapping "I have a basic need".
   // Add, remove, or reorder freely. Students can pick more than one.

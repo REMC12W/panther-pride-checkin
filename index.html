@@ -440,7 +440,7 @@
     <div class="dest" id="doneDest" hidden></div>
     <h1 id="doneTitle">Thanks for answering those questions!</h1>
     <p>That's a good start. Let's find a way to get you feeling ok again.</p>
-    <p>The next step is to make sure we get you ALL the way signed in.</p>
+    <p id="doneNext">The next step is to make sure we get you ALL the way signed in.</p>
     <p id="doneMsg"></p>
     <div class="badge" id="doneBadge"></div>
     <a class="big-btn form-link" id="formLink" target="_blank" rel="noopener"></a>
@@ -458,7 +458,7 @@
 <script src="config.js"></script>
 <script>
 (function () {
-  const APP_VERSION = "2026.09.30g";
+  const APP_VERSION = "2026.09.30h";
   const CFG = Object.assign({
     SCRIPT_URL: "", KIOSK_TOKEN: "", KIOSK_NAME: "Kiosk",
     RESET_SECONDS: 8, IDLE_SECONDS: 120,
@@ -898,6 +898,7 @@
     const link = $("#formLink");
     const formUrl = CFG[o.form] || "";
     link.classList.toggle("show", !!formUrl);
+    $("#doneNext").hidden = !formUrl;
     if (formUrl) {
       link.href = formUrl;
       link.style.background = o.color;
