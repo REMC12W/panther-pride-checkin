@@ -475,7 +475,8 @@ function rosterSheet_() {
 /** Formats the roster for staff: header, frozen row, text IDs, grade dropdown, instructions. Safe to re-run. */
 function formatRoster_() {
   const sheet = rosterSheet_();
-  if (sheet.getName() !== ROSTER_NAME) sheet.setName(ROSTER_NAME);
+  // Rename to "Roster" unless another tab already has that name (Sheets requires unique names).
+  if (sheet.getName() !== ROSTER_NAME && !sheet.getParent().getSheetByName(ROSTER_NAME)) sheet.setName(ROSTER_NAME);
   if (!sheet.getRange('A1').getValue()) sheet.getRange(1, 1, 1, 4).setValues([['Student ID', 'First Name', 'Last Name', 'Grade']]);
   sheet.getRange(1, 1, 1, 4).setFontWeight('bold').setBackground('#d61f26').setFontColor('#ffffff');
   sheet.setFrozenRows(1);
