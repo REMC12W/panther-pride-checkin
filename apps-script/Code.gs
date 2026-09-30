@@ -24,9 +24,11 @@ const ALLOWED_DOMAIN = 'kresa.org';
 //   const ADMIN_EMAILS = ['ben.tomlinson@kresa.org', 'someone@kresa.org'];
 const ADMIN_EMAILS = [];
 
-// Who may sign in the kiosk iPad (which turns on badge / student ID lookup).
-// Empty = any ALLOWED_DOMAIN account. Add emails to restrict it, e.g. a shared
-// Pride Center account:  const KIOSK_ACCOUNTS = ['pridecenter@kresa.org'];
+// Who may sign in the kiosk iPad to start student check-in (turns on badge / ID lookup).
+// ONLY Google accounts on this domain are accepted. Checked on every lookup, not just at sign-in.
+const KIOSK_DOMAIN = 'parchmentschools.org';
+// Optional: narrow it further to specific people on that domain, e.g.
+//   const KIOSK_ACCOUNTS = ['pridecenter@parchmentschools.org'];
 const KIOSK_ACCOUNTS = [];
 
 // How long an iPad stays signed in before a staff member must sign it in again.
@@ -317,9 +319,7 @@ function verifyIdToken_(idToken, forKiosk) {
   if (String(info.email_verified) !== 'true') throw new Error('This Google account is not verified.');
   const email = String(info.email || '').toLowerCase();
   if (forKiosk) {
-    const inDomain = !ALLOWED_DOMAIN || String(info.hd || '').toLowerCase() === ALLOWED_DOMAIN || email.endsWith('@' + ALLOWED_DOMAIN);
-    const listed = !KIOSK_ACCOUNTS.length || KIOSK_ACCOUNTS.map(x => String(x).toLowerCase()).indexOf(email) !== -1;
-    if (!inDomain || !listed) throw new Error(email + ' is not allowed to sign in the kiosk iPad.');
+    if (!kioskAllowed_(email, info.hd)) throw new Error(email + ' can\'t sign in this iPad. Use a @' + KIOSK_DOMAIN + ' staff account.');
     return email;
   }
   if (!isAdmin_(email, info.hd)) throw new Error(email + ' is not authorized. Use a ' + ALLOWED_DOMAIN + ' account, or ask to be added to ADMIN_EMAILS.');
@@ -405,6 +405,15 @@ function kioskSignIn_(data) {
   return { ok: true, session: session, email: email, expires: new Date(exp).toISOString() };
 }
 
+/** Only KIOSK_DOMAIN Workspace accounts (and KIOSK_ACCOUNTS, if listed) may run the kiosk. */
+function kioskAllowed_(email, hd) {
+  email = String(email || '').toLowerCase();
+  const domain = String(KIOSK_DOMAIN || '').toLowerCase();
+  if (!domain || !email.endsWith('@' + domain)) return false;
+  if (hd !== undefined && String(hd || '').toLowerCase() !== domain) return false; // must be a Workspace account on that domain
+  return !KIOSK_ACCOUNTS.length || KIOSK_ACCOUNTS.map(x => String(x).toLowerCase()).indexOf(email) !== -1;
+}
+
 function kioskSession_(session) {
   if (!session) throw new Error('iPad not signed in.');
   const props = PropertiesService.getScriptProperties();
@@ -412,6 +421,7 @@ function kioskSession_(session) {
   if (!raw) throw new Error('iPad not signed in.');
   const s = JSON.parse(raw);
   if (s.exp < Date.now()) { props.deleteProperty('kiosk_' + sha_(String(session))); throw new Error('iPad sign-in expired.'); }
+  if (!kioskAllowed_(s.email)) { props.deleteProperty('kiosk_' + sha_(String(session))); throw new Error('iPad not signed in.'); }
   return s;
 }
 

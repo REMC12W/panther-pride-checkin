@@ -14,6 +14,9 @@ window.PPC_CONFIG = {
   GOOGLE_CLIENT_ID: "680243392561-vod2q88igf1v8mr84uc7b4h075lv6g5p.apps.googleusercontent.com",
   // Only Google accounts on this domain can open the dashboard. Also set in Code.gs.
   ALLOWED_DOMAIN: "kresa.org",
+  // Only staff Google accounts on this domain can sign in the kiosk iPad to start check-in.
+  // Must match KIOSK_DOMAIN in Code.gs.
+  KIOSK_DOMAIN: "parchmentschools.org",
 
   // A label for this device so staff can tell kiosks apart in the Sheet.
   KIOSK_NAME: "Pride Center iPad",
