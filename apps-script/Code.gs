@@ -35,7 +35,7 @@ const KIOSK_SESSION_DAYS = 30;
 const ROSTER_NAME = 'Roster';
 // The roster is a tab in this spreadsheet: the tab with this gid (from the URL, #gid=...).
 // setup() renames it "Roster" and formats it. If that tab is missing, a "Roster" tab is used or created.
-const ROSTER_SHEET_GID = 70415989;
+const ROSTER_SHEET_GID = 1679508098;
 // Optional: keep the roster in a separate spreadsheet instead (so roster editors can't see
 // check-in data). Put that spreadsheet's ID here; leave empty to use the tab above.
 const ROSTER_SPREADSHEET_ID = '';
