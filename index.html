@@ -458,7 +458,7 @@
 <script src="config.js"></script>
 <script>
 (function () {
-  const APP_VERSION = "2026.09.30f";
+  const APP_VERSION = "2026.09.30g";
   const CFG = Object.assign({
     SCRIPT_URL: "", KIOSK_TOKEN: "", KIOSK_NAME: "Kiosk",
     RESET_SECONDS: 8, IDLE_SECONDS: 120,
@@ -961,15 +961,18 @@
     const recent = answers.openVisit || readJSON(LOCAL_KEY).filter(r => (!r.type || r.type === "checkin") && String(r.name || "").trim().toLowerCase() === nameKey
       && Date.now() - new Date(r.timestamp).getTime() < 4 * 3600000).pop();
     const inGroup = recent && recent.moodGroup, outGroup = answers.moodGroup;
-    let msg = `<span class="name">${escapeHtml(answers.name)}</span>, thanks for checking out. Head back to class.`;
-    if (inGroup && outGroup) {
-      const hard = g => g === "Red" || g === "Blue";
-      msg += ` You came in <b>${escapeHtml(inGroup)}</b>.` + (hard(inGroup) && !hard(outGroup) ? " Nice work getting there." : hard(outGroup) ? " Let a staff member know before you go." : "");
-    }
+    // Describe what the student said, not a verdict: the color is background, the words are theirs.
+    const hard = g => g === "Red" || g === "Blue";
+    let msg = `Thanks for checking out, <span class="name">${escapeHtml(firstOf() || answers.name)}</span>. Head back to class when you're ready.`;
+    if (inGroup && outGroup && hard(inGroup) && !hard(outGroup)) msg += " We're glad the break helped.";
+    else if (outGroup && hard(outGroup)) msg += " If you'd like to talk to someone first, just let a staff member know.";
     $("#coMsg").innerHTML = msg;
     const dest = $("#coDest");
     dest.style.background = STATION_COLORS[outGroup] || "#e6e6e6";
-    dest.innerHTML = `<div class="k">You're leaving</div><div class="v">${escapeHtml(outGroup || "Checked out")}</div>${answers.moodWord ? `<div class="w">Feeling ${escapeHtml(answers.moodWord.toLowerCase())}</div>` : ""}`;
+    const word = answers.moodWord ? answers.moodWord.toLowerCase() : "";
+    dest.innerHTML = word
+      ? `<div class="k">Right now you're feeling</div><div class="v">${escapeHtml(word)}</div>`
+      : `<div class="k">Thanks for sharing how you feel</div><div class="v">${escapeHtml(outGroup || "Checked out")}</div>`;
     dest.hidden = false;
     show("checkoutDone");
 
