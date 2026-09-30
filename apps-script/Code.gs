@@ -55,6 +55,7 @@ function doPost(e) {
     if (data.type === 'checkout') return json_(checkout_(data));
     if (data.type === 'feedback') return json_(feedback_(data));
     if (data.type === 'incident') return json_(incident_(data));
+    if (data.type && data.type !== 'checkin') return json_({ ok: false, error: 'Unknown request type: ' + data.type });
     const sheet = getSheet_();
     const ts = data.timestamp ? new Date(data.timestamp) : new Date();
     const tz = Session.getScriptTimeZone();
