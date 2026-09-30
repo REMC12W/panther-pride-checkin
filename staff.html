@@ -246,6 +246,21 @@
   .idc .bad { font-size: 0.78rem; font-weight: 600; color: var(--st-critical); }
   .idc .q { font-size: 0.78rem; color: var(--ink-3); }
 
+  /* Help */
+  .help-btn { font-size: 0.92rem; padding: 8px 13px; border-radius: 10px; border: 1px solid var(--line); background: var(--panel); cursor: pointer; font-weight: 600; }
+  .help-btn:hover { border-color: var(--ink-3); }
+  dialog.help-dlg { border: 1px solid var(--line); border-radius: 18px; padding: 0; width: min(980px, 95vw); background: var(--panel); color: var(--ink); box-shadow: 0 20px 50px rgba(0,0,0,0.3); }
+  dialog.help-dlg::backdrop { background: rgba(0,0,0,0.45); }
+  .help-in { padding: 16px 18px 18px; }
+  .help-top { display: flex; align-items: center; gap: 10px; margin-bottom: 10px; }
+  .help-top h2 { margin: 0; flex: 1; }
+  .help-top button { border: 1px solid var(--line); background: var(--panel); border-radius: 10px; padding: 6px 11px; cursor: pointer; font-size: 1rem; }
+  .help-in video { width: 100%; border-radius: 12px; background: #000; display: block; aspect-ratio: 16 / 10; }
+  .tips { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin-top: 14px; }
+  @media (max-width: 700px) { .tips { grid-template-columns: 1fr; } }
+  .tip-card { border: 1px solid var(--line); border-radius: 12px; padding: 10px 12px; font-size: 0.88rem; color: var(--ink-2); line-height: 1.4; }
+  .tip-card b { display: block; color: var(--ink); font-size: 0.92rem; margin-bottom: 2px; }
+
   /* Tooltip */
   .tip { position: fixed; pointer-events: none; background: var(--ink); color: var(--panel); font-size: 0.82rem; padding: 6px 9px; border-radius: 8px; z-index: 20; opacity: 0; transition: opacity .08s; max-width: 260px; }
   .tip.on { opacity: 1; }
@@ -270,6 +285,7 @@
     <div class="who" id="who"></div>
   </div>
   <div class="spacer"></div>
+  <button class="help-btn" id="helpBtn" type="button" aria-haspopup="dialog">? Help</button>
   <div id="controls" class="hidden" style="display:contents">
     <button class="ctl today" id="todayBtn" type="button" aria-controls="drawer" aria-expanded="false">🕒 Today <b id="todayCount">0</b></button>
     <select class="ctl" id="win" aria-label="Time window for charts and the visit log">
@@ -453,6 +469,21 @@
     <div class="pick" id="coHelped"></div>
     <div class="co-err" id="coErr"></div>
     <div class="co-foot"><button type="button" id="coCancel">Cancel</button><button type="button" id="coSkip" title="Records the time they left, with no mood or rating">Check out, skip the read</button><button type="button" class="primary" id="coSave" disabled>Check out</button></div>
+  </div>
+</dialog>
+
+<dialog class="help-dlg" id="helpDlg" aria-labelledby="helpTitle">
+  <div class="help-in">
+    <div class="help-top"><h2 id="helpTitle">How the Pride Center app works</h2><button type="button" id="helpClose" aria-label="Close">✕</button></div>
+    <video id="helpVideo" controls playsinline preload="none" poster="assets/overview-poster.jpg">
+      <source src="assets/overview.mp4" type="video/mp4">
+      Your browser can't play this video. <a href="assets/overview.mp4">Download it</a> instead.
+    </video>
+    <div class="tips">
+      <div class="tip-card"><b>Needs attention</b>Safety items come first. Tap <i>Mark reviewed</i> after following up on an incident report.</div>
+      <div class="tip-card"><b>In the room now</b>Confirm who a student is, or check them out. "Skip the read" records just the time they left.</div>
+      <div class="tip-card"><b>Today</b>The Today button shows every visit in order. Tap a name to see that student's history.</div>
+    </div>
   </div>
 </dialog>
 
@@ -1098,6 +1129,12 @@
       btn.textContent = label; $("#coSkip").disabled = false; $("#coSave").disabled = !co.group;
     }
   }
+
+  // ---------- Help ----------
+  $("#helpBtn").addEventListener("click", () => $("#helpDlg").showModal());
+  $("#helpClose").addEventListener("click", () => $("#helpDlg").close());
+  $("#helpDlg").addEventListener("close", () => $("#helpVideo").pause());
+  $("#helpDlg").addEventListener("click", e => { if (e.target === $("#helpDlg")) $("#helpDlg").close(); });
 
   // ---------- Tooltip ----------
   const tip = $("#tip");

@@ -6,3 +6,4 @@ _kiosk_test.html
 _kiosk_mock.html
 _demo_card.html
 *.mp4
+!assets/overview.mp4

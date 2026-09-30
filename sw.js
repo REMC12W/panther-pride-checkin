@@ -8,7 +8,7 @@
  * - POSTs (check-ins to the Apps Script) are never touched; index.html queues
  *   them in localStorage when offline.
  */
-const VERSION = "ppc-shell-v1";
+const VERSION = "ppc-shell-v2";
 const SHELL = [
   "./",
   "index.html",
@@ -41,6 +41,8 @@ self.addEventListener("fetch", (event) => {
   const req = event.request;
   if (req.method !== "GET") return;
   const url = new URL(req.url);
+  // Videos stream in byte ranges; leave them to the browser, never cache them.
+  if (/\.(mp4|webm|mov)$/i.test(url.pathname) || req.headers.has("range")) return;
 
   if (url.origin === self.location.origin) {
     event.respondWith(networkFirst(req));
