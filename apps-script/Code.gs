@@ -8,7 +8,7 @@
  *   each carrying KIOSK_TOKEN.
  * - The admin dashboard (staff.html on GitHub Pages) POSTs a Google ID token
  *   from "Sign in with Google". It is verified here on every request, and only
- *   ALLOWED_DOMAIN accounts (or ADMIN_EMAILS) get data back.
+ *   ALLOWED_DOMAIN Workspace accounts, plus anyone in ADMIN_EMAILS, get data back.
  */
 
 // ---- Settings ---------------------------------------------------------------
@@ -17,12 +17,10 @@
 // GOOGLE_CLIENT_ID in config.js (README step 5).
 const GOOGLE_CLIENT_ID = '680243392561-vod2q88igf1v8mr84uc7b4h075lv6g5p.apps.googleusercontent.com';
 
-// Only Google accounts on this domain may open the dashboard.
-const ALLOWED_DOMAIN = 'kresa.org';
-
-// Optional: restrict the dashboard to specific people instead of the whole domain.
-//   const ADMIN_EMAILS = ['ben.tomlinson@kresa.org', 'someone@kresa.org'];
-const ADMIN_EMAILS = [];
+// Who may open the staff dashboard: any Google Workspace account on this domain...
+const ALLOWED_DOMAIN = 'parchmentschools.org';
+// ...plus these specific people from any domain.
+const ADMIN_EMAILS = ['ben.tomlinson@kresa.org'];
 
 // Who may sign in the kiosk iPad to start student check-in (turns on badge / ID lookup).
 // ONLY Google accounts on this domain are accepted. Checked on every lookup, not just at sign-in.
@@ -322,15 +320,17 @@ function verifyIdToken_(idToken, forKiosk) {
     if (!kioskAllowed_(email, info.hd)) throw new Error(email + ' can\'t sign in this iPad. Use a @' + KIOSK_DOMAIN + ' staff account.');
     return email;
   }
-  if (!isAdmin_(email, info.hd)) throw new Error(email + ' is not authorized. Use a ' + ALLOWED_DOMAIN + ' account, or ask to be added to ADMIN_EMAILS.');
+  if (!isAdmin_(email, info.hd)) throw new Error(email + ' can\'t open the dashboard. Use a @' + ALLOWED_DOMAIN + ' staff account.');
   return email;
 }
 
 function isAdmin_(email, hd) {
+  email = String(email || '').toLowerCase();
   if (!email) return false;
-  if (ADMIN_EMAILS.length) return ADMIN_EMAILS.map(x => String(x).toLowerCase()).indexOf(email) !== -1;
-  if (!ALLOWED_DOMAIN) return true;
-  return String(hd || '').toLowerCase() === ALLOWED_DOMAIN || email.endsWith('@' + ALLOWED_DOMAIN);
+  if (ADMIN_EMAILS.map(x => String(x).toLowerCase()).indexOf(email) !== -1) return true;
+  const domain = String(ALLOWED_DOMAIN || '').toLowerCase();
+  // Domain accounts must be real Workspace accounts on that domain (hd claim), not just a matching address.
+  return !!domain && email.endsWith('@' + domain) && String(hd || '').toLowerCase() === domain;
 }
 
 /** Recent check-ins, oldest first, with check-out columns. */

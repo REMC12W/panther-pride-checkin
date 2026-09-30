@@ -12,8 +12,9 @@ window.PPC_CONFIG = {
   // Admin dashboard sign-in (staff.html). A Google OAuth "Web application" Client ID
   // from Google Cloud Console (README step 5). Must also be set in Code.gs.
   GOOGLE_CLIENT_ID: "680243392561-vod2q88igf1v8mr84uc7b4h075lv6g5p.apps.googleusercontent.com",
-  // Only Google accounts on this domain can open the dashboard. Also set in Code.gs.
-  ALLOWED_DOMAIN: "kresa.org",
+  // Staff dashboard: @parchmentschools.org accounts, plus the people listed in ADMIN_EMAILS
+  // in Code.gs. The script enforces it; this only labels the sign-in page.
+  ALLOWED_DOMAIN: "parchmentschools.org",
   // Only staff Google accounts on this domain can sign in the kiosk iPad to start check-in.
   // Must match KIOSK_DOMAIN in Code.gs.
   KIOSK_DOMAIN: "parchmentschools.org",

@@ -110,7 +110,7 @@ GitHub Pages updates in about a minute. The yellow "test mode" banner disappears
 
 ## Admin dashboard
 
-Open `staff.html` and sign in with a district Google account. It is built around what staff act on, top to bottom:
+Open `staff.html` and sign in with a @parchmentschools.org staff account (or an account listed in `ADMIN_EMAILS`). It is built around what staff act on, top to bottom:
 
 1. **Needs attention.** Safety first: incident reports where the student said they were not safe, students who picked a staff-first word today, then unreviewed incident reports, students who checked out still red or blue, and up to three patterns from the last 7 days (3+ drop-in visits, or 2+ red/blue arrivals; scheduled breaks don't count). Incident reports clear with **Mark reviewed**, which writes your email, the date, and an optional note into the Sheet. Other items clear with **Done** on that computer.
 2. **In the room now.** Checked in within 3 hours and not checked out, with station, feeling word, basic needs, and minutes in the room. **Check out** lets staff check a student out with their own read of how the student seems (color, optional word, what helped). These are saved with "Staff: <email>" in the Checked Out By column; kiosk check-outs say "Student". Staff who aren't comfortable assigning a mood can choose **Check out, skip the read**, which records only the time the student left; those visits count toward time in the room but are left out of the mood-change numbers and never raise a "left still red or blue" alert. Check-out stays optional either way.

@@ -289,7 +289,7 @@
     <div class="card">
       <img src="assets/panther.png" alt="">
       <h2>Pride Center staff</h2>
-      <p id="gateText">Sign in with your kresa.org Google account to see check-ins, incident reports, and feedback.</p>
+      <p id="gateText">Sign in with your @parchmentschools.org staff Google account to see check-ins, incident reports, and feedback.</p>
       <div class="gsi" id="gsiBtn"></div>
       <p class="small" id="gateMsg"></p>
     </div>
@@ -462,7 +462,7 @@
 <script src="config.js"></script>
 <script>
 (function () {
-  const CFG = Object.assign({ SCRIPT_URL: "", GOOGLE_CLIENT_ID: "", ALLOWED_DOMAIN: "kresa.org", DASHBOARD_DAYS: 14 }, window.PPC_CONFIG || {});
+  const CFG = Object.assign({ SCRIPT_URL: "", GOOGLE_CLIENT_ID: "", ALLOWED_DOMAIN: "parchmentschools.org", DASHBOARD_DAYS: 14 }, window.PPC_CONFIG || {});
   document.getElementById("feedbackLink").classList.toggle("show", !!CFG.FEEDBACK_ENABLED);
   const $ = s => document.querySelector(s);
   const TEST = !CFG.SCRIPT_URL;
@@ -498,7 +498,7 @@
     s.onload = () => {
       google.accounts.id.initialize({
         client_id: CFG.GOOGLE_CLIENT_ID,
-        hd: CFG.ALLOWED_DOMAIN || undefined,
+        // No domain hint: approved people outside the domain (ADMIN_EMAILS) must be able to pick their account.
         callback: onCredential,
         auto_select: false,
         ux_mode: "popup"
