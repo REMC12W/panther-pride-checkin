@@ -25,8 +25,8 @@ Matches the hyperlinks in the current PowerPoint deck.
 1. Start → student types name or ID
 2. Why are you here today? **Self Referred** (I have a need) or **Staff Referred** (a teacher sent me)
 3. What do you need today? **Drop In: I need a reset**, **Scheduled Break**, or **I have a need… (medical, food, clothing)**
-4. **I have a need** skips the feelings questions and goes to: Incident Report or Basic Need. Basic Need opens "What do you need?" where the student taps one or more items from `BASIC_NEEDS` in `config.js`.
-5. Everyone else: How is your body + brain feeling? (Fast / Slow / Ok)
+4. **I have a need** goes to: Incident Report or Basic Need. Incident Report goes straight to the end screen. Basic Need opens "What do you need?" where the student taps one or more items from `BASIC_NEEDS` in `config.js`, then continues to the feelings questions below.
+5. How is your body + brain feeling? (Fast / Slow / Ok)
 6. Which group of words describes how you feel? Fast shows the red and yellow grids, Slow shows blue, Ok shows green. Student taps one word.
 7. What happened? (Home / Teacher / Friend / Myself)
 8. End screen with the deck's CLICK HERE button: Incident Report opens the incident form, Check In and Basic Need open the sign-in form. Both need a KRESA Google login, exactly as before. Clear `FORM_INCIDENT_URL` or `FORM_SIGNIN_URL` in `config.js` to hide a button. The app resets for the next student after 30 seconds.

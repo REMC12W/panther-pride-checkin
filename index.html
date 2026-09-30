@@ -438,9 +438,9 @@
       case "reason":   return answers.reason === "Drop In: I have a need" ? show("need") : show("energy");
       case "energy":   buildGrids(answers.energy); return show("mood");
       case "mood":     return show("happened");
-      case "happened": return finish("Check In");
+      case "happened": return finish(answers.need === "Basic Need" ? "Basic Need" : "Check In");
       case "need":     if (answers.need === "Basic Need") { buildNeeds(); return show("basic"); } return finish(answers.need);
-      case "basic":    return finish("Basic Need");
+      case "basic":    return show("energy");
     }
   }
 
