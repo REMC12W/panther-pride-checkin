@@ -33,10 +33,11 @@ window.PPC_CONFIG = {
 
   // Basic needs a student can request after tapping "I have a basic need".
   // Add, remove, or reorder freely. Students can pick more than one.
+  // Avoid commas in labels: picks are stored comma-separated in the Sheet.
   BASIC_NEEDS: [
     { icon: "🍎", label: "Food or a snack" },
     { icon: "💧", label: "Water or a drink" },
-    { icon: "🧥", label: "Clothing, coat, or shoes" },
+    { icon: "🧥", label: "Clothing or shoes" },
     { icon: "🧼", label: "Hygiene items" },
     { icon: "🩷", label: "Period products" },
     { icon: "✏️", label: "School supplies" },
