@@ -63,7 +63,11 @@
   .panel { background: var(--panel); border: 1px solid var(--line); border-radius: 16px; padding: 16px 18px; }
   .row2 { display: grid; grid-template-columns: 1.6fr 1fr; gap: 14px; }
   .row3 { display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px; }
+  .row4 { display: grid; grid-template-columns: repeat(4, 1fr); gap: 14px; }
+  @media (max-width: 1100px) { .row4 { grid-template-columns: repeat(2, 1fr); } }
   @media (max-width: 900px) { .row2, .row3 { grid-template-columns: 1fr; } }
+  @media (max-width: 600px) { .row4 { grid-template-columns: 1fr; } }
+  .bar .bl i { display: inline-block; width: 9px; height: 9px; border-radius: 50%; margin-right: 6px; vertical-align: 0; }
   .empty { color: var(--ink-3); font-size: 0.92rem; padding: 6px 0; }
 
   /* Needs attention */
@@ -170,6 +174,42 @@
   details > summary::before { content: "▸ "; color: var(--ink-3); }
   details[open] > summary::before { content: "▾ "; }
 
+  /* Today timeline drawer */
+  .scrim { position: fixed; inset: 0; background: rgba(0,0,0,0.28); opacity: 0; pointer-events: none; transition: opacity .18s; z-index: 30; }
+  .scrim.on { opacity: 1; pointer-events: auto; }
+  .drawer { position: fixed; top: 0; right: 0; bottom: 0; width: min(440px, 100vw); background: var(--bg); border-left: 1px solid var(--line); box-shadow: -12px 0 30px rgba(0,0,0,0.12); transform: translateX(100%); transition: transform .22s ease; z-index: 31; display: flex; flex-direction: column; }
+  .drawer.on { transform: none; }
+  .dr-head { padding: 16px 18px 10px; background: var(--panel); border-bottom: 1px solid var(--line); }
+  .dr-top { display: flex; align-items: center; gap: 10px; }
+  .dr-top h2 { margin: 0; flex: 1; font-size: 1.25rem; }
+  .dr-top button { border: 1px solid var(--line); background: var(--panel); border-radius: 10px; padding: 6px 11px; cursor: pointer; font-size: 1rem; }
+  .dr-sum { color: var(--ink-2); font-size: 0.88rem; margin: 4px 0 10px; }
+  .filters { display: flex; gap: 6px; flex-wrap: wrap; }
+  .filters button { border: 1px solid var(--line); background: var(--panel); border-radius: 999px; padding: 5px 12px; font-size: 0.84rem; cursor: pointer; color: var(--ink-2); }
+  .filters button[aria-pressed="true"] { background: var(--ink); color: var(--panel); border-color: var(--ink); }
+  .dr-body { overflow-y: auto; padding: 8px 18px 28px; flex: 1; }
+  .hour { color: var(--ink-3); font-size: 0.78rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em; margin: 16px 0 6px 58px; }
+  .ev { display: grid; grid-template-columns: 50px 16px 1fr; gap: 0 8px; position: relative; }
+  .ev .tm { text-align: right; font-size: 0.82rem; color: var(--ink-2); font-variant-numeric: tabular-nums; padding-top: 10px; }
+  .ev .rail { position: relative; }
+  .ev .rail::before { content: ""; position: absolute; left: 7px; top: 0; bottom: 0; width: 2px; background: var(--line); }
+  .ev .rail i { position: absolute; left: 1px; top: 11px; width: 14px; height: 14px; border-radius: 50%; border: 2px solid var(--bg); box-sizing: content-box; margin-left: -2px; }
+  .ev .rail i.sq { border-radius: 4px; }
+  .ev .card { background: var(--panel); border: 1px solid var(--line); border-radius: 12px; padding: 8px 11px; margin: 4px 0; }
+  .ev.crit .card { border-color: color-mix(in srgb, var(--st-critical) 45%, var(--line)); background: color-mix(in srgb, var(--st-critical) 7%, var(--panel)); }
+  .ev .who2 { font-weight: 600; cursor: pointer; }
+  .ev .kind { color: var(--ink-3); font-size: 0.8rem; margin-left: 6px; font-weight: 500; }
+  .chips { display: flex; flex-wrap: wrap; gap: 5px; margin-top: 6px; }
+  .chip { display: inline-flex; align-items: center; gap: 5px; font-size: 0.78rem; padding: 2px 9px; border-radius: 999px; border: 1px solid var(--line); color: var(--ink-2); background: var(--panel); white-space: nowrap; }
+  .chip i { width: 8px; height: 8px; border-radius: 50%; display: inline-block; }
+  .chip.crit { background: var(--st-critical); border-color: var(--st-critical); color: #fff; }
+  .chip.mood { color: var(--ink); border-color: color-mix(in srgb, var(--q) 50%, var(--line)); background: color-mix(in srgb, var(--q) var(--tint), var(--panel)); }
+  .now { display: grid; grid-template-columns: 50px 16px 1fr; gap: 0 8px; align-items: center; margin: 6px 0; }
+  .now span { text-align: right; font-size: 0.78rem; font-weight: 700; color: var(--brand); }
+  .now hr { grid-column: 2 / 4; border: 0; border-top: 2px dashed var(--brand); margin: 0; }
+  .ctl.today { font-weight: 600; }
+  .ctl.today b { display: inline-grid; place-items: center; min-width: 20px; height: 20px; padding: 0 5px; margin-left: 4px; border-radius: 999px; background: var(--brand); color: #fff; font-size: 0.74rem; }
+
   /* Tooltip */
   .tip { position: fixed; pointer-events: none; background: var(--ink); color: var(--panel); font-size: 0.82rem; padding: 6px 9px; border-radius: 8px; z-index: 20; opacity: 0; transition: opacity .08s; max-width: 260px; }
   .tip.on { opacity: 1; }
@@ -195,6 +235,7 @@
   </div>
   <div class="spacer"></div>
   <div id="controls" class="hidden" style="display:contents">
+    <button class="ctl today" id="todayBtn" type="button" aria-controls="drawer" aria-expanded="false">🕒 Today <b id="todayCount">0</b></button>
     <select class="ctl" id="win" aria-label="Time window for charts and the visit log">
       <option value="7">Last 7 days</option>
       <option value="14" selected>Last 14 days</option>
@@ -291,6 +332,30 @@
       </div>
     </section>
 
+    <!-- 5b. Visit details -->
+    <section class="row4">
+      <div class="panel">
+        <h2>Referral</h2>
+        <p class="sub">Came on their own or sent by staff.</p>
+        <div class="bars" id="referral"></div>
+      </div>
+      <div class="panel">
+        <h2>Reason</h2>
+        <p class="sub">"What do you need today?"</p>
+        <div class="bars" id="reason"></div>
+      </div>
+      <div class="panel">
+        <h2>Energy</h2>
+        <p class="sub">"How is your body + brain feeling?"</p>
+        <div class="bars" id="energy"></div>
+      </div>
+      <div class="panel">
+        <h2>Station</h2>
+        <p class="sub">Where they went, and how often it matched the suggestion.</p>
+        <div class="bars" id="station"></div>
+      </div>
+    </section>
+
     <!-- 6. Student lookup + log -->
     <section>
       <h2>Visit log</h2>
@@ -323,6 +388,22 @@
     </section>
   </div>
 </main>
+
+<div class="scrim" id="scrim"></div>
+<aside class="drawer" id="drawer" aria-label="Today's timeline" aria-hidden="true">
+  <div class="dr-head">
+    <div class="dr-top"><h2 id="drTitle">Today</h2><button type="button" id="drClose" aria-label="Close">✕</button></div>
+    <div class="dr-sum" id="drSum"></div>
+    <div class="filters" id="drFilters">
+      <button type="button" data-f="all" aria-pressed="true">All</button>
+      <button type="button" data-f="in" aria-pressed="false">Check-ins</button>
+      <button type="button" data-f="out" aria-pressed="false">Check-outs</button>
+      <button type="button" data-f="alert" aria-pressed="false">Needs a staff member</button>
+      <button type="button" data-f="needs" aria-pressed="false">Basic needs</button>
+    </div>
+  </div>
+  <div class="dr-body" id="drBody"></div>
+</aside>
 
 <div class="tip" id="tip"></div>
 
@@ -472,9 +553,17 @@
     bars("#happened", count(inWin, "happened", HAPPENED), "No answers yet.");
     bars("#needs", countSplit(inWin, "basicNeeds"), "No basic needs requested.");
     bars("#helped", countSplit(inWin, "helped"), "No check-outs yet.");
+    bars("#referral", count(inWin, "referral", ["Self Referred", "Staff Referred"]), "No check-ins yet.", null, true);
+    bars("#reason", count(inWin.map(r => Object.assign({}, r, { reasonLabel: r.outcome === "Incident Report" ? "Incident report" : r.need === "Basic Need" ? "Basic need" : REASON_SHORT[r.reason] || r.reason })), "reasonLabel", ["Reset", "Scheduled break", "Basic need", "Incident report"]), "No check-ins yet.", null, true);
+    bars("#energy", count(inWin, "energy", ["Moving Fast", "Moving Ok", "Moving Slow"]), "No check-ins yet.", null, true);
+    const st = inWin.filter(r => r.station);
+    bars("#station", count(st, "station", ["Red", "Yellow", "Blue", "Green", "Staff first"]), "No station picks yet.", g => MOOD[g] ? MOOD[g].v : null, true);
+    const picked = st.filter(r => r.stationSuggested && r.stationSuggested !== "Staff first");
+    if (picked.length) $("#station").insertAdjacentHTML("beforeend", `<div class="empty">${Math.round(100 * picked.filter(r => r.station === r.stationSuggested).length / picked.length)}% went to the suggested station.</div>`);
     renderLog(inWin);
     renderIncidents(data.incidents || []);
     renderFeedback(data.feedback || []);
+    renderTimeline();
   }
 
   // 1. Needs attention: safety first, then follow-ups, then patterns.
@@ -677,12 +766,12 @@
     rows.forEach(r => String(r[key] || "").split(",").map(s => s.trim()).filter(Boolean).forEach(k => { m[k] = (m[k] || 0) + 1; }));
     return Object.keys(m).sort((a, b) => m[b] - m[a]).map(k => [k, m[k]]);
   }
-  function bars(sel, pairs, emptyMsg) {
-    pairs = pairs.slice().sort((a, b) => b[1] - a[1]).slice(0, 6);
+  function bars(sel, pairs, emptyMsg, colorFn, keepOrder) {
+    pairs = keepOrder ? pairs.slice(0, 6) : pairs.slice().sort((a, b) => b[1] - a[1]).slice(0, 6);
     const max = Math.max(1, ...pairs.map(p => p[1]));
     $(sel).innerHTML = pairs.length ? pairs.map(([k, n]) => `
-      <div class="bar" data-tip="${esc(k)}: ${n}"><div class="bl">${esc(k)}</div><div class="bv">${n}</div>
-        <div class="bt"><div class="bf" style="width:${(n / max * 100).toFixed(1)}%"></div></div></div>`).join("")
+      <div class="bar" data-tip="${esc(k)}: ${n}"><div class="bl">${colorFn && colorFn(k) ? `<i style="background:${colorFn(k)}"></i>` : ""}${esc(k)}</div><div class="bv">${n}</div>
+        <div class="bt"><div class="bf" style="width:${(n / max * 100).toFixed(1)}%${colorFn && colorFn(k) ? ";background:" + colorFn(k) : ""}"></div></div></div>`).join("")
       : `<div class="empty">${emptyMsg}</div>`;
     bindTips($(sel));
   }
@@ -773,6 +862,85 @@
         ${r.contact ? `<div class="meta">Contact: ${esc(r.contact)}</div>` : ""}
       </div>`).join("") : `<div class="empty">No feedback yet.</div>`;
   }
+
+  // ---------- Today timeline ----------
+  let tlFilter = "all";
+  function todayEvents() {
+    const t = todayKey(), ev = [];
+    const incTimes = new Set((data.incidents || []).map(r => r.timestamp));
+    data.checkins.filter(r => dayKey(r.timestamp) === t && !(r.outcome === "Incident Report" && incTimes.has(r.timestamp))).forEach(r => {
+      const staff = r.station === "Staff first";
+      ev.push({ at: r.timestamp, kind: "in", r, alert: staff, needs: !!r.basicNeeds });
+      if (r.checkoutTime && dayKey(r.checkoutTime) === t) ev.push({ at: r.checkoutTime, kind: "out", r, alert: false, needs: false });
+    });
+    (data.incidents || []).filter(r => dayKey(r.timestamp) === t).forEach(r => ev.push({ at: r.timestamp, kind: "inc", r, alert: true, needs: false }));
+    return ev.sort((a, b) => new Date(a.at) - new Date(b.at));
+  }
+  const moodChip = (g, w, prefix) => g && MOOD[g] ? `<span class="chip mood" style="--q:${MOOD[g].v}"><i style="background:${MOOD[g].v}"></i>${prefix ? prefix + " " : ""}${esc(w || g)}</span>` : "";
+  const chip = (txt, cls) => txt ? `<span class="chip ${cls || ""}">${esc(txt)}</span>` : "";
+  function evHtml(e) {
+    const r = e.r;
+    let dotColor = "var(--ink-3)", sq = false, kind = "", chips = "", crit = false;
+    if (e.kind === "in") {
+      crit = r.station === "Staff first" && r.outcome !== "Incident Report";
+      dotColor = MOOD[r.moodGroup] ? MOOD[r.moodGroup].v : "var(--ink-3)";
+      kind = r.outcome === "Incident Report" ? "checked in to report" : "checked in";
+      chips = (crit ? chip("! Staff should go to them", "crit") : "") +
+        moodChip(r.moodGroup, r.moodWord) +
+        chip(r.outcome === "Incident Report" ? "Incident report" : r.need === "Basic Need" ? "Basic need" : REASON_SHORT[r.reason] || r.reason) +
+        (r.referral === "Staff Referred" ? chip("Sent by staff") : "") +
+        (r.happened ? chip(r.happened) : "") +
+        (r.station && r.station !== "Staff first" ? `<span class="chip"><i style="background:${MOOD[r.station].v}"></i>${esc(r.station)} station${r.stationSuggested && r.stationSuggested !== r.station && r.stationSuggested !== "Staff first" ? " (suggested " + esc(r.stationSuggested) + ")" : ""}</span>` : "") +
+        (r.basicNeeds ? r.basicNeeds.split(",").map(x => chip("Needs " + x.trim().toLowerCase())).join("") : "");
+    } else if (e.kind === "out") {
+      sq = true; dotColor = MOOD[r.outMoodGroup] ? MOOD[r.outMoodGroup].v : "var(--ink-3)";
+      kind = "checked out";
+      const moved = r.moodGroup && r.outMoodGroup ? (unpleasant(r.moodGroup) && !unpleasant(r.outMoodGroup) ? "Felt better" : unpleasant(r.outMoodGroup) ? "Still " + r.outMoodGroup.toLowerCase() : "") : "";
+      chips = moodChip(r.moodGroup, r.moodWord, "in") + moodChip(r.outMoodGroup, r.outMoodWord, "out") +
+        (r.minutes !== "" && r.minutes != null ? chip(r.minutes + " min") : "") + chip(moved, moved.startsWith("Still") ? "" : "") +
+        (r.helped ? r.helped.split(",").map(x => chip("Helped: " + x.trim().toLowerCase())).join("") : "");
+    } else {
+      crit = r.urgent === "Yes"; dotColor = "var(--st-critical)"; sq = true;
+      kind = "incident report";
+      chips = (crit ? chip("! Said not safe", "crit") : "") + (r.talk === "Yes" ? chip("Wants to talk") : "") +
+        (r.types ? r.types.split(",").map(x => chip(x.trim())).join("") : "") + chip(r.place) + chip(r.period) +
+        (r.reviewed ? chip("✓ Reviewed") : chip("Not reviewed yet"));
+    }
+    return `<div class="ev ${crit ? "crit" : ""}"><div class="tm">${time(e.at)}</div><div class="rail"><i class="${sq ? "sq" : ""}" style="background:${dotColor}"></i></div>
+      <div class="card"><span class="who2" data-name="${esc(r.name)}">${esc(r.name)}</span><span class="kind">${kind}</span><div class="chips">${chips}</div></div></div>`;
+  }
+  function renderTimeline() {
+    const ev = todayEvents();
+    const ins = ev.filter(e => e.kind === "in"), outs = ev.filter(e => e.kind === "out");
+    const here = ins.filter(e => !e.r.checkoutTime && Date.now() - new Date(e.at) < 3 * 3600000).length;
+    $("#todayCount").textContent = ins.length;
+    $("#drTitle").textContent = "Today · " + new Date().toLocaleDateString([], { weekday: "long", month: "short", day: "numeric" });
+    $("#drSum").textContent = `${ins.length} check-in${ins.length === 1 ? "" : "s"} · ${outs.length} check-out${outs.length === 1 ? "" : "s"} · ${here} in the room now`;
+    const shown = ev.filter(e => tlFilter === "all" || (tlFilter === "in" && e.kind === "in") || (tlFilter === "out" && e.kind === "out") || (tlFilter === "alert" && e.alert) || (tlFilter === "needs" && e.needs));
+    if (!shown.length) { $("#drBody").innerHTML = `<div class="empty" style="padding:24px 4px">${ev.length ? "Nothing matches this filter today." : "No activity yet today."}</div>`; return; }
+    let html = "", lastHour = null, nowPlaced = false;
+    const nowT = Date.now();
+    shown.forEach(e => {
+      const t = new Date(e.at), h = t.getHours();
+      if (!nowPlaced && t.getTime() > nowT) { html += `<div class="now"><span>Now</span><hr></div>`; nowPlaced = true; }
+      if (h !== lastHour) { html += `<div class="hour">${(h % 12 || 12)} ${h < 12 ? "AM" : "PM"}</div>`; lastHour = h; }
+      html += evHtml(e);
+    });
+    if (!nowPlaced) html += `<div class="now"><span>Now</span><hr></div>`;
+    $("#drBody").innerHTML = html;
+    $("#drBody").querySelectorAll("[data-name]").forEach(el => el.addEventListener("click", () => { closeDrawer(); lookup(el.dataset.name); }));
+  }
+  function openDrawer() { renderTimeline(); $("#drawer").classList.add("on"); $("#scrim").classList.add("on"); $("#drawer").setAttribute("aria-hidden", "false"); $("#todayBtn").setAttribute("aria-expanded", "true"); const b = $("#drBody"); b.scrollTop = b.scrollHeight; $("#drClose").focus(); }
+  function closeDrawer() { $("#drawer").classList.remove("on"); $("#scrim").classList.remove("on"); $("#drawer").setAttribute("aria-hidden", "true"); $("#todayBtn").setAttribute("aria-expanded", "false"); }
+  $("#todayBtn").addEventListener("click", () => $("#drawer").classList.contains("on") ? closeDrawer() : openDrawer());
+  $("#drClose").addEventListener("click", closeDrawer);
+  $("#scrim").addEventListener("click", closeDrawer);
+  addEventListener("keydown", e => { if (e.key === "Escape") closeDrawer(); });
+  $("#drFilters").querySelectorAll("button").forEach(b => b.addEventListener("click", () => {
+    tlFilter = b.dataset.f;
+    $("#drFilters").querySelectorAll("button").forEach(x => x.setAttribute("aria-pressed", String(x === b)));
+    renderTimeline();
+  }));
 
   // ---------- Tooltip ----------
   const tip = $("#tip");

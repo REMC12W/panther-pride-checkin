@@ -115,10 +115,13 @@ Open `staff.html` and sign in with a district Google account. It is built around
 5. **Did the visit help?** For students who checked out: how many who came in red or blue left yellow or green, typical stay, and arrived vs. left bars.
 6. **When.** Visits per school day, and check-ins by hour for staffing.
 7. **What's behind the visits, what to keep stocked, what helped.**
-8. **Visit log** with student search. Tap a name to see that student's visits and a row of mood dots, oldest to newest.
-9. **Incident reports** (unreviewed first) and **trial feedback** (collapsed).
+8. **Referral, reason, energy, and station.** Station bars use the station colors and show how often students went where the app suggested.
+9. **Visit log** with student search. Tap a name to see that student's visits and a row of mood dots, oldest to newest.
+10. **Incident reports** (unreviewed first) and **trial feedback** (collapsed).
 
-The window selector (7, 14, 30, 90 days) drives sections 4 through 8. Sections 1 through 3 are always about today and this week. Mood colors were checked for color-blind safety in light and dark mode, and every color is paired with a word.
+The **Today** button in the header (with today's check-in count) slides out a timeline of the day: every check-in, check-out, and incident report in order, grouped by hour, with chips for feeling word, reason, station, basic needs, minutes in the room, and what helped, plus a "Now" line. Filter it to check-ins, check-outs, items that need a staff member, or basic needs. Tap a name to jump to that student's history. Esc or a click outside closes it.
+
+The window selector (7, 14, 30, 90 days) drives sections 4 through 9. Sections 1 through 3 are always about today and this week. Mood colors were checked for color-blind safety in light and dark mode, and every color is paired with a word.
 
 ## Trial feedback portal
 
