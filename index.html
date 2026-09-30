@@ -143,6 +143,8 @@
   .fb-btn.show { display: inline-flex; }
   .fb-btn:hover { background: #000; }
   .banner.show ~ .fb-btn { bottom: 52px; }
+  /* Keep every screen's content clear of the floating feedback button. */
+  body.fb-on .screen { padding-bottom: 76px; }
   /* Start screen: check-out link */
   .text-btn { margin-top: 22px; background: none; border: 0; font: inherit; font-weight: 500; font-size: clamp(1rem, 2.2vw, 1.25rem); color: var(--muted); text-decoration: underline; cursor: pointer; padding: 10px 16px; }
 
@@ -399,7 +401,7 @@
 <script src="config.js"></script>
 <script>
 (function () {
-  const APP_VERSION = "2026.09.30b";
+  const APP_VERSION = "2026.09.30c";
   const CFG = Object.assign({
     SCRIPT_URL: "", KIOSK_TOKEN: "", KIOSK_NAME: "Kiosk",
     RESET_SECONDS: 8, IDLE_SECONDS: 120,
@@ -409,6 +411,7 @@
   }, window.PPC_CONFIG || {});
   document.getElementById("ver").textContent = "v" + APP_VERSION;
   document.getElementById("feedbackLink").classList.toggle("show", !!CFG.FEEDBACK_ENABLED);
+  document.body.classList.toggle("fb-on", !!CFG.FEEDBACK_ENABLED);
   // Record which screen feedback was started from.
   document.getElementById("feedbackLink").addEventListener("click", e => { e.currentTarget.href = "feedback.html?from=kiosk-" + current; });
 
