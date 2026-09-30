@@ -78,7 +78,7 @@ The dashboard at `staff.html` uses Google's own sign-in. You need one OAuth Clie
 1. Go to https://console.cloud.google.com/ with your kresa.org account. Create a project (any name, for example "Pride Center").
 2. **APIs & Services → OAuth consent screen**. User type **Internal** (only district accounts can sign in). Fill in the app name and your email, save.
 3. **APIs & Services → Credentials → Create credentials → OAuth client ID**. Application type **Web application**.
-4. Under **Authorized JavaScript origins** add `https://remc12w.github.io`. For local testing also add `http://localhost:8765`.
+4. Under **Authorized JavaScript origins** (the top box, not "Authorized redirect URIs") add `https://remc12w.github.io`. For local testing also add `http://localhost:8765`. Leave redirect URIs empty. If sign-in says "no registered origin," the address is in the wrong box.
 5. **Create**, then copy the Client ID (it ends in `.apps.googleusercontent.com`).
 6. Paste it into **both** places:
    - `config.js` → `GOOGLE_CLIENT_ID`
