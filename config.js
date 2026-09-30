@@ -92,17 +92,24 @@ window.PPC_CONFIG = {
     { icon: "⚠️", label: "Something unsafe" },
     { icon: "❓", label: "Something else" },
   ],
+  // Where and when, matching the district "Student Incident Report" Google Form.
   INCIDENT_PLACES: [
     { icon: "🏫", label: "Classroom" },
     { icon: "🚪", label: "Hallway" },
-    { icon: "🍽️", label: "Cafeteria" },
-    { icon: "🚻", label: "Bathroom" },
-    { icon: "🏀", label: "Gym or locker room" },
     { icon: "🚌", label: "Bus" },
     { icon: "🌳", label: "Outside" },
-    { icon: "💬", label: "Online" },
-    { icon: "❓", label: "Somewhere else" },
+    { icon: "🏀", label: "Gym" },
+    { icon: "🍽️", label: "Cafeteria" },
+    { icon: "🚻", label: "Bathroom" },
+    { icon: "🪜", label: "Stairwell" },
+    { icon: "📚", label: "Library" },
+    { icon: "❓", label: "Other" },
   ],
+  INCIDENT_PERIODS: [
+    "1st Hour", "2nd Hour", "3rd Hour", "4th Hour", "Lunch", "Recess", "SEL", "WIN",
+    "6th Hour", "7th Hour", "8th Hour", "Passing Time", "Other",
+  ],
+  INCIDENT_GRADES: ["6th Grade", "7th Grade", "8th Grade"],
 
   // Trial feedback portal (feedback.html). Shows a small "Give feedback" link on the
   // kiosk start screen and the admin dashboard. Set to false when the trial ends.

@@ -116,7 +116,7 @@ function checkout_(data) {
 // ---- Incident reports ---------------------------------------------------------
 
 const INCIDENT_NAME = 'Incident Reports';
-const INCIDENT_HEADERS = ['Timestamp', 'Date', 'Time', 'Name / ID', 'Safe now?', 'Urgent', 'What happened', 'Where', 'When',
+const INCIDENT_HEADERS = ['Timestamp', 'Date', 'Time', 'Name / ID', 'Grade', 'Safe now?', 'Urgent', 'What happened', 'Where', 'When (hour)',
   'Story', 'Who was involved', 'Witnesses', 'Wants to talk', 'Kiosk', 'Reviewed by', 'Notes'];
 
 function incidentSheet_() {
@@ -129,13 +129,13 @@ function incidentSheet_() {
     sheet.setFrozenRows(1);
     sheet.getRange('A:A').setNumberFormat('yyyy-mm-dd h:mm am/pm');
     sheet.getRange('B:B').setNumberFormat('yyyy-mm-dd');
-    sheet.setColumnWidth(7, 240);
-    sheet.setColumnWidth(10, 360);
-    sheet.getRange('J:L').setWrap(true);
+    sheet.setColumnWidth(8, 240);
+    sheet.setColumnWidth(11, 360);
+    sheet.getRange('K:M').setWrap(true);
     // Urgent rows turn red.
     const rule = SpreadsheetApp.newConditionalFormatRule()
-      .whenFormulaSatisfied('=$F2="Yes"').setBackground('#f4cccc')
-      .setRanges([sheet.getRange('A2:P')]).build();
+      .whenFormulaSatisfied('=$G2="Yes"').setBackground('#f4cccc')
+      .setRanges([sheet.getRange('A2:Q')]).build();
     sheet.setConditionalFormatRules([rule]);
   }
   return sheet;
@@ -147,7 +147,7 @@ function incident_(data) {
   const tz = Session.getScriptTimeZone();
   sheet.appendRow([
     ts, new Date(Utilities.formatDate(ts, tz, 'yyyy/MM/dd')), Utilities.formatDate(ts, tz, 'h:mm a'),
-    String(data.name || '').trim(), data.safe || '', data.urgent || '', data.types || '', data.place || '', data.when || '',
+    String(data.name || '').trim(), data.grade || '', data.safe || '', data.urgent || '', data.types || '', data.place || '', data.period || '',
     data.story || '', data.who || '', data.witness || '', data.talk || '', data.kiosk || '', '', ''
   ]);
   return { ok: true };
@@ -165,8 +165,8 @@ function getIncidents(days) {
   for (let i = values.length - 1; i >= 1; i--) {
     const r = values[i];
     if (!(r[0] instanceof Date) || r[0] < cutoff) continue;
-    rows.push({ timestamp: r[0].toISOString(), name: r[3], safe: r[4], urgent: r[5], types: r[6], place: r[7], when: r[8],
-      story: r[9], who: r[10], witness: r[11], talk: r[12], reviewed: r[14], notes: r[15] });
+    rows.push({ timestamp: r[0].toISOString(), name: r[3], grade: r[4], safe: r[5], urgent: r[6], types: r[7], place: r[8], period: r[9],
+      story: r[10], who: r[11], witness: r[12], talk: r[13], reviewed: r[15], notes: r[16] });
   }
   return { rows: rows };
 }

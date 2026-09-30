@@ -201,8 +201,8 @@
     $("#incCount").textContent = rows.length ? `(${rows.length})` : "";
     $("#incList").innerHTML = rows.length ? rows.map(r => `
       <div class="item ${r.urgent === "Yes" ? "urgent" : ""}">
-        <div class="meta">${esc(fmtWhen(r.timestamp))} · <b>${esc(r.name)}</b>${r.urgent === "Yes" ? '<span class="urg">Said not safe</span>' : ""}${r.talk === "Yes" ? '<span class="tag">Wants to talk</span>' : ""}</div>
-        <div><b>${esc(r.types)}</b>${r.place ? " · " + esc(r.place) : ""}${r.when ? " · " + esc(r.when) : ""}</div>
+        <div class="meta">${esc(fmtWhen(r.timestamp))} · <b>${esc(r.name)}</b>${r.grade ? " · " + esc(r.grade) : ""}${r.urgent === "Yes" ? '<span class="urg">Said not safe</span>' : ""}${r.talk === "Yes" ? '<span class="tag">Wants to talk</span>' : ""}</div>
+        <div><b>${esc(r.types)}</b>${r.place ? " · " + esc(r.place) : ""}${r.period ? " · " + esc(r.period) : ""}</div>
         ${r.story ? `<div class="story">${esc(r.story)}</div>` : ""}
         ${r.who ? `<div class="meta">Involved: ${esc(r.who)}</div>` : ""}${r.witness ? `<div class="meta">Saw it: ${esc(r.witness)}</div>` : ""}
         ${r.reviewed ? `<div class="meta">Reviewed by ${esc(r.reviewed)}${r.notes ? " · " + esc(r.notes) : ""}</div>` : ""}
