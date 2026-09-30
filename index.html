@@ -104,6 +104,12 @@
   }
   .field:focus { border-color: var(--red); }
   .hint { color: var(--muted); font-size: 1.05rem; margin-top: -8px; margin-bottom: 18px; text-align: center; }
+  .field.area { text-align: left; min-height: 130px; font-size: clamp(1.05rem, 2.4vw, 1.3rem); resize: none; font-weight: 400; line-height: 1.35; margin-bottom: 12px; }
+  .field.small { text-align: left; font-size: clamp(1rem, 2.2vw, 1.15rem); padding: 14px 18px; margin: 0 0 12px; font-weight: 400; }
+  .cards.needs.single .card.selected { background: #f3f3f3; }
+  .cards.needs.periods { grid-template-columns: repeat(4, 1fr); }
+  .cards.needs.periods .card { min-height: clamp(64px, 10vh, 84px); }
+  @media (max-width: 560px) { .cards.needs.periods { grid-template-columns: repeat(3, 1fr); } }
 
   /* Choice cards */
   .cards {
@@ -131,6 +137,25 @@
   .needs-next { position: sticky; bottom: 0; margin: 4px 0 0; padding: 18px 40px; min-width: min(70vw, 360px); font-size: clamp(1.1rem, 2.4vw, 1.5rem); box-shadow: 0 -6px 16px rgba(255,255,255,0.95), var(--shadow); }
   #basic { padding-bottom: 48px; }
   .needs-next:disabled { opacity: 0.45; cursor: default; }
+  #helped { padding-bottom: 48px; }
+
+  .feedback-link { display: none; position: fixed; right: 12px; bottom: 6px; font-size: 0.85rem; color: #aaa; text-decoration: underline; z-index: 4; padding: 8px; }
+  .feedback-link.show { display: block; }
+  /* Start screen: check-out link */
+  .text-btn { margin-top: 22px; background: none; border: 0; font: inherit; font-weight: 500; font-size: clamp(1rem, 2.2vw, 1.25rem); color: var(--muted); text-decoration: underline; cursor: pointer; padding: 10px 16px; }
+
+  /* Station suggestion */
+  .lead { font-size: clamp(1.05rem, 2.4vw, 1.5rem); font-weight: 500; color: var(--ink); text-align: center; margin: -8px 0 18px; max-width: 820px; }
+  .cards.stations { grid-template-columns: repeat(4, 1fr); gap: 16px; width: min(96vw, 1000px); }
+  .cards.stations .card { min-height: clamp(130px, 24vh, 200px); flex-direction: column; gap: 6px; position: relative; padding-top: 34px; }
+  .cards.stations .card .hint { font-size: 0.72em; font-weight: 400; line-height: 1.25; }
+  .cards.stations .card .tag { position: absolute; top: 10px; left: 50%; transform: translateX(-50%); background: #1a1a1a; color: #fff; font-size: 0.68rem; font-weight: 600; padding: 3px 10px; border-radius: 999px; text-transform: uppercase; letter-spacing: 0.05em; white-space: nowrap; }
+  .cards.stations .card.suggested { outline: 4px solid #1a1a1a; outline-offset: 3px; }
+  .staff-first { display: none; text-align: center; margin: auto 0; }
+  .staff-first.show { display: block; }
+  .staff-first .badge-big { display: inline-block; padding: 22px 36px; border-radius: 20px; background: var(--card-pink); border: 2px solid var(--border); font-weight: 600; font-size: clamp(1.3rem, 3vw, 2rem); margin: 10px 0 12px; box-shadow: var(--shadow); }
+  .staff-first p { font-size: clamp(1.1rem, 2.4vw, 1.5rem); color: var(--ink); margin: 6px 0 22px; }
+  @media (max-width: 700px) { .cards.stations { grid-template-columns: repeat(2, 1fr); } }
   @media (max-width: 560px) {
     .cards.needs { grid-template-columns: repeat(2, 1fr); gap: 10px; }
     .cards, .cards.three { grid-template-columns: 1fr; gap: 14px; }
@@ -179,6 +204,8 @@
   .done .countdown { margin-top: 6px; color: var(--muted); font-size: 1rem; }
   .done .finish { margin-top: 18px; min-width: 200px; padding: 16px 34px; font-size: 1.2rem; background: #f1f1f1; }
 
+  .ver { position: fixed; left: 8px; bottom: 4px; font-size: 10px; color: #bbb; z-index: 4; pointer-events: none; }
+
   /* Banner */
   .banner {
     display: none; position: fixed; left: 0; right: 0; bottom: 0; z-index: 5;
@@ -204,11 +231,13 @@
     <div class="title">Panther Pride Center</div>
     <div class="subtitle">Student Check-In</div>
     <button class="big-btn" type="button" data-go="name">Click here to get started!</button>
+    <button class="text-btn" type="button" id="checkoutBtn">Leaving? Tap here to check out</button>
+    <a class="feedback-link" id="feedbackLink" href="feedback.html">Trying the app? Give feedback</a>
   </section>
 
   <!-- 2. Name -->
   <section class="screen" id="name" data-step="1">
-    <h1>First, who are you?</h1>
+    <h1 id="nameTitle">First, who are you?</h1>
     <input class="field" id="nameInput" type="text" autocomplete="off" autocorrect="off" autocapitalize="words" spellcheck="false" placeholder="Your name or student ID" enterkeyhint="next">
     <div class="hint">Type your first and last name, or your student ID number.</div>
     <button class="big-btn" type="button" id="nameNext">Next</button>
@@ -235,7 +264,7 @@
 
   <!-- 4. Energy -->
   <section class="screen" id="energy" data-step="4">
-    <h1>How is your body + brain feeling right now?</h1>
+    <h1 id="energyTitle">How is your body + brain feeling right now?</h1>
     <div class="cards three">
       <button class="card" style="background:var(--energy-fast)" data-answer="energy" data-value="Moving Fast"><span>Moving Fast!<br>Lots of energy!</span></button>
       <button class="card" style="background:var(--energy-slow)" data-answer="energy" data-value="Moving Slow"><span>Moving Slow.<br>Not much energy</span></button>
@@ -276,12 +305,83 @@
     <button class="big-btn needs-next" type="button" id="needsNext" disabled>That's everything</button>
   </section>
 
-  <!-- 9. Done -->
-  <section class="screen done" id="done" data-step="9">
+  <!-- 8b. Incident report (after "I need to report something") -->
+  <section class="screen" id="inc1" data-step="8">
+    <h1>Are you safe right now?</h1>
+    <div class="cards">
+      <button class="card" style="background:var(--card-green)"    data-answer="incSafe" data-value="Yes"><span>Yes, I'm safe</span></button>
+      <button class="card" style="background:var(--need-incident)" data-answer="incSafe" data-value="No"><span>No, I don't feel safe</span></button>
+    </div>
+  </section>
+  <section class="screen" id="inc1b" data-step="8">
+    <h1>What grade are you in?</h1>
+    <div class="cards needs single" id="incGradeGrid"></div>
+  </section>
+  <section class="screen" id="inc2" data-step="8">
+    <h1>What happened?<span class="sub">Tap everything that fits.</span></h1>
+    <div class="cards needs" id="incTypeGrid"></div>
+    <button class="big-btn needs-next" type="button" id="incTypeNext" disabled>Next</button>
+  </section>
+  <section class="screen" id="inc3" data-step="8">
+    <h1>Where did it happen?</h1>
+    <div class="cards needs single" id="incPlaceGrid"></div>
+  </section>
+  <section class="screen" id="inc4" data-step="8">
+    <h1>When did it happen?<span class="sub">Which hour?</span></h1>
+    <div class="cards needs single periods" id="incPeriodGrid"></div>
+  </section>
+  <section class="screen" id="inc5" data-step="8">
+    <h1>Tell us what happened<span class="sub">Use your own words. A staff member will read this.</span></h1>
+    <textarea class="field area" id="incStory" placeholder="What happened?" autocapitalize="sentences"></textarea>
+    <input class="field small" id="incWho" type="text" autocomplete="off" placeholder="Who was involved? (optional)">
+    <input class="field small" id="incWitness" type="text" autocomplete="off" placeholder="Did anyone else see it? (optional)">
+    <div class="hint">If typing is hard right now, you can skip this and tell a staff member instead.</div>
+    <button class="big-btn" type="button" id="incStoryNext">Next</button>
+  </section>
+  <section class="screen" id="inc6" data-step="8">
+    <h1>Do you want to talk to someone about it today?</h1>
+    <div class="cards">
+      <button class="card" style="background:var(--card-green)" data-answer="incTalk" data-value="Yes"><span>Yes, please</span></button>
+      <button class="card" style="background:var(--card-blue)"  data-answer="incTalk" data-value="Not right now"><span>Not right now</span></button>
+    </div>
+  </section>
+
+  <!-- 9. Station suggestion (check-in, whenever a mood word was picked) -->
+  <section class="screen" id="station" data-step="9">
+    <h1>Which station will you go to?</h1>
+    <p class="lead" id="stationLead"></p>
+    <div class="cards stations" id="stationGrid"></div>
+    <div class="staff-first" id="staffFirst">
+      <div class="badge-big">A staff member is coming to you</div>
+      <p>Stay right here. Someone will be with you in a moment.</p>
+      <button class="big-btn" type="button" id="staffFirstNext">OK</button>
+    </div>
+  </section>
+
+  <!-- 9b. Check-out: what helped -->
+  <section class="screen" id="helped" data-step="9">
+    <h1>What helped today?<span class="sub">Tap everything that helped.</span></h1>
+    <div class="cards needs" id="helpedGrid"></div>
+    <button class="big-btn needs-next" type="button" id="helpedNext" disabled>That's everything</button>
+  </section>
+
+  <!-- 10b. Check-out done -->
+  <section class="screen done" id="checkoutDone" data-step="10">
+    <h1 id="coTitle" style="color:var(--done-basic)">You're checked out!</h1>
+    <p id="coMsg"></p>
+    <div class="badge" id="coBadge"></div>
+    <div class="status" id="coStatus"></div>
+    <div class="countdown" id="coCountdown"></div>
+    <button class="big-btn finish" type="button" id="coFinishBtn">Done</button>
+  </section>
+
+  <!-- 10. Done -->
+  <section class="screen done" id="done" data-step="10">
     <h1 id="doneTitle">Thanks for answering those questions!</h1>
     <p>That's a good start. Let's find a way to get you feeling ok again.</p>
     <p>The next step is to make sure we get you ALL the way signed in.</p>
     <p id="doneMsg"></p>
+    <p id="doneStation"></p>
     <div class="badge" id="doneBadge"></div>
     <a class="big-btn form-link" id="formLink" target="_blank" rel="noopener"></a>
     <div class="status" id="saveStatus"></div>
@@ -292,13 +392,26 @@
 </main>
 
 <div class="banner" id="banner"></div>
+<div class="ver" id="ver"></div>
 
 <script src="config.js"></script>
 <script>
 (function () {
+  const APP_VERSION = "2026.09.30";
   const CFG = Object.assign({
-    SCRIPT_URL: "", KIOSK_NAME: "Kiosk", RESET_SECONDS: 8, IDLE_SECONDS: 120
+    SCRIPT_URL: "", DASHBOARD_URL: "", KIOSK_TOKEN: "", KIOSK_NAME: "Kiosk",
+    RESET_SECONDS: 8, IDLE_SECONDS: 120,
+    FORM_INCIDENT_URL: "", FORM_SIGNIN_URL: "",
+    BASIC_NEEDS: [], STATIONS: [], STAFF_FIRST_WORDS: [], WHAT_HELPED: [], FEEDBACK_ENABLED: false,
+    INCIDENT_TYPES: [], INCIDENT_PLACES: [], INCIDENT_PERIODS: [], INCIDENT_GRADES: []
   }, window.PPC_CONFIG || {});
+  document.getElementById("ver").textContent = "v" + APP_VERSION;
+  document.getElementById("feedbackLink").classList.toggle("show", !!CFG.FEEDBACK_ENABLED);
+
+  // Service worker: lets the app open with no Wi-Fi and keeps files fresh when online.
+  if ("serviceWorker" in navigator && location.protocol.startsWith("http")) {
+    navigator.serviceWorker.register("sw.js", { updateViaCache: "none" }).catch(() => {});
+  }
 
   // ---------- Mood word grids (from the original deck) ----------
   const GRIDS = {
@@ -357,11 +470,13 @@
   let answers = {};
   let history = [];
   let current = "start";
+  let mode = "checkin"; // or "checkout"
   let resetTimer = null, idleTimer = null;
 
   const $ = (s) => document.querySelector(s);
   const screens = [...document.querySelectorAll(".screen")];
-  const STEPS = 9; // number of dots
+  const STEPS = 10; // number of dots
+  const END_SCREENS = ["start", "done", "checkoutDone"];
 
   function show(id, push = true) {
     if (push && current !== id) history.push(current);
@@ -369,9 +484,13 @@
     screens.forEach(s => s.classList.toggle("active", s.id === id));
     const step = Number(document.getElementById(id).dataset.step);
     renderDots(step);
-    $("#backBtn").classList.toggle("show", id !== "start" && id !== "done");
-    $("#restartBtn").classList.toggle("show", id !== "start" && id !== "done");
+    const mid = !END_SCREENS.includes(id);
+    $("#backBtn").classList.toggle("show", mid);
+    $("#restartBtn").classList.toggle("show", mid);
     document.getElementById(id).scrollTop = 0;
+    // Shared screens read differently on the way out.
+    $("#nameTitle").textContent = mode === "checkout" ? "Who's checking out?" : "First, who are you?";
+    $("#energyTitle").textContent = mode === "checkout" ? "How is your body + brain feeling now?" : "How is your body + brain feeling right now?";
     if (id === "name") setTimeout(() => $("#nameInput").focus(), 120);
     else document.activeElement && document.activeElement.blur();
     touch();
@@ -388,10 +507,9 @@
 
   function reset() {
     clearTimeout(resetTimer); clearTimeout(idleTimer);
-    answers = {}; history = [];
-    $("#nameInput").value = "";
-    $("#saveStatus").textContent = "";
-    $("#countdown").textContent = "";
+    answers = {}; history = []; mode = "checkin";
+    ["#nameInput", "#incStory", "#incWho", "#incWitness"].forEach(sel => $(sel).value = "");
+    ["#saveStatus", "#countdown", "#coStatus", "#coCountdown", "#doneStation"].forEach(s => $(s).textContent = "");
     show("start", false);
   }
 
@@ -404,7 +522,7 @@
   // Idle: quietly return to start so the next student never sees old answers.
   function touch() {
     clearTimeout(idleTimer);
-    if (current === "start" || current === "done") return;
+    if (END_SCREENS.includes(current)) return;
     idleTimer = setTimeout(reset, CFG.IDLE_SECONDS * 1000);
   }
   ["pointerdown", "keydown", "touchstart"].forEach(ev => document.addEventListener(ev, touch, { passive: true }));
@@ -412,13 +530,14 @@
   // ---------- Flow ----------
   $("#backBtn").addEventListener("click", back);
   $("#restartBtn").addEventListener("click", reset);
-  document.querySelectorAll("[data-go]").forEach(b => b.addEventListener("click", () => show(b.dataset.go)));
+  document.querySelectorAll("[data-go]").forEach(b => b.addEventListener("click", () => { mode = "checkin"; show(b.dataset.go); }));
+  $("#checkoutBtn").addEventListener("click", () => { mode = "checkout"; show("name"); });
 
   function submitName() {
     const v = $("#nameInput").value.trim();
     if (!v) { $("#nameInput").focus(); $("#nameInput").style.borderColor = "var(--red)"; return; }
     answers.name = v;
-    show("referral");
+    show(mode === "checkout" ? "energy" : "referral");
   }
   $("#nameNext").addEventListener("click", submitName);
   $("#nameInput").addEventListener("keydown", e => { if (e.key === "Enter") { e.preventDefault(); submitName(); } });
@@ -437,18 +556,28 @@
       case "referral": return show("reason");
       case "reason":   return answers.reason === "Drop In: I have a need" ? show("need") : show("energy");
       case "energy":   buildGrids(answers.energy); return show("mood");
-      case "mood":     return show("happened");
-      case "happened": return finish(answers.need === "Basic Need" ? "Basic Need" : "Check In");
-      case "need":     if (answers.need === "Basic Need") { buildNeeds(); return show("basic"); } return finish(answers.need);
+      case "mood":     if (mode === "checkout") { buildMulti("#helpedGrid", "#helpedNext", CFG.WHAT_HELPED, "helped"); return show("helped"); } return show("happened");
+      case "happened": return goStation();
+      case "station":  return finish(answers.need === "Basic Need" ? "Basic Need" : "Check In");
+      case "need":     if (answers.need === "Basic Need") { buildMulti("#needsGrid", "#needsNext", CFG.BASIC_NEEDS, "basicNeeds"); return show("basic"); } return show("inc1");
+      case "incSafe":  buildChoice("#incGradeGrid", CFG.INCIDENT_GRADES, "incGrade"); return show("inc1b");
+      case "incGrade": buildMulti("#incTypeGrid", "#incTypeNext", CFG.INCIDENT_TYPES, "incTypes"); return show("inc2");
+      case "incTypes": buildChoice("#incPlaceGrid", CFG.INCIDENT_PLACES, "incPlace"); return show("inc3");
+      case "incPlace": buildChoice("#incPeriodGrid", CFG.INCIDENT_PERIODS, "incPeriod"); return show("inc4");
+      case "incPeriod": return show("inc5");
+      case "incStory": return show("inc6");
+      case "incTalk":  return finishIncident();
       case "basic":    return show("energy");
+      case "helped":   return finishCheckout();
     }
   }
 
-  function buildNeeds() {
-    const grid = $("#needsGrid");
+  // Multi-select card grid (basic needs, what helped). Stores an array in answers[key].
+  function buildMulti(gridSel, nextSel, items, key) {
+    const grid = $(gridSel), nextBtn = $(nextSel);
     grid.innerHTML = "";
-    answers.basicNeeds = [];
-    (CFG.BASIC_NEEDS || []).forEach(item => {
+    answers[key] = [];
+    (items || []).forEach(item => {
       const label = typeof item === "string" ? item : item.label;
       const icon = typeof item === "string" ? "" : (item.icon || "");
       const b = document.createElement("button");
@@ -459,17 +588,94 @@
       b.addEventListener("click", () => {
         const on = b.classList.toggle("selected");
         b.setAttribute("aria-pressed", String(on));
-        answers.basicNeeds = on
-          ? answers.basicNeeds.concat(label)
-          : answers.basicNeeds.filter(x => x !== label);
-        $("#needsNext").disabled = answers.basicNeeds.length === 0;
+        answers[key] = on ? answers[key].concat(label) : answers[key].filter(x => x !== label);
+        nextBtn.disabled = answers[key].length === 0;
         touch();
       });
       grid.appendChild(b);
     });
-    $("#needsNext").disabled = true;
+    nextBtn.disabled = true;
   }
   $("#needsNext").addEventListener("click", () => { if (answers.basicNeeds && answers.basicNeeds.length) next("basic"); });
+  $("#helpedNext").addEventListener("click", () => { if (answers.helped && answers.helped.length) next("helped"); });
+  $("#incTypeNext").addEventListener("click", () => { if (answers.incTypes && answers.incTypes.length) next("incTypes"); });
+  $("#incStoryNext").addEventListener("click", () => {
+    answers.incStory = $("#incStory").value.trim();
+    answers.incWho = $("#incWho").value.trim();
+    answers.incWitness = $("#incWitness").value.trim();
+    next("incStory");
+  });
+
+  // Single-select icon card grid: tapping a card stores it and moves on.
+  function buildChoice(gridSel, items, key) {
+    const grid = $(gridSel);
+    grid.innerHTML = "";
+    (items || []).forEach(item => {
+      const label = typeof item === "string" ? item : item.label;
+      const icon = typeof item === "string" ? "" : (item.icon || "");
+      const b = document.createElement("button");
+      b.type = "button";
+      b.className = "card";
+      b.innerHTML = `${icon ? `<span class="icon">${icon}</span>` : ""}<span>${escapeHtml(label)}</span>`;
+      b.addEventListener("click", () => { answers[key] = label; next(key); });
+      grid.appendChild(b);
+    });
+  }
+
+  // ---------- Incident report ----------
+  function finishIncident() {
+    const urgent = answers.incSafe === "No";
+    const checkinTs = new Date().toISOString();
+    answers.checkinTimestamp = checkinTs;
+    if (urgent) { answers.stationSuggested = "Staff first"; answers.station = "Staff first"; }
+    save({
+      type: "incident",
+      timestamp: checkinTs,
+      name: answers.name,
+      grade: answers.incGrade || "",
+      safe: answers.incSafe || "",
+      types: (answers.incTypes || []).join(", "),
+      place: answers.incPlace || "",
+      period: answers.incPeriod || "",
+      story: answers.incStory || "",
+      who: answers.incWho || "",
+      witness: answers.incWitness || "",
+      talk: answers.incTalk || "",
+      urgent: urgent ? "Yes" : "",
+      kiosk: CFG.KIOSK_NAME
+    }, null);
+    finish("Incident Report");
+  }
+
+  // ---------- Station suggestion ----------
+  const STATION_COLORS = { Red: "var(--energy-fast)", Yellow: "#f6c453", Blue: "var(--energy-slow)", Green: "var(--energy-ok)" };
+
+  function goStation() {
+    if (!answers.moodGroup) return next("station");
+    const word = (answers.moodWord || "").toLowerCase();
+    const staffFirst = (CFG.STAFF_FIRST_WORDS || []).some(w => String(w).toLowerCase() === word);
+    answers.stationSuggested = staffFirst ? "Staff first" : answers.moodGroup;
+    $("#staffFirst").classList.toggle("show", staffFirst);
+    $("#stationGrid").style.display = staffFirst ? "none" : "";
+    $("#stationLead").textContent = staffFirst ? "" : `The ${answers.moodGroup.toLowerCase()} station is set up for how you're feeling. Go there, or pick another.`;
+    if (!staffFirst) buildStations(answers.moodGroup);
+    show("station");
+  }
+
+  function buildStations(suggested) {
+    const grid = $("#stationGrid");
+    grid.innerHTML = "";
+    (CFG.STATIONS || []).forEach(st => {
+      const b = document.createElement("button");
+      b.type = "button";
+      b.className = "card" + (st.color === suggested ? " suggested" : "");
+      b.style.background = STATION_COLORS[st.color] || "#eee";
+      b.innerHTML = `${st.color === suggested ? `<span class="tag">Suggested for you</span>` : ""}<span>${escapeHtml(st.label)}</span>${st.hint ? `<span class="hint">${escapeHtml(st.hint)}</span>` : ""}`;
+      b.addEventListener("click", () => { answers.station = st.color; next("station"); });
+      grid.appendChild(b);
+    });
+  }
+  $("#staffFirstNext").addEventListener("click", () => { answers.station = "Staff first"; next("station"); });
 
   function buildGrids(energy) {
     const wrap = $("#grids");
@@ -504,7 +710,7 @@
     "Check In":        { color: "var(--done-checkin)",  label: "Checked In", form: "FORM_SIGNIN_URL", formLabel: "for Check In",
                          msg: "you're checked in. Find a spot and let a staff member know you're here." },
     "Incident Report": { color: "var(--done-incident)", label: "Incident Report", form: "FORM_INCIDENT_URL", formLabel: "For Incident Report",
-                         msg: "a staff member will help you fill out an incident report." },
+                         msg: "thank you for telling us. A staff member will follow up with you." },
     "Basic Need":      { color: "var(--done-basic)",    label: "Basic Need", form: "FORM_SIGNIN_URL", formLabel: "Basic Need",
                          msg: "a staff member will help you with what you need." }
   };
@@ -526,33 +732,79 @@
       link.style.background = o.color;
       link.innerHTML = `Click here<small>${escapeHtml(o.formLabel)}</small>`;
     }
+    const st = answers.station || "";
+    $("#doneStation").innerHTML = st === "Staff first"
+      ? "Stay here. <b>A staff member is coming to you.</b>"
+      : (st ? `Head to the <b>${escapeHtml(st)} station</b>.` : "");
     show("done");
 
     const record = {
-      timestamp: new Date().toISOString(),
+      type: "checkin",
+      timestamp: answers.checkinTimestamp || new Date().toISOString(),
       name: answers.name,
       referral: answers.referral || "",
       reason: answers.reason,
-      energy: answers.energy,
+      energy: answers.energy || "",
       moodGroup: answers.moodGroup || "",
       moodWord: answers.moodWord || "",
       happened: answers.happened || "",
       need: answers.need || "",
       basicNeeds: basicNeeds,
       outcome: outcome,
-      kiosk: CFG.KIOSK_NAME
+      kiosk: CFG.KIOSK_NAME,
+      stationSuggested: answers.stationSuggested || "",
+      station: st
     };
-    save(record);
+    save(record, $("#saveStatus"));
+    countdown($("#countdown"), formUrl ? Math.max(CFG.RESET_SECONDS, 30) : CFG.RESET_SECONDS);
+  }
+  $("#finishBtn").addEventListener("click", reset);
+  $("#coFinishBtn").addEventListener("click", reset);
 
-    let n = formUrl ? Math.max(CFG.RESET_SECONDS, 30) : CFG.RESET_SECONDS;
+  function countdown(el, seconds) {
+    let n = seconds;
     const tick = () => {
-      $("#countdown").textContent = `Starting over for the next student in ${n}…`;
+      el.textContent = `Starting over for the next student in ${n}…`;
       if (n-- <= 0) return reset();
       resetTimer = setTimeout(tick, 1000);
     };
     tick();
   }
-  $("#finishBtn").addEventListener("click", reset);
+
+  // ---------- Check-out ----------
+  function finishCheckout() {
+    const helped = (answers.helped || []).join(", ");
+    const nameKey = String(answers.name).trim().toLowerCase();
+    // Find this student's most recent check-in on this device (last 4 hours) to show the change.
+    const recent = readJSON(LOCAL_KEY).filter(r => r.type !== "checkout" && String(r.name || "").trim().toLowerCase() === nameKey
+      && Date.now() - new Date(r.timestamp).getTime() < 4 * 3600000).pop();
+    const inGroup = recent && recent.moodGroup, outGroup = answers.moodGroup;
+    let msg = `<span class="name">${escapeHtml(answers.name)}</span>, thanks for checking out. Head back to class.`;
+    if (inGroup && outGroup) {
+      msg += inGroup === outGroup
+        ? ` You came in <b>${escapeHtml(inGroup)}</b> and you're leaving <b>${escapeHtml(outGroup)}</b>.`
+        : ` You came in <b>${escapeHtml(inGroup)}</b> and you're leaving <b>${escapeHtml(outGroup)}</b>. Nice work.`;
+    }
+    $("#coMsg").innerHTML = msg;
+    const badge = $("#coBadge");
+    badge.style.background = STATION_COLORS[outGroup] || "var(--done-basic)"; badge.style.borderColor = "transparent";
+    badge.style.color = outGroup === "Yellow" ? "#2b1d00" : "#fff";
+    badge.innerHTML = `✓ Checked out<small>${escapeHtml(answers.moodWord || "")}</small>`;
+    show("checkoutDone");
+
+    save({
+      type: "checkout",
+      timestamp: new Date().toISOString(),
+      name: answers.name,
+      energy: answers.energy || "",
+      moodGroup: outGroup || "",
+      moodWord: answers.moodWord || "",
+      helped: helped,
+      kiosk: CFG.KIOSK_NAME,
+      checkinTimestamp: recent ? recent.timestamp : ""
+    }, $("#coStatus"));
+    countdown($("#coCountdown"), CFG.RESET_SECONDS);
+  }
 
   function escapeHtml(s) { return String(s).replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c])); }
 
@@ -567,15 +819,16 @@
     const res = await fetch(CFG.SCRIPT_URL, {
       method: "POST",
       headers: { "Content-Type": "text/plain;charset=utf-8" }, // avoids a CORS preflight Apps Script can't answer
-      body: JSON.stringify(record),
+      body: JSON.stringify(Object.assign({ token: CFG.KIOSK_TOKEN }, record)),
       redirect: "follow"
     });
     const data = await res.json();
     if (!data.ok) throw new Error(data.error || "Sheet rejected the check-in");
   }
 
-  async function save(record) {
-    const status = $("#saveStatus");
+  async function save(record, status) {
+    if (status === undefined) status = $("#saveStatus");
+    if (!status) status = { set textContent(v) {} };
     // Always keep a local copy (last 500) so nothing is lost and staff.html works in test mode.
     const local = readJSON(LOCAL_KEY); local.push(record); writeJSON(LOCAL_KEY, local.slice(-500));
 

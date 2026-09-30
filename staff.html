@@ -49,6 +49,16 @@
   .pill { display: inline-block; padding: 3px 9px; border-radius: 999px; font-size: 0.8rem; font-weight: 600; color: #fff; }
   .g-Red { background: var(--m-red); } .g-Yellow { background: var(--m-yellow); color: #2b1d00; } .g-Blue { background: var(--m-blue); } .g-Green { background: var(--m-green); }
   .o-Incident { color: #b00020; font-weight: 600; } .o-Basic { color: #2f6b30; font-weight: 600; }
+  .sec { margin: 24px 0 10px; font-size: 1.1rem; font-weight: 600; }
+  .sec .count { color: var(--muted); font-weight: 500; font-size: 0.95rem; }
+  .list { display: grid; gap: 10px; }
+  .item { background: var(--panel); border: 1px solid var(--line); border-radius: 14px; padding: 12px 14px; font-size: 0.92rem; }
+  .item.urgent { border-color: #b00020; background: #fff5f5; }
+  .item .meta { color: var(--muted); font-size: 0.82rem; margin: 2px 0; }
+  .item .story { white-space: pre-wrap; margin-top: 6px; line-height: 1.4; }
+  .item .urg, .item .tag { display: inline-block; border-radius: 999px; padding: 2px 8px; font-size: 0.75rem; font-weight: 600; margin-left: 6px; }
+  .item .urg { background: #b00020; color: #fff; } .item .tag { background: #e8e8ea; color: var(--ink); }
+  .item .face { font-size: 1.3rem; margin-right: 6px; vertical-align: middle; }
 
   .gate { min-height: 70vh; display: flex; align-items: center; justify-content: center; }
   .gate .card { background: #fff; border: 1px solid var(--line); border-radius: 18px; padding: 30px; width: min(92vw, 460px); text-align: center; }
@@ -92,11 +102,17 @@
     <div class="table">
       <table>
         <thead><tr>
-          <th>Time</th><th>Name / ID</th><th>Referral</th><th>Reason</th><th>Energy</th><th>Mood</th><th>What happened</th><th>Outcome</th><th>Basic needs</th>
+          <th>Time</th><th>Name / ID</th><th>Referral</th><th>Reason</th><th>Energy</th><th>Mood</th><th>What happened</th><th>Outcome</th><th>Basic needs</th><th>Station</th><th>Out</th><th>Min</th><th>Mood out</th>
         </tr></thead>
         <tbody id="tbody"></tbody>
       </table>
     </div>
+
+    <h2 class="sec">Incident reports <span class="count" id="incCount"></span></h2>
+    <div class="list" id="incList"></div>
+
+    <h2 class="sec">Trial feedback <span class="count" id="fbCount"></span></h2>
+    <div class="list" id="fbList"></div>
   </div>
 </main>
 
@@ -120,9 +136,25 @@
   const MOODS    = ["Red", "Yellow", "Blue", "Green"];
   const HAPPENED = ["At Home", "With my Teacher", "With a friend", "Just with myself"];
   const MOOD_COLORS = { Red: "var(--m-red)", Yellow: "var(--m-yellow)", Blue: "var(--m-blue)", Green: "var(--m-green)" };
+  const STATION_COLORS = Object.assign({ "Staff first": "#7e6bb0" }, MOOD_COLORS);
+  const STATIONS = ["Red", "Yellow", "Blue", "Green", "Staff first"];
 
   function load() {
-    try { all = JSON.parse(localStorage.getItem("ppc_local") || "[]"); } catch { all = []; }
+    let raw = [];
+    try { raw = JSON.parse(localStorage.getItem("ppc_local") || "[]"); } catch { raw = []; }
+    const ins = raw.filter(r => r.type !== "checkout");
+    raw.filter(r => r.type === "checkout").forEach(c => {
+      const key = String(c.name || "").trim().toLowerCase();
+      const m = ins.find(r => r.timestamp === c.checkinTimestamp) || [...ins].reverse().find(r => {
+        const d = new Date(c.timestamp) - new Date(r.timestamp);
+        return String(r.name || "").trim().toLowerCase() === key && d >= 0 && d < 6 * 3600000 && !r.checkoutTime;
+      });
+      if (m) Object.assign(m, { checkoutTime: c.timestamp, minutes: Math.round((new Date(c.timestamp) - new Date(m.timestamp)) / 60000), outEnergy: c.energy, outMoodGroup: c.moodGroup, outMoodWord: c.moodWord, helped: c.helped });
+    });
+    all = ins.filter(r => r.type !== "incident");
+    renderIncidents(raw.filter(r => r.type === "incident"));
+    let fb = []; try { fb = JSON.parse(localStorage.getItem("ppc_feedback_local") || "[]"); } catch {}
+    renderFeedback(fb);
     $("#status").textContent = "Test mode: showing check-ins saved on this device only. Connect the Google Sheet (see README) for the real admin dashboard.";
     render();
   }
@@ -147,9 +179,10 @@
     const keys = order ? order.filter(k => k in m).concat(Object.keys(m).filter(k => !order.includes(k))) : Object.keys(m).sort((a, b) => m[b] - m[a]);
     return keys.map(k => [k, m[k]]);
   }
-  function countNeeds(rows) {
+  function countNeeds(rows) { return countSplit(rows, "basicNeeds"); }
+  function countSplit(rows, key) {
     const m = {};
-    rows.forEach(r => String(r.basicNeeds || "").split(",").map(s => s.trim()).filter(Boolean).forEach(k => { m[k] = (m[k] || 0) + 1; }));
+    rows.forEach(r => String(r[key] || "").split(",").map(s => s.trim()).filter(Boolean).forEach(k => { m[k] = (m[k] || 0) + 1; }));
     return Object.keys(m).sort((a, b) => m[b] - m[a]).map(k => [k, m[k]]);
   }
   function bars(title, pairs, colorFn) {
@@ -161,15 +194,44 @@
       </div>`).join("") : `<div class="empty">No check-ins in this range.</div>`;
     return `<div class="chart"><h3>${title}</h3>${body}</div>`;
   }
+  const FACES = { 1: "😣", 2: "🙁", 3: "😐", 4: "🙂", 5: "😀" };
+  function fmtWhen(ts) { return new Date(ts).toLocaleString([], { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" }); }
+  function renderIncidents(rows) {
+    rows = rows.slice().sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
+    $("#incCount").textContent = rows.length ? `(${rows.length})` : "";
+    $("#incList").innerHTML = rows.length ? rows.map(r => `
+      <div class="item ${r.urgent === "Yes" ? "urgent" : ""}">
+        <div class="meta">${esc(fmtWhen(r.timestamp))} · <b>${esc(r.name)}</b>${r.grade ? " · " + esc(r.grade) : ""}${r.urgent === "Yes" ? '<span class="urg">Said not safe</span>' : ""}${r.talk === "Yes" ? '<span class="tag">Wants to talk</span>' : ""}</div>
+        <div><b>${esc(r.types)}</b>${r.place ? " · " + esc(r.place) : ""}${r.period ? " · " + esc(r.period) : ""}</div>
+        ${r.story ? `<div class="story">${esc(r.story)}</div>` : ""}
+        ${r.who ? `<div class="meta">Involved: ${esc(r.who)}</div>` : ""}${r.witness ? `<div class="meta">Saw it: ${esc(r.witness)}</div>` : ""}
+        ${r.reviewed ? `<div class="meta">Reviewed by ${esc(r.reviewed)}${r.notes ? " · " + esc(r.notes) : ""}</div>` : ""}
+      </div>`).join("") : `<div class="empty">No incident reports loaded.</div>`;
+  }
+  function renderFeedback(rows) {
+    rows = rows.slice().sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
+    const rated = rows.filter(r => Number(r.rating));
+    const avg = rated.length ? (rated.reduce((s, r) => s + Number(r.rating), 0) / rated.length).toFixed(1) : null;
+    $("#fbCount").textContent = rows.length ? `(${rows.length}${avg ? `, avg ${avg}/5` : ""})` : "";
+    $("#fbList").innerHTML = rows.length ? rows.map(r => `
+      <div class="item">
+        <div class="meta">${esc(fmtWhen(r.timestamp))} · <b>${esc(r.role || "Unknown")}</b>${r.tried ? " · " + esc(r.tried) : ""}${r.device ? " · " + esc(r.device) : ""}</div>
+        <div>${r.rating ? `<span class="face">${FACES[r.rating] || ""}</span>` : ""}${r.worked ? `<b>Worked:</b> ${esc(r.worked)} ` : ""}</div>
+        ${r.change ? `<div><b>Change:</b> ${esc(r.change)}</div>` : ""}${r.ideas ? `<div><b>Else:</b> ${esc(r.ideas)}</div>` : ""}
+        ${r.contact ? `<div class="meta">Contact: ${esc(r.contact)}</div>` : ""}
+      </div>`).join("") : `<div class="empty">No feedback yet.</div>`;
+  }
   function esc(s) { return String(s ?? "").replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c])); }
 
   function render() {
     const rows = all.filter(r => inRange(r.timestamp)).sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
     const n = rows.length;
     const by = k => rows.filter(r => r.outcome === k).length;
+    const outs = rows.filter(r => r.checkoutTime);
     const uniq = new Set(rows.map(r => String(r.name || "").trim().toLowerCase())).size;
     $("#tiles").innerHTML = [
-      ["Check-ins", n], ["Students", uniq], ["Check In", by("Check In")], ["Incident Reports", by("Incident Report")], ["Basic Needs", by("Basic Need")]
+      ["Check-ins", n], ["Students", uniq], ["Check In", by("Check In")], ["Incident Reports", by("Incident Report")], ["Basic Needs", by("Basic Need")],
+      ["Checked out", outs.length], ["Avg minutes", outs.length ? Math.round(outs.reduce((s, r) => s + Number(r.minutes || 0), 0) / outs.length) : "–"]
     ].map(([k, v]) => `<div class="tile"><div class="k">${k}</div><div class="v">${v}</div></div>`).join("");
 
     $("#charts").innerHTML =
@@ -179,7 +241,10 @@
       bars("Mood group", count(rows, "moodGroup", MOODS), k => MOOD_COLORS[k] || "var(--bar)") +
       bars("What happened", count(rows, "happened", HAPPENED)) +
       bars("Top feelings", count(rows, "moodWord").slice(0, 8)) +
-      bars("Basic needs requested", countNeeds(rows));
+      bars("Basic needs requested", countNeeds(rows)) +
+      bars("Station", count(rows, "station", STATIONS), k => STATION_COLORS[k] || "var(--bar)") +
+      bars("Mood at check-out", count(rows, "outMoodGroup", MOODS), k => MOOD_COLORS[k] || "var(--bar)") +
+      bars("What helped", countSplit(rows, "helped"));
 
     $("#tbody").innerHTML = rows.length ? rows.map(r => {
       const t = new Date(r.timestamp);
@@ -191,13 +256,15 @@
         <td>${esc(when)}</td><td>${esc(r.name)}</td><td>${esc(r.referral)}</td><td>${esc(r.reason)}</td><td>${esc(r.energy)}</td>
         <td>${r.moodGroup ? `<span class="pill g-${esc(r.moodGroup)}">${esc(r.moodWord)}</span>` : ""}</td>
         <td>${esc(r.happened)}</td><td class="${oc}">${esc(r.outcome)}</td><td>${esc(r.basicNeeds)}</td>
+        <td>${esc(r.station)}</td><td>${r.checkoutTime ? esc(new Date(r.checkoutTime).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" })) : ""}</td><td>${esc(r.minutes)}</td>
+        <td>${r.outMoodGroup ? `<span class="pill g-${esc(r.outMoodGroup)}">${esc(r.outMoodWord)}</span>` : ""}</td>
       </tr>`;
-    }).join("") : `<tr><td colspan="9" class="empty">No check-ins in this range.</td></tr>`;
+    }).join("") : `<tr><td colspan="13" class="empty">No check-ins in this range.</td></tr>`;
   }
 
   $("#csv").addEventListener("click", () => {
     const rows = all.filter(r => inRange(r.timestamp));
-    const cols = ["timestamp", "name", "referral", "reason", "energy", "moodGroup", "moodWord", "happened", "need", "basicNeeds", "outcome", "kiosk"];
+    const cols = ["timestamp", "name", "referral", "reason", "energy", "moodGroup", "moodWord", "happened", "need", "basicNeeds", "outcome", "kiosk", "stationSuggested", "station", "checkoutTime", "minutes", "outEnergy", "outMoodGroup", "outMoodWord", "helped"];
     const q = v => `"${String(v ?? "").replace(/"/g, '""')}"`;
     const csv = [cols.join(",")].concat(rows.map(r => cols.map(c => q(r[c])).join(","))).join("\n");
     const a = document.createElement("a");
