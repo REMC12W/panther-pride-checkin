@@ -106,17 +106,19 @@ GitHub Pages updates in about a minute. The yellow "test mode" banner disappears
 
 ## Admin dashboard
 
-Open `staff.html` and sign in with a district Google account. You get:
+Open `staff.html` and sign in with a district Google account. It is built around what staff act on, top to bottom:
 
-- Tiles: check-ins, unique students, and counts by outcome
-- Bars: referral, reason, energy, mood group, what happened, top feelings, basic needs requested, station, mood at check-out, what helped
-- Tiles for checked-out count and average minutes in room
-- A table of every check-in in the selected range
-- CSV download of the current view, a link to the Sheet, and auto-refresh every minute
+1. **Needs attention.** Safety first: incident reports where the student said they were not safe, students who picked a staff-first word today, then unreviewed incident reports, students who checked out still red or blue, and up to three patterns from the last 7 days (3+ drop-in visits, or 2+ red/blue arrivals; scheduled breaks don't count). Incident reports clear with **Mark reviewed**, which writes your email, the date, and an optional note into the Sheet. Other items clear with **Done** on that computer.
+2. **In the room now.** Checked in within 3 hours and not checked out, with station, feeling word, basic needs, and minutes in the room.
+3. **Today.** Check-ins, red/blue arrivals, basic needs, and incident reports, each with a 14-school-day sparkline.
+4. **How students arrived.** The Mood Meter as a 2x2, with counts, share, and top words per quadrant.
+5. **Did the visit help?** For students who checked out: how many who came in red or blue left yellow or green, typical stay, and arrived vs. left bars.
+6. **When.** Visits per school day, and check-ins by hour for staffing.
+7. **What's behind the visits, what to keep stocked, what helped.**
+8. **Visit log** with student search. Tap a name to see that student's visits and a row of mood dots, oldest to newest.
+9. **Incident reports** (unreviewed first) and **trial feedback** (collapsed).
 
-Ranges: Today, Yesterday, This week, or everything loaded (14 to 365 days).
-
-The **Summary** tab in the Sheet has the same counts as formulas, so it works without the dashboard.
+The window selector (7, 14, 30, 90 days) drives sections 4 through 8. Sections 1 through 3 are always about today and this week. Mood colors were checked for color-blind safety in light and dark mode, and every color is paired with a word.
 
 ## Trial feedback portal
 

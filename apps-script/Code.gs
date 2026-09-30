@@ -46,6 +46,7 @@ function doPost(e) {
   try {
     const data = JSON.parse(e.postData.contents);
     if (data.type === 'dashboard') return json_(dashboard_(data));
+    if (data.type === 'review') return json_(review_(data));
     if (KIOSK_TOKEN && String(data.token || '') !== KIOSK_TOKEN) {
       return json_({ ok: false, error: 'Bad token. KIOSK_TOKEN in config.js must match Code.gs.' });
     }
@@ -233,6 +234,28 @@ function dashboard_(data) {
     incidents: incidentRows_(days),
     feedback: feedbackRows_(days)
   };
+}
+
+/**
+ * Marks an incident report reviewed: fills "Reviewed by" (email + date) and
+ * "Notes" on the matching row. staff.html POSTs { type: 'review', idToken, timestamp, name, notes }.
+ */
+function review_(data) {
+  const email = verifyIdToken_(String(data.idToken || ''));
+  const sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName(INCIDENT_NAME);
+  if (!sheet) throw new Error('No incident reports yet.');
+  const target = new Date(data.timestamp).getTime();
+  const nameKey = String(data.name || '').trim().toLowerCase();
+  const values = sheet.getDataRange().getValues();
+  for (let i = values.length - 1; i >= 1; i--) {
+    const r = values[i];
+    if (!(r[0] instanceof Date) || Math.abs(r[0].getTime() - target) > 1000) continue;
+    if (String(r[3]).trim().toLowerCase() !== nameKey) continue;
+    const stamp = email + ' · ' + Utilities.formatDate(new Date(), Session.getScriptTimeZone(), 'yyyy-MM-dd h:mm a');
+    sheet.getRange(i + 1, 16, 1, 2).setValues([[stamp, String(data.notes || '').slice(0, 1000)]]);
+    return { ok: true };
+  }
+  throw new Error('Could not find that report in the Sheet.');
 }
 
 /**

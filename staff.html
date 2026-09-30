@@ -10,67 +10,178 @@
 <link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@400;500;600;700&display=swap" rel="stylesheet">
 <style>
   :root {
-    --red: #d61f26; --ink: #2f2f2f; --muted: #6f6f6f; --bg: #f6f6f7; --panel: #fff; --line: #e6e6e8;
-    --bar: #6b7a90;
-    --m-red: #c1272d; --m-yellow: #eda232; --m-blue: #2b5090; --m-green: #4c9a47;
+    color-scheme: light;
+    --brand: #d61f26;
+    --bg: #f5f5f3; --panel: #ffffff; --line: #e6e5e1; --grid: #ecebe7;
+    --ink: #1f1f1e; --ink-2: #52514e; --ink-3: #7a7974;
+    --series: #2a78d6;
+    /* Mood meter quadrants. Order Red, Yellow, Blue, Green validated for CVD (adjacent) in both modes. */
+    --m-red: #c1272d; --m-yellow: #eda232; --m-blue: #2b5090; --m-green: #4c9a47; --m-staff: #7e6bb0;
+    /* Status: always paired with an icon and a label */
+    --st-critical: #d03b3b; --st-warning: #b87a00; --st-good: #0a8a0a; --st-info: #2a78d6;
+    --tint: 14%;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:where(:not([data-theme="light"])) {
+      color-scheme: dark;
+      --bg: #121211; --panel: #1a1a19; --line: #2e2e2c; --grid: #262624;
+      --ink: #f4f4f1; --ink-2: #c3c2b7; --ink-3: #9a998f;
+      --series: #3987e5;
+      --m-red: #d9474c; --m-yellow: #c98500; --m-blue: #5b86d6; --m-green: #3a9a44; --m-staff: #9085e9;
+      --st-critical: #e66767; --st-warning: #fab219; --st-good: #0ca30c; --st-info: #3987e5;
+      --tint: 22%;
+    }
+  }
+  :root[data-theme="dark"] {
+    color-scheme: dark;
+    --bg: #121211; --panel: #1a1a19; --line: #2e2e2c; --grid: #262624;
+    --ink: #f4f4f1; --ink-2: #c3c2b7; --ink-3: #9a998f;
+    --series: #3987e5;
+    --m-red: #d9474c; --m-yellow: #c98500; --m-blue: #5b86d6; --m-green: #3a9a44; --m-staff: #9085e9;
+    --st-critical: #e66767; --st-warning: #fab219; --st-good: #0ca30c; --st-info: #3987e5;
+    --tint: 22%;
   }
   * { box-sizing: border-box; }
   body { margin: 0; font-family: "Fredoka", "Avenir Next", "Segoe UI", sans-serif; background: var(--bg); color: var(--ink); }
-  header { background: #fff; border-bottom: 1px solid var(--line); padding: 12px 20px; display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
-  header img { height: 44px; }
-  header h1 { margin: 0; font-size: 1.3rem; font-weight: 600; color: var(--red); }
-  header .who { color: var(--muted); font-size: 0.9rem; }
-  header .who button { font: inherit; font-size: 0.85rem; background: none; border: 0; color: var(--red); text-decoration: underline; cursor: pointer; padding: 0 4px; }
+  button, input, select { font: inherit; color: inherit; }
+
+  header { background: var(--panel); border-bottom: 1px solid var(--line); padding: 12px 20px; display: flex; align-items: center; gap: 12px; flex-wrap: wrap; position: sticky; top: 0; z-index: 5; }
+  header img { height: 42px; }
+  header h1 { margin: 0; font-size: 1.25rem; font-weight: 600; color: var(--brand); }
+  header .who { color: var(--ink-3); font-size: 0.85rem; }
+  header .who button { font-size: 0.85rem; background: none; border: 0; color: var(--brand); text-decoration: underline; cursor: pointer; padding: 0 4px; }
   header .spacer { flex: 1; }
-  header select, header button.btn, header a.btn {
-    font: inherit; font-size: 0.95rem; padding: 8px 13px; border: 1px solid #cfcfd3; border-radius: 10px; background: #fff; color: var(--ink); text-decoration: none; cursor: pointer;
-  }
-  main { max-width: 1200px; margin: 0 auto; padding: 18px 16px 40px; }
-  .note { color: var(--muted); font-size: 0.95rem; margin: 0 0 14px; }
-  .note.err { color: #b00020; }
+  .ctl { font-size: 0.92rem; padding: 8px 12px; border: 1px solid var(--line); border-radius: 10px; background: var(--panel); text-decoration: none; cursor: pointer; }
+  .ctl:hover { border-color: var(--ink-3); }
 
-  .tiles { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 12px; margin-bottom: 18px; }
-  .tile { background: var(--panel); border: 1px solid var(--line); border-radius: 14px; padding: 14px 16px; }
-  .tile .k { color: var(--muted); font-size: 0.85rem; font-weight: 500; }
-  .tile .v { font-size: 2rem; font-weight: 600; line-height: 1.1; margin-top: 2px; }
+  main { max-width: 1180px; margin: 0 auto; padding: 18px 16px 48px; }
+  .status-line { color: var(--ink-3); font-size: 0.88rem; margin: 0 0 14px; }
+  .status-line.err { color: var(--st-critical); }
+  h2 { font-size: 1.12rem; font-weight: 600; margin: 0 0 4px; }
+  .sub { color: var(--ink-3); font-size: 0.86rem; margin: 0 0 12px; }
+  section { margin-bottom: 26px; }
+  .panel { background: var(--panel); border: 1px solid var(--line); border-radius: 16px; padding: 16px 18px; }
+  .row2 { display: grid; grid-template-columns: 1.6fr 1fr; gap: 14px; }
+  .row3 { display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px; }
+  @media (max-width: 900px) { .row2, .row3 { grid-template-columns: 1fr; } }
+  .empty { color: var(--ink-3); font-size: 0.92rem; padding: 6px 0; }
 
-  .charts { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 12px; margin-bottom: 18px; }
-  .chart { background: var(--panel); border: 1px solid var(--line); border-radius: 14px; padding: 14px 16px; }
-  .chart h3 { margin: 0 0 10px; font-size: 1rem; font-weight: 600; }
-  .row { display: grid; grid-template-columns: 1fr auto; align-items: center; gap: 8px; font-size: 0.92rem; margin: 6px 0; }
-  .row .lbl { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-  .row .track { grid-column: 1 / -1; height: 10px; background: #eeeef0; border-radius: 6px; overflow: hidden; }
-  .row .fill { height: 100%; background: var(--bar); border-radius: 6px; }
-  .row .n { font-weight: 600; font-variant-numeric: tabular-nums; }
-  .empty { color: var(--muted); font-size: 0.9rem; }
+  /* Needs attention */
+  .alerts { display: grid; gap: 10px; }
+  .alert { display: grid; grid-template-columns: 34px 1fr auto; gap: 12px; align-items: start; padding: 12px 14px; border-radius: 12px; border: 1px solid var(--line); background: var(--panel); }
+  .alert .ic { width: 34px; height: 34px; border-radius: 50%; display: grid; place-items: center; font-size: 1rem; font-weight: 700; color: #fff; }
+  .alert.critical { border-color: color-mix(in srgb, var(--st-critical) 45%, var(--line)); background: color-mix(in srgb, var(--st-critical) 7%, var(--panel)); }
+  .alert.critical .ic { background: var(--st-critical); }
+  .alert.warning .ic { background: var(--st-warning); color: #1a1200; }
+  .alert.info .ic { background: var(--st-info); }
+  .alert .lbl { font-size: 0.75rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.04em; color: var(--ink-2); }
+  .alert .t { font-weight: 600; font-size: 1rem; margin-top: 1px; }
+  .alert .d { color: var(--ink-2); font-size: 0.9rem; margin-top: 2px; line-height: 1.35; }
+  .alert .acts { display: flex; gap: 6px; }
+  .alert .acts button { font-size: 0.82rem; padding: 6px 10px; border-radius: 8px; border: 1px solid var(--line); background: var(--panel); cursor: pointer; white-space: nowrap; }
+  .alert .acts button.primary { background: var(--ink); color: var(--panel); border-color: var(--ink); }
+  .allclear { display: flex; align-items: center; gap: 10px; color: var(--ink-2); padding: 10px 2px; }
+  .allclear .ic { width: 28px; height: 28px; border-radius: 50%; background: var(--st-good); color: #fff; display: grid; place-items: center; font-weight: 700; }
 
-  .table { background: var(--panel); border: 1px solid var(--line); border-radius: 14px; overflow: auto; }
-  table { width: 100%; border-collapse: collapse; font-size: 0.92rem; }
-  th, td { text-align: left; padding: 10px 12px; border-bottom: 1px solid var(--line); white-space: nowrap; }
-  th { position: sticky; top: 0; background: #fafafa; font-weight: 600; color: var(--muted); font-size: 0.82rem; text-transform: uppercase; letter-spacing: 0.03em; }
+  /* In the room */
+  .room { display: grid; gap: 8px; }
+  .person { display: grid; grid-template-columns: 12px 1fr auto; gap: 10px; align-items: center; padding: 8px 10px; border-radius: 10px; background: color-mix(in srgb, var(--ink) 4%, var(--panel)); }
+  .person .dot { width: 12px; height: 12px; border-radius: 50%; }
+  .person .n { font-weight: 600; }
+  .person .m { color: var(--ink-3); font-size: 0.82rem; }
+  .person .need { color: var(--ink-2); font-size: 0.82rem; }
+  .person .mins { font-variant-numeric: tabular-nums; color: var(--ink-2); font-size: 0.9rem; }
+
+  /* KPI tiles */
+  .tiles { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; }
+  @media (max-width: 760px) { .tiles { grid-template-columns: repeat(2, 1fr); } }
+  .tile { background: var(--panel); border: 1px solid var(--line); border-radius: 16px; padding: 14px 16px 10px; }
+  .tile .k { color: var(--ink-2); font-size: 0.86rem; font-weight: 500; }
+  .tile .v { font-size: 2.3rem; font-weight: 600; line-height: 1.05; margin-top: 4px; font-variant-numeric: tabular-nums; }
+  .tile .c { color: var(--ink-3); font-size: 0.8rem; margin-top: 2px; min-height: 1em; }
+  .tile svg { display: block; width: 100%; height: 34px; margin-top: 6px; }
+
+  /* Mood meter */
+  .meter-wrap { display: grid; grid-template-columns: 26px 1fr; grid-template-rows: 1fr 24px; gap: 6px; }
+  .meter-y { grid-row: 1; writing-mode: vertical-rl; transform: rotate(180deg); text-align: center; color: var(--ink-3); font-size: 0.8rem; }
+  .meter-x { grid-column: 2; text-align: center; color: var(--ink-3); font-size: 0.8rem; }
+  .meter { display: grid; grid-template-columns: 1fr 1fr; grid-template-rows: 1fr 1fr; gap: 6px; }
+  .quad { border-radius: 12px; padding: 12px 14px; min-height: 128px; position: relative; background: color-mix(in srgb, var(--q) var(--tint), var(--panel)); border: 1.5px solid color-mix(in srgb, var(--q) 55%, transparent); }
+  .quad .qn { font-weight: 600; font-size: 0.95rem; display: flex; align-items: center; gap: 6px; }
+  .quad .qn i { width: 10px; height: 10px; border-radius: 50%; background: var(--q); display: inline-block; }
+  .quad .qd { color: var(--ink-2); font-size: 0.78rem; }
+  .quad .qv { font-size: 2rem; font-weight: 600; margin-top: 6px; font-variant-numeric: tabular-nums; }
+  .quad .qv small { font-size: 0.9rem; color: var(--ink-2); font-weight: 500; margin-left: 4px; }
+  .quad .qw { color: var(--ink-2); font-size: 0.82rem; margin-top: 2px; }
+
+  /* Arrived vs left */
+  .flow { margin-top: 4px; }
+  .flow .fr { display: grid; grid-template-columns: 64px 1fr; align-items: center; gap: 10px; margin: 10px 0; }
+  .flow .fl { color: var(--ink-2); font-size: 0.88rem; }
+  .stack { display: flex; gap: 2px; height: 30px; border-radius: 6px; overflow: hidden; }
+  .stack span { display: flex; align-items: center; justify-content: center; color: #fff; font-size: 0.8rem; font-weight: 600; min-width: 0; overflow: hidden; white-space: nowrap; }
+  .stack span.dk { color: #1a1200; }
+  .legend { display: flex; flex-wrap: wrap; gap: 14px; color: var(--ink-2); font-size: 0.82rem; margin-top: 6px; }
+  .legend i { display: inline-block; width: 10px; height: 10px; border-radius: 3px; margin-right: 5px; vertical-align: -1px; }
+  .callout { font-size: 1.05rem; margin: 2px 0 6px; }
+  .callout b { font-size: 1.5rem; }
+
+  /* Bars */
+  .bars { display: grid; gap: 9px; }
+  .bar { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 4px 8px; font-size: 0.9rem; }
+  .bar .bl { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .bar .bv { font-weight: 600; font-variant-numeric: tabular-nums; }
+  .bar .bt { grid-column: 1 / -1; height: 8px; background: var(--grid); border-radius: 4px; }
+  .bar .bf { height: 100%; border-radius: 4px; background: var(--series); }
+  .chart svg { display: block; width: 100%; }
+
+  /* Log */
+  .logbar { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; margin-bottom: 10px; }
+  .logbar input { flex: 1; min-width: 220px; padding: 10px 14px; border: 1px solid var(--line); border-radius: 10px; background: var(--panel); }
+  .student { display: none; margin-bottom: 12px; }
+  .student.show { display: block; }
+  .student .top { display: flex; gap: 18px; flex-wrap: wrap; align-items: baseline; }
+  .student .top b { font-size: 1.2rem; }
+  .student .facts { color: var(--ink-2); font-size: 0.9rem; }
+  .dots { display: flex; gap: 5px; flex-wrap: wrap; margin-top: 10px; align-items: center; }
+  .dots i { width: 16px; height: 16px; border-radius: 50%; display: inline-block; }
+  .dots .lab { color: var(--ink-3); font-size: 0.78rem; margin-right: 4px; }
+  .table { border: 1px solid var(--line); border-radius: 14px; overflow: auto; background: var(--panel); max-height: 520px; }
+  table { width: 100%; border-collapse: collapse; font-size: 0.9rem; }
+  th, td { text-align: left; padding: 9px 12px; border-bottom: 1px solid var(--line); white-space: nowrap; }
+  th { position: sticky; top: 0; background: var(--panel); color: var(--ink-3); font-weight: 600; font-size: 0.76rem; text-transform: uppercase; letter-spacing: 0.04em; }
   tr:last-child td { border-bottom: 0; }
-  .pill { display: inline-block; padding: 3px 9px; border-radius: 999px; font-size: 0.8rem; font-weight: 600; color: #fff; }
-  .g-Red { background: var(--m-red); } .g-Yellow { background: var(--m-yellow); color: #2b1d00; } .g-Blue { background: var(--m-blue); } .g-Green { background: var(--m-green); }
-  .o-Incident { color: #b00020; font-weight: 600; } .o-Basic { color: #2f6b30; font-weight: 600; }
-  .sec { margin: 24px 0 10px; font-size: 1.1rem; font-weight: 600; }
-  .sec .count { color: var(--muted); font-weight: 500; font-size: 0.95rem; }
-  .list { display: grid; gap: 10px; }
-  .item { background: var(--panel); border: 1px solid var(--line); border-radius: 14px; padding: 12px 14px; font-size: 0.92rem; }
-  .item.urgent { border-color: #b00020; background: #fff5f5; }
-  .item .meta { color: var(--muted); font-size: 0.82rem; margin: 2px 0; }
-  .item .story { white-space: pre-wrap; margin-top: 6px; line-height: 1.4; }
-  .item .urg, .item .tag { display: inline-block; border-radius: 999px; padding: 2px 8px; font-size: 0.75rem; font-weight: 600; margin-left: 6px; }
-  .item .urg { background: #b00020; color: #fff; } .item .tag { background: #e8e8ea; color: var(--ink); }
-  .item .face { font-size: 1.3rem; margin-right: 6px; vertical-align: middle; }
+  td .name { cursor: pointer; text-decoration: underline; text-decoration-color: var(--line); text-underline-offset: 3px; }
+  .pill { display: inline-flex; align-items: center; gap: 6px; }
+  .pill i { width: 10px; height: 10px; border-radius: 50%; display: inline-block; }
+  .arrow { color: var(--ink-3); margin: 0 4px; }
+
+  /* Incidents + feedback */
+  .inc { border: 1px solid var(--line); border-radius: 12px; padding: 12px 14px; background: var(--panel); }
+  .inc + .inc { margin-top: 10px; }
+  .inc .meta { color: var(--ink-3); font-size: 0.82rem; }
+  .inc .what { font-weight: 600; margin: 4px 0; }
+  .inc .story { white-space: pre-wrap; line-height: 1.4; margin: 6px 0; }
+  .tag { display: inline-flex; align-items: center; gap: 4px; font-size: 0.74rem; font-weight: 600; padding: 2px 8px; border-radius: 999px; margin-left: 6px; border: 1px solid var(--line); color: var(--ink-2); }
+  .tag.crit { background: var(--st-critical); border-color: var(--st-critical); color: #fff; }
+  .tag.ok { color: var(--st-good); border-color: color-mix(in srgb, var(--st-good) 40%, var(--line)); }
+  .inc button { font-size: 0.82rem; padding: 6px 10px; border-radius: 8px; border: 1px solid var(--line); background: var(--panel); cursor: pointer; margin-top: 6px; }
+  details > summary { cursor: pointer; font-weight: 600; font-size: 1.12rem; list-style: none; }
+  details > summary::before { content: "▸ "; color: var(--ink-3); }
+  details[open] > summary::before { content: "▾ "; }
+
+  /* Tooltip */
+  .tip { position: fixed; pointer-events: none; background: var(--ink); color: var(--panel); font-size: 0.82rem; padding: 6px 9px; border-radius: 8px; z-index: 20; opacity: 0; transition: opacity .08s; max-width: 260px; }
+  .tip.on { opacity: 1; }
 
   /* Sign-in page */
   .gate { min-height: 72vh; display: flex; align-items: center; justify-content: center; }
-  .gate .card { background: #fff; border: 1px solid var(--line); border-radius: 22px; padding: 36px 32px; width: min(92vw, 440px); text-align: center; box-shadow: 0 10px 30px rgba(0,0,0,0.06); }
+  .gate .card { background: var(--panel); border: 1px solid var(--line); border-radius: 22px; padding: 36px 32px; width: min(92vw, 440px); text-align: center; box-shadow: 0 10px 30px rgba(0,0,0,0.06); }
   .gate img { height: 96px; }
-  .gate h2 { margin: 10px 0 4px; font-weight: 700; font-size: 1.6rem; color: var(--red); }
-  .gate p { color: var(--muted); margin: 0 0 20px; line-height: 1.45; }
+  .gate h2 { margin: 10px 0 4px; font-weight: 700; font-size: 1.6rem; color: var(--brand); }
+  .gate p { color: var(--ink-3); margin: 0 0 20px; line-height: 1.45; }
   .gate .gsi { display: flex; justify-content: center; min-height: 44px; margin-bottom: 14px; }
-  .gate .small { font-size: 0.85rem; color: var(--muted); margin: 0; }
+  .gate .small { font-size: 0.85rem; margin: 0; }
   .hidden { display: none !important; }
 </style>
 </head>
@@ -79,26 +190,20 @@
 <header>
   <img src="assets/panther.png" alt="">
   <div>
-    <h1>Pride Center · Admin</h1>
+    <h1>Pride Center · Staff</h1>
     <div class="who" id="who"></div>
   </div>
   <div class="spacer"></div>
   <div id="controls" class="hidden" style="display:contents">
-    <select id="range">
-      <option value="today">Today</option>
-      <option value="yesterday">Yesterday</option>
-      <option value="week">This week</option>
-      <option value="all">All loaded</option>
-    </select>
-    <select id="days">
-      <option value="14">Last 14 days</option>
+    <select class="ctl" id="win" aria-label="Time window for charts and the visit log">
+      <option value="7">Last 7 days</option>
+      <option value="14" selected>Last 14 days</option>
       <option value="30">Last 30 days</option>
       <option value="90">Last 90 days</option>
-      <option value="365">Last year</option>
     </select>
-    <button class="btn" id="refresh" type="button">↻ Refresh</button>
-    <button class="btn" id="csv" type="button">⬇ CSV</button>
-    <a class="btn hidden" id="sheetLink" href="#" target="_blank" rel="noopener">Open Sheet</a>
+    <button class="ctl" id="refresh" type="button">↻ Refresh</button>
+    <button class="ctl" id="csv" type="button">⬇ CSV</button>
+    <a class="ctl hidden" id="sheetLink" href="#" target="_blank" rel="noopener">Open Sheet</a>
   </div>
 </header>
 
@@ -114,25 +219,112 @@
   </div>
 
   <div id="dash" class="hidden">
-    <p class="note" id="status"></p>
-    <div class="tiles" id="tiles"></div>
-    <div class="charts" id="charts"></div>
-    <div class="table">
-      <table>
-        <thead><tr>
-          <th>Time</th><th>Name / ID</th><th>Referral</th><th>Reason</th><th>Energy</th><th>Mood</th><th>What happened</th><th>Outcome</th><th>Basic needs</th><th>Station</th><th>Out</th><th>Min</th><th>Mood out</th>
-        </tr></thead>
-        <tbody id="tbody"></tbody>
-      </table>
-    </div>
+    <p class="status-line" id="status"></p>
 
-    <h2 class="sec">Incident reports <span class="count" id="incCount"></span></h2>
-    <div class="list" id="incList"></div>
+    <!-- 1. Act now -->
+    <section class="row2">
+      <div class="panel">
+        <h2>Needs attention</h2>
+        <p class="sub">Safety first, then follow-ups. Clears when handled.</p>
+        <div class="alerts" id="alerts"></div>
+      </div>
+      <div class="panel">
+        <h2>In the room now</h2>
+        <p class="sub">Checked in within the last 3 hours, not yet checked out.</p>
+        <div class="room" id="room"></div>
+      </div>
+    </section>
 
-    <h2 class="sec">Trial feedback <span class="count" id="fbCount"></span></h2>
-    <div class="list" id="fbList"></div>
+    <!-- 2. Today -->
+    <section>
+      <div class="tiles" id="tiles"></div>
+    </section>
+
+    <!-- 3. Feelings -->
+    <section class="row2">
+      <div class="panel">
+        <h2>How students arrived</h2>
+        <p class="sub" id="meterSub"></p>
+        <div class="meter-wrap">
+          <div class="meter-y">← lower energy · higher energy →</div>
+          <div class="meter" id="meter"></div>
+          <div class="meter-x">← unpleasant · pleasant →</div>
+        </div>
+      </div>
+      <div class="panel">
+        <h2>Did the visit help?</h2>
+        <p class="sub">Students who checked out: mood coming in vs. going out.</p>
+        <div id="flow"></div>
+      </div>
+    </section>
+
+    <!-- 4. When -->
+    <section class="row2">
+      <div class="panel chart">
+        <h2>Visits by school day</h2>
+        <p class="sub" id="dailySub"></p>
+        <div id="daily"></div>
+      </div>
+      <div class="panel chart">
+        <h2>Busiest times</h2>
+        <p class="sub">Check-ins by hour of the day, same window.</p>
+        <div id="hourly"></div>
+      </div>
+    </section>
+
+    <!-- 5. What to act on -->
+    <section class="row3">
+      <div class="panel">
+        <h2>What's behind the visits</h2>
+        <p class="sub">"What happened to make you feel this way?"</p>
+        <div class="bars" id="happened"></div>
+      </div>
+      <div class="panel">
+        <h2>What to keep stocked</h2>
+        <p class="sub">Basic needs requested.</p>
+        <div class="bars" id="needs"></div>
+      </div>
+      <div class="panel">
+        <h2>What helped</h2>
+        <p class="sub">Picked at check-out.</p>
+        <div class="bars" id="helped"></div>
+      </div>
+    </section>
+
+    <!-- 6. Student lookup + log -->
+    <section>
+      <h2>Visit log</h2>
+      <p class="sub">Tap a name, or search, to see one student's visits.</p>
+      <div class="logbar">
+        <input id="search" type="search" placeholder="Find a student by name or ID" autocomplete="off">
+      </div>
+      <div class="panel student" id="student"></div>
+      <div class="table">
+        <table>
+          <thead><tr><th>When</th><th>Student</th><th>Why</th><th>Mood in</th><th>Station</th><th>Minutes</th><th>Mood out</th><th>Needs</th></tr></thead>
+          <tbody id="tbody"></tbody>
+        </table>
+      </div>
+    </section>
+
+    <!-- 7. Incident reports -->
+    <section>
+      <h2>Incident reports <span class="sub" id="incCount" style="display:inline"></span></h2>
+      <p class="sub">Unreviewed first. Mark reviewed once someone has followed up.</p>
+      <div id="incList"></div>
+    </section>
+
+    <!-- 8. Feedback -->
+    <section>
+      <details class="panel">
+        <summary>Trial feedback <span class="sub" id="fbCount" style="display:inline"></span></summary>
+        <div id="fbList" style="margin-top:12px"></div>
+      </details>
+    </section>
   </div>
 </main>
+
+<div class="tip" id="tip"></div>
 
 <script src="config.js"></script>
 <script>
@@ -143,19 +335,24 @@
   let idToken = sessionStorage.getItem("ppc_id_token") || "";
   let data = { checkins: [], incidents: [], feedback: [] };
 
-  const REFERRAL = ["Self Referred", "Staff Referred"];
-  const REASONS  = ["Drop In: I need a reset", "Scheduled Break", "Drop In: I have a need"];
-  const ENERGY   = ["Moving Fast", "Moving Slow", "Moving Ok"];
-  const MOODS    = ["Red", "Yellow", "Blue", "Green"];
+  // Mood meter quadrants, in the validated order.
+  const MOODS = ["Red", "Yellow", "Blue", "Green"];
+  const MOOD = {
+    Red:    { v: "var(--m-red)",    dark: false, name: "Red",    desc: "high energy, unpleasant" },
+    Yellow: { v: "var(--m-yellow)", dark: true,  name: "Yellow", desc: "high energy, pleasant" },
+    Blue:   { v: "var(--m-blue)",   dark: false, name: "Blue",   desc: "low energy, unpleasant" },
+    Green:  { v: "var(--m-green)",  dark: false, name: "Green",  desc: "low energy, pleasant" },
+    "Staff first": { v: "var(--m-staff)", dark: false, name: "Staff first", desc: "" }
+  };
   const HAPPENED = ["At Home", "With my Teacher", "With a friend", "Just with myself"];
-  const MOOD_COLORS = { Red: "var(--m-red)", Yellow: "var(--m-yellow)", Blue: "var(--m-blue)", Green: "var(--m-green)" };
-  const STATION_COLORS = Object.assign({ "Staff first": "#7e6bb0" }, MOOD_COLORS);
-  const STATIONS = ["Red", "Yellow", "Blue", "Green", "Staff first"];
+  const REASON_SHORT = { "Drop In: I need a reset": "Reset", "Scheduled Break": "Scheduled break", "Drop In: I have a need": "Has a need" };
   const FACES = { 1: "😣", 2: "🙁", 3: "😐", 4: "🙂", 5: "😀" };
+  const DISMISS_KEY = "ppc_dismissed";
 
   // ---------- Sign-in ----------
   function start() {
-    $("#days").value = String(CFG.DASHBOARD_DAYS);
+    const w = String(CFG.DASHBOARD_DAYS);
+    if ([...$("#win").options].some(o => o.value === w)) $("#win").value = w;
     if (TEST) { $("#who").textContent = "Test mode · this device only"; openDash(); load(); return; }
     if (!CFG.GOOGLE_CLIENT_ID) {
       $("#gateMsg").textContent = "Sign-in isn't set up yet: add GOOGLE_CLIENT_ID to config.js (README step 5).";
@@ -177,41 +374,39 @@
     s.onerror = () => { $("#gateMsg").textContent = "Couldn't load Google sign-in. Check the network and try again."; };
     document.head.appendChild(s);
   }
-
   function onCredential(resp) {
     idToken = resp.credential;
     sessionStorage.setItem("ppc_id_token", idToken);
     openDash(); load();
   }
-
   function signOut(msg) {
     idToken = ""; sessionStorage.removeItem("ppc_id_token");
     if (msg) sessionStorage.setItem("ppc_signin_msg", msg);
     location.reload();
   }
-
   function openDash() {
     $("#gate").classList.add("hidden");
     $("#dash").classList.remove("hidden");
     $("#controls").classList.remove("hidden");
   }
-
   const pendingMsg = sessionStorage.getItem("ppc_signin_msg");
   if (pendingMsg) { $("#gateMsg").textContent = pendingMsg; sessionStorage.removeItem("ppc_signin_msg"); }
 
   // ---------- Data ----------
+  const win = () => Number($("#win").value);
+  async function post(body) {
+    const res = await fetch(CFG.SCRIPT_URL, {
+      method: "POST", headers: { "Content-Type": "text/plain;charset=utf-8" },
+      body: JSON.stringify(Object.assign({ idToken }, body)), redirect: "follow"
+    });
+    return res.json();
+  }
   async function load() {
-    $("#status").className = "note";
+    $("#status").className = "status-line";
     $("#status").textContent = "Loading…";
     if (TEST) { loadLocal(); return; }
     try {
-      const res = await fetch(CFG.SCRIPT_URL, {
-        method: "POST",
-        headers: { "Content-Type": "text/plain;charset=utf-8" },
-        body: JSON.stringify({ type: "dashboard", idToken: idToken, days: Number($("#days").value) }),
-        redirect: "follow"
-      });
-      const d = await res.json();
+      const d = await post({ type: "dashboard", days: Math.max(win(), 14) });
       if (!d.ok) {
         if (/token|sign|expired|authorized|domain/i.test(d.error || "")) return signOut(d.error);
         throw new Error(d.error || "Could not load");
@@ -220,49 +415,258 @@
       $("#who").innerHTML = `Signed in as ${esc(d.email)} <button type="button" id="signout">Sign out</button>`;
       $("#signout").addEventListener("click", () => signOut());
       if (d.sheetUrl) { $("#sheetLink").href = d.sheetUrl; $("#sheetLink").classList.remove("hidden"); }
-      $("#status").textContent = `Loaded ${d.checkins.length} check-ins from the last ${d.days} days · updated ${new Date().toLocaleTimeString([], { hour: "numeric", minute: "2-digit" })}`;
+      $("#status").textContent = `Updated ${new Date().toLocaleTimeString([], { hour: "numeric", minute: "2-digit" })} · refreshes every minute`;
       renderAll();
     } catch (err) {
-      $("#status").className = "note err";
+      $("#status").className = "status-line err";
       $("#status").textContent = "Could not load: " + (err.message || err);
     }
   }
-
-  // Test mode: what the kiosk saved on this device, with check-outs merged onto check-ins.
   function loadLocal() {
     let raw = [], fb = [];
     try { raw = JSON.parse(localStorage.getItem("ppc_local") || "[]"); } catch {}
     try { fb = JSON.parse(localStorage.getItem("ppc_feedback_local") || "[]"); } catch {}
-    const ins = raw.filter(r => r.type !== "checkout" && r.type !== "incident");
+    const ins = raw.filter(r => r.type !== "checkout" && r.type !== "incident").map(r => Object.assign({}, r));
     raw.filter(r => r.type === "checkout").forEach(c => {
-      const key = String(c.name || "").trim().toLowerCase();
+      const key = norm(c.name);
       const m = ins.find(r => r.timestamp === c.checkinTimestamp) || [...ins].reverse().find(r => {
         const d = new Date(c.timestamp) - new Date(r.timestamp);
-        return String(r.name || "").trim().toLowerCase() === key && d >= 0 && d < 6 * 3600000 && !r.checkoutTime;
+        return norm(r.name) === key && d >= 0 && d < 6 * 3600000 && !r.checkoutTime;
       });
       if (m) Object.assign(m, { checkoutTime: c.timestamp, minutes: Math.round((new Date(c.timestamp) - new Date(m.timestamp)) / 60000), outEnergy: c.energy, outMoodGroup: c.moodGroup, outMoodWord: c.moodWord, helped: c.helped });
     });
-    data = { checkins: ins, incidents: raw.filter(r => r.type === "incident"), feedback: fb };
-    $("#status").textContent = "Test mode: showing check-ins saved on this device only. Connect the Google Sheet (see README) for the real dashboard.";
+    let reviews = {}; try { reviews = JSON.parse(localStorage.getItem("ppc_local_reviews") || "{}"); } catch {}
+    const incs = raw.filter(r => r.type === "incident").map(r => Object.assign({}, r, reviews[r.timestamp] || {}));
+    data = { checkins: ins, incidents: incs, feedback: fb };
+    $("#status").textContent = "Test mode: showing check-ins saved on this device only.";
     renderAll();
   }
 
-  function inRange(ts) {
-    const d = new Date(ts), now = new Date();
-    const day = x => new Date(x.getFullYear(), x.getMonth(), x.getDate()).getTime();
-    const today = day(now);
-    switch ($("#range").value) {
-      case "today":     return day(d) === today;
-      case "yesterday": return day(d) === today - 86400000;
-      case "week": {
-        const dow = (now.getDay() + 6) % 7;
-        return day(d) >= today - dow * 86400000;
-      }
-      default: return true;
-    }
-  }
+  // ---------- Helpers ----------
+  const esc = s => String(s ?? "").replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+  const norm = s => String(s || "").trim().toLowerCase();
+  const dayKey = d => { const x = new Date(d); return `${x.getFullYear()}-${String(x.getMonth() + 1).padStart(2, "0")}-${String(x.getDate()).padStart(2, "0")}`; };
+  const todayKey = () => dayKey(new Date());
+  const time = ts => new Date(ts).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" });
+  const when = ts => dayKey(ts) === todayKey() ? "Today " + time(ts) : new Date(ts).toLocaleString([], { weekday: "short", month: "short", day: "numeric", hour: "numeric", minute: "2-digit" });
+  const ago = ts => { const m = Math.round((Date.now() - new Date(ts)) / 60000); return m < 1 ? "just now" : m < 60 ? `${m} min ago` : m < 1440 ? `${Math.floor(m / 60)} hr ${m % 60} min ago` : when(ts); };
+  const inWindow = (ts, days) => Date.now() - new Date(ts) <= days * 86400000;
+  const dot = g => MOOD[g] ? `<i style="background:${MOOD[g].v}"></i>` : "";
+  const pill = (g, word) => g ? `<span class="pill">${dot(g)}${esc(word || g)}</span>` : "";
+  const unpleasant = g => g === "Red" || g === "Blue";
+  function getDismissed() { try { return JSON.parse(localStorage.getItem(DISMISS_KEY) || "{}"); } catch { return {}; } }
+  function dismiss(key) { const d = getDismissed(); d[key] = Date.now(); try { localStorage.setItem(DISMISS_KEY, JSON.stringify(d)); } catch {} renderAll(); }
 
   // ---------- Render ----------
+  function renderAll() {
+    const all = data.checkins.slice().sort((a, b) => new Date(a.timestamp) - new Date(b.timestamp));
+    const today = all.filter(r => dayKey(r.timestamp) === todayKey());
+    const inWin = all.filter(r => inWindow(r.timestamp, win()));
+    renderAlerts(all, today);
+    renderRoom(today);
+    renderTiles(all, today);
+    renderMeter(inWin);
+    renderFlow(inWin);
+    renderDaily(inWin);
+    renderHourly(inWin);
+    bars("#happened", count(inWin, "happened", HAPPENED), "No answers yet.");
+    bars("#needs", countSplit(inWin, "basicNeeds"), "No basic needs requested.");
+    bars("#helped", countSplit(inWin, "helped"), "No check-outs yet.");
+    renderLog(inWin);
+    renderIncidents(data.incidents || []);
+    renderFeedback(data.feedback || []);
+  }
+
+  // 1. Needs attention: safety first, then follow-ups, then patterns.
+  function renderAlerts(all, today) {
+    const dismissed = getDismissed();
+    const items = [];
+    (data.incidents || []).filter(r => !r.reviewed).forEach(r => {
+      const notSafe = r.urgent === "Yes";
+      items.push({
+        key: "inc:" + r.timestamp, rank: notSafe ? 0 : r.talk === "Yes" ? 2 : 3, level: notSafe ? "critical" : "warning",
+        icon: "!", label: notSafe ? "Said they are not safe" : r.talk === "Yes" ? "Incident · wants to talk" : "Incident report",
+        title: `${r.name || "A student"}${r.grade ? " · " + r.grade : ""}`,
+        detail: `${r.types || "Incident"}${r.place ? " · " + r.place : ""}${r.period ? " · " + r.period : ""} · reported ${ago(r.timestamp)}`,
+        incident: r
+      });
+    });
+    today.filter(r => r.station === "Staff first" && r.outcome !== "Incident Report").forEach(r => items.push({
+      key: "sf:" + r.timestamp, rank: 1, level: "critical", icon: "!", label: "Staff should go to this student",
+      title: r.name, detail: `Picked "${r.moodWord}" at check-in · ${ago(r.timestamp)}`
+    }));
+    today.filter(r => r.checkoutTime && unpleasant(r.outMoodGroup)).forEach(r => items.push({
+      key: "out:" + r.timestamp, rank: 4, level: "warning", icon: "↩", label: "Left still " + r.outMoodGroup.toLowerCase(),
+      title: r.name, detail: `Came in ${r.moodGroup ? r.moodGroup.toLowerCase() + " (" + r.moodWord + ")" : "—"}, left ${r.outMoodGroup.toLowerCase()} (${r.outMoodWord}) at ${time(r.checkoutTime)}. Consider a follow-up.`
+    }));
+    // Patterns over the last 7 days.
+    // Scheduled breaks are planned, so they don't count toward a pattern.
+    const week = all.filter(r => inWindow(r.timestamp, 7) && r.reason !== "Scheduled Break");
+    const by = {};
+    week.forEach(r => { const k = norm(r.name); if (k) (by[k] = by[k] || []).push(r); });
+    Object.values(by).forEach(v => {
+      const hard = v.filter(r => unpleasant(r.moodGroup)).length;
+      if (v.length < 3 && hard < 2) return;
+      const reason = v.length >= 3 ? `${v.length} drop-in visits in 7 days${hard ? `, ${hard} came in red or blue` : ""}` : `Came in ${v.filter(r => unpleasant(r.moodGroup)).map(r => r.moodGroup.toLowerCase()).join(", ")} this week`;
+      items.push({
+        key: "pat:" + norm(v[0].name) + ":" + dayKey(v.at(-1).timestamp), rank: 5, score: hard * 2 + v.length, level: "info", icon: "↻", label: "Pattern to check in on",
+        title: v.at(-1).name, detail: reason, dots: v.map(r => r.moodGroup)
+      });
+    });
+    const open = items.filter(i => !dismissed[i.key]).sort((a, b) => a.rank - b.rank || (b.score || 0) - (a.score || 0));
+    // Patterns are capped at 3 so they never bury a safety item.
+    const patterns = open.filter(i => i.rank === 5);
+    const shown = open.filter(i => i.rank < 5).concat(patterns.slice(0, 3));
+    const hiddenPatterns = patterns.length - Math.min(3, patterns.length);
+    $("#alerts").innerHTML = shown.length ? shown.map((i, n) => `
+      <div class="alert ${i.level}">
+        <div class="ic" aria-hidden="true">${i.icon}</div>
+        <div>
+          <div class="lbl">${esc(i.label)}</div>
+          <div class="t"><span class="name" data-name="${esc(i.title)}" style="cursor:pointer">${esc(i.title)}</span></div>
+          <div class="d">${esc(i.detail)}</div>
+          ${i.dots ? `<div class="dots">${i.dots.map(g => g ? `<i style="background:${MOOD[g].v}" title="${esc(g)}"></i>` : "").join("")}</div>` : ""}
+        </div>
+        <div class="acts">${i.incident
+          ? `<button type="button" class="primary" data-review="${n}">Mark reviewed</button>`
+          : `<button type="button" data-dismiss="${esc(i.key)}">Done</button>`}</div>
+      </div>`).join("") + (hiddenPatterns ? `<div class="empty">+ ${hiddenPatterns} more pattern${hiddenPatterns === 1 ? "" : "s"}. Search the visit log to see a student's history.</div>` : "")
+      : `<div class="allclear"><span class="ic">✓</span> Nothing needs attention right now.</div>`;
+    $("#alerts").querySelectorAll("[data-dismiss]").forEach(b => b.addEventListener("click", () => dismiss(b.dataset.dismiss)));
+    $("#alerts").querySelectorAll("[data-review]").forEach(b => b.addEventListener("click", () => review(shown[Number(b.dataset.review)].incident, b)));
+    $("#alerts").querySelectorAll("[data-name]").forEach(el => el.addEventListener("click", () => lookup(el.dataset.name)));
+  }
+
+  // 2. In the room now
+  function renderRoom(today) {
+    const here = today.filter(r => !r.checkoutTime && Date.now() - new Date(r.timestamp) < 3 * 3600000).reverse();
+    $("#room").innerHTML = here.length ? here.map(r => {
+      const mins = Math.round((Date.now() - new Date(r.timestamp)) / 60000);
+      const g = r.station || r.moodGroup;
+      return `<div class="person">
+        <span class="dot" style="background:${MOOD[g] ? MOOD[g].v : "var(--ink-3)"}"></span>
+        <div><div class="n">${esc(r.name)}</div>
+          <div class="m">${r.station ? esc(r.station) + (r.station === "Staff first" ? "" : " station") : esc(REASON_SHORT[r.reason] || r.outcome || "")}${r.moodWord ? " · " + esc(r.moodWord) : ""}</div>
+          ${r.basicNeeds ? `<div class="need">Needs: ${esc(r.basicNeeds)}</div>` : ""}</div>
+        <div class="mins" title="Minutes since check-in">${mins} min</div>
+      </div>`;
+    }).join("") : `<div class="empty">No one is checked in right now.</div>`;
+  }
+
+  // 3. Today tiles with a 14-school-day sparkline
+  function renderTiles(all, today) {
+    const days = schoolDays(all, 14);
+    const series = f => days.map(d => all.filter(r => dayKey(r.timestamp) === d && f(r)).length);
+    const here = today.filter(r => !r.checkoutTime && Date.now() - new Date(r.timestamp) < 3 * 3600000).length;
+    const incToday = (data.incidents || []).filter(r => dayKey(r.timestamp) === todayKey()).length;
+    const tiles = [
+      { k: "Check-ins today", v: today.length, s: series(() => true), c: avgNote(series(() => true)) },
+      { k: "Came in red or blue", v: today.filter(r => unpleasant(r.moodGroup)).length, s: series(r => unpleasant(r.moodGroup)), c: today.length ? Math.round(100 * today.filter(r => unpleasant(r.moodGroup)).length / today.length) + "% of today" : "" },
+      { k: "Basic needs today", v: today.filter(r => r.basicNeeds).length, s: series(r => !!r.basicNeeds), c: "" },
+      { k: "Incident reports today", v: incToday, s: days.map(d => (data.incidents || []).filter(r => dayKey(r.timestamp) === d).length), c: here ? `${here} in the room now` : "" }
+    ];
+    $("#tiles").innerHTML = tiles.map(t => `<div class="tile"><div class="k">${t.k}</div><div class="v">${t.v}</div><div class="c">${esc(t.c)}</div>${spark(t.s, days)}</div>`).join("");
+    bindTips($("#tiles"));
+  }
+  function avgNote(s) { const past = s.slice(0, -1); if (!past.length) return ""; const a = past.reduce((x, y) => x + y, 0) / past.length; return `${a.toFixed(1)} a day recently`; }
+  function spark(s, days) {
+    const W = 200, H = 34, max = Math.max(1, ...s), n = s.length;
+    if (n < 2) return "";
+    const x = i => 3 + i * (W - 6) / (n - 1), y = v => H - 4 - v / max * (H - 8);
+    const pts = s.map((v, i) => `${x(i).toFixed(1)},${y(v).toFixed(1)}`).join(" ");
+    const hits = s.map((v, i) => `<rect x="${(x(i) - (W / n) / 2).toFixed(1)}" y="0" width="${(W / n).toFixed(1)}" height="${H}" fill="transparent" data-tip="${esc(fmtDay(days[i]))}: ${v}"/>`).join("");
+    return `<svg viewBox="0 0 ${W} ${H}" preserveAspectRatio="none" role="img" aria-label="Last ${n} school days"><polyline points="${pts}" fill="none" stroke="var(--series)" stroke-width="2" vector-effect="non-scaling-stroke" stroke-linejoin="round" stroke-linecap="round"/><circle cx="${x(n - 1)}" cy="${y(s.at(-1))}" r="3" fill="var(--series)"/>${hits}</svg>`;
+  }
+  function schoolDays(all, n) {
+    // The last n weekdays up to today, plus any weekend day that had visits.
+    const out = []; const seen = new Set(all.map(r => dayKey(r.timestamp)));
+    for (let i = 0; out.length < n && i < n * 3; i++) {
+      const d = new Date(); d.setHours(12, 0, 0, 0); d.setDate(d.getDate() - i);
+      const k = dayKey(d), wd = d.getDay();
+      if ((wd !== 0 && wd !== 6) || seen.has(k)) out.unshift(k);
+    }
+    return out;
+  }
+  function fmtDay(k) { const [y, m, d] = k.split("-").map(Number); return new Date(y, m - 1, d).toLocaleDateString([], { weekday: "short", month: "short", day: "numeric" }); }
+
+  // 4. Mood meter
+  function renderMeter(rows) {
+    const withMood = rows.filter(r => r.moodGroup);
+    $("#meterSub").textContent = `${withMood.length} check-ins with a feeling word, last ${win()} days.`;
+    const order = ["Red", "Yellow", "Blue", "Green"]; // grid positions: top-left, top-right, bottom-left, bottom-right
+    $("#meter").innerHTML = order.map(g => {
+      const v = withMood.filter(r => r.moodGroup === g);
+      const pct = withMood.length ? Math.round(100 * v.length / withMood.length) : 0;
+      const words = count(v, "moodWord").slice(0, 3).map(([w, n]) => `${w} (${n})`).join(", ");
+      return `<div class="quad" style="--q:${MOOD[g].v}">
+        <div class="qn"><i></i>${g}</div><div class="qd">${MOOD[g].desc}</div>
+        <div class="qv">${v.length}<small>${pct}%</small></div>
+        <div class="qw">${words ? "Top words: " + esc(words) : "—"}</div>
+      </div>`;
+    }).join("");
+  }
+
+  // 5. Arrived vs left
+  function renderFlow(rows) {
+    const done = rows.filter(r => r.checkoutTime && r.moodGroup && r.outMoodGroup);
+    if (!done.length) { $("#flow").innerHTML = `<div class="empty">No check-outs with a feeling word yet. Students check out from the kiosk start screen.</div>`; return; }
+    const better = done.filter(r => unpleasant(r.moodGroup) && !unpleasant(r.outMoodGroup)).length;
+    const startedHard = done.filter(r => unpleasant(r.moodGroup)).length;
+    const mins = done.map(r => Number(r.minutes)).filter(n => n >= 0).sort((a, b) => a - b);
+    const median = mins.length ? mins[Math.floor(mins.length / 2)] : null;
+    const stack = key => {
+      const c = MOODS.map(g => [g, done.filter(r => r[key] === g).length]).filter(([, n]) => n);
+      return `<div class="stack">${c.map(([g, n]) => { const p = 100 * n / done.length; return `<span class="${MOOD[g].dark ? "dk" : ""}" style="flex:${n};background:${MOOD[g].v}" data-tip="${g}: ${n} of ${done.length} (${Math.round(p)}%)">${p >= 14 ? Math.round(p) + "%" : ""}</span>`; }).join("")}</div>`;
+    };
+    $("#flow").innerHTML = `
+      <p class="callout">${startedHard ? `<b>${better} of ${startedHard}</b> who came in red or blue left feeling yellow or green.` : `<b>${done.length}</b> check-outs, none arrived red or blue.`}</p>
+      <p class="sub">${done.length} check-outs${median !== null ? ` · typical stay ${median} min` : ""}</p>
+      <div class="flow">
+        <div class="fr"><div class="fl">Arrived</div>${stack("moodGroup")}</div>
+        <div class="fr"><div class="fl">Left</div>${stack("outMoodGroup")}</div>
+      </div>
+      <div class="legend">${MOODS.map(g => `<span><i style="background:${MOOD[g].v}"></i>${g}</span>`).join("")}</div>`;
+    bindTips($("#flow"));
+  }
+
+  // 6. Visits by school day (columns) and by hour
+  function renderDaily(rows) {
+    const days = schoolDays(rows, win() >= 30 ? Math.round(win() * 5 / 7) : Math.min(win(), Math.round(win() * 5 / 7) || win()));
+    const vals = days.map(d => rows.filter(r => dayKey(r.timestamp) === d).length);
+    const total = vals.reduce((a, b) => a + b, 0);
+    $("#dailySub").textContent = `${total} check-ins over ${days.length} school days · ${days.length ? (total / days.length).toFixed(1) : 0} a day on average.`;
+    $("#daily").innerHTML = columns(vals, days.map(fmtDayShort), days.map(fmtDay), "check-ins", chartW("#daily"));
+    bindTips($("#daily"));
+  }
+  function fmtDayShort(k) { const [y, m, d] = k.split("-").map(Number); return `${m}/${d}`; }
+  function renderHourly(rows) {
+    const hours = [7, 8, 9, 10, 11, 12, 13, 14, 15, 16];
+    const vals = hours.map(h => rows.filter(r => new Date(r.timestamp).getHours() === h).length);
+    const lab = h => (h % 12 || 12) + (h < 12 ? "a" : "p");
+    $("#hourly").innerHTML = columns(vals, hours.map(lab), hours.map(h => `${lab(h)}m–${lab(h + 1)}m`), "check-ins", chartW("#hourly"));
+    bindTips($("#hourly"));
+  }
+  function columns(vals, labels, tips, unit, W) {
+    const H = 220, L = 30, R = 8, T = 10, B = 26;
+    const n = vals.length, max = Math.max(4, ...vals);
+    const step = niceStep(max), top = Math.ceil(max / step) * step;
+    const bw = (W - L - R) / n, gap = Math.max(2, bw * 0.28), w = bw - gap;
+    const y = v => T + (H - T - B) * (1 - v / top);
+    const ticks = []; for (let t = 0; t <= top; t += step) ticks.push(t);
+    const every = Math.ceil(n / 10);
+    const grid = ticks.map(t => `<line x1="${L}" x2="${W - R}" y1="${y(t)}" y2="${y(t)}" stroke="var(--grid)"/><text x="${L - 6}" y="${y(t) + 4}" text-anchor="end" font-size="11" fill="var(--ink-3)">${t}</text>`).join("");
+    const bars = vals.map((v, i) => {
+      const x = L + i * bw + gap / 2, h = y(0) - y(v), r = Math.min(4, w / 2, h);
+      const path = v ? `M${x},${y(0)} V${y(v) + r} Q${x},${y(v)} ${x + r},${y(v)} H${x + w - r} Q${x + w},${y(v)} ${x + w},${y(v) + r} V${y(0)} Z` : "";
+      const lbl = i % every === 0 || i === n - 1 ? `<text x="${x + w / 2}" y="${H - 8}" text-anchor="middle" font-size="11" fill="var(--ink-3)">${esc(labels[i])}</text>` : "";
+      return `${path ? `<path d="${path}" fill="var(--series)"/>` : ""}<rect x="${L + i * bw}" y="${T}" width="${bw}" height="${H - T - B}" fill="transparent" data-tip="${esc(tips[i])}: ${v} ${unit}"/>${lbl}`;
+    }).join("");
+    return `<svg viewBox="0 0 ${W} ${H}" role="img" aria-label="Column chart">${grid}<line x1="${L}" x2="${W - R}" y1="${y(0)}" y2="${y(0)}" stroke="var(--ink-3)" stroke-width="1"/>${bars}</svg>`;
+  }
+  function chartW(sel) { return Math.max(300, Math.round($(sel).clientWidth || 600)); }
+  function niceStep(max) { const raw = max / 4, p = Math.pow(10, Math.floor(Math.log10(raw))); const m = raw / p; return (m <= 1 ? 1 : m <= 2 ? 2 : m <= 5 ? 5 : 10) * p; }
+
+  // 7. Ranked bars
   function count(rows, key, order) {
     const m = {}; rows.forEach(r => { const k = String(r[key] || "").trim(); if (k) m[k] = (m[k] || 0) + 1; });
     const keys = order ? order.filter(k => k in m).concat(Object.keys(m).filter(k => !order.includes(k))) : Object.keys(m).sort((a, b) => m[b] - m[a]);
@@ -273,102 +677,128 @@
     rows.forEach(r => String(r[key] || "").split(",").map(s => s.trim()).filter(Boolean).forEach(k => { m[k] = (m[k] || 0) + 1; }));
     return Object.keys(m).sort((a, b) => m[b] - m[a]).map(k => [k, m[k]]);
   }
-  function bars(title, pairs, colorFn) {
+  function bars(sel, pairs, emptyMsg) {
+    pairs = pairs.slice().sort((a, b) => b[1] - a[1]).slice(0, 6);
     const max = Math.max(1, ...pairs.map(p => p[1]));
-    const body = pairs.length ? pairs.map(([k, n]) => `
-      <div class="row">
-        <div class="lbl">${esc(k)}</div><div class="n">${n}</div>
-        <div class="track"><div class="fill" style="width:${(n / max * 100).toFixed(1)}%;${colorFn ? "background:" + colorFn(k) : ""}"></div></div>
-      </div>`).join("") : `<div class="empty">No check-ins in this range.</div>`;
-    return `<div class="chart"><h3>${title}</h3>${body}</div>`;
-  }
-  function esc(s) { return String(s ?? "").replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c])); }
-  function fmtWhen(ts) { return new Date(ts).toLocaleString([], { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" }); }
-
-  function renderAll() {
-    const rows = data.checkins.filter(r => inRange(r.timestamp)).sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
-    const n = rows.length;
-    const by = k => rows.filter(r => r.outcome === k).length;
-    const outs = rows.filter(r => r.checkoutTime);
-    const uniq = new Set(rows.map(r => String(r.name || "").trim().toLowerCase())).size;
-    $("#tiles").innerHTML = [
-      ["Check-ins", n], ["Students", uniq], ["Check In", by("Check In")], ["Incident Reports", by("Incident Report")], ["Basic Needs", by("Basic Need")],
-      ["Checked out", outs.length], ["Avg minutes", outs.length ? Math.round(outs.reduce((s, r) => s + Number(r.minutes || 0), 0) / outs.length) : "–"]
-    ].map(([k, v]) => `<div class="tile"><div class="k">${k}</div><div class="v">${v}</div></div>`).join("");
-
-    $("#charts").innerHTML =
-      bars("Referral", count(rows, "referral", REFERRAL)) +
-      bars("What they needed", count(rows, "reason", REASONS)) +
-      bars("Energy", count(rows, "energy", ENERGY)) +
-      bars("Mood group", count(rows, "moodGroup", MOODS), k => MOOD_COLORS[k] || "var(--bar)") +
-      bars("What happened", count(rows, "happened", HAPPENED)) +
-      bars("Top feelings", count(rows, "moodWord").slice(0, 8)) +
-      bars("Basic needs requested", countSplit(rows, "basicNeeds")) +
-      bars("Station", count(rows, "station", STATIONS), k => STATION_COLORS[k] || "var(--bar)") +
-      bars("Mood at check-out", count(rows, "outMoodGroup", MOODS), k => MOOD_COLORS[k] || "var(--bar)") +
-      bars("What helped", countSplit(rows, "helped"));
-
-    $("#tbody").innerHTML = rows.length ? rows.map(r => {
-      const t = new Date(r.timestamp);
-      const when = $("#range").value === "today"
-        ? t.toLocaleTimeString([], { hour: "numeric", minute: "2-digit" })
-        : t.toLocaleString([], { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" });
-      const oc = r.outcome === "Incident Report" ? "o-Incident" : r.outcome === "Basic Need" ? "o-Basic" : "";
-      return `<tr>
-        <td>${esc(when)}</td><td>${esc(r.name)}</td><td>${esc(r.referral)}</td><td>${esc(r.reason)}</td><td>${esc(r.energy)}</td>
-        <td>${r.moodGroup ? `<span class="pill g-${esc(r.moodGroup)}">${esc(r.moodWord)}</span>` : ""}</td>
-        <td>${esc(r.happened)}</td><td class="${oc}">${esc(r.outcome)}</td><td>${esc(r.basicNeeds)}</td>
-        <td>${esc(r.station)}</td><td>${r.checkoutTime ? esc(new Date(r.checkoutTime).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" })) : ""}</td><td>${esc(r.minutes)}</td>
-        <td>${r.outMoodGroup ? `<span class="pill g-${esc(r.outMoodGroup)}">${esc(r.outMoodWord)}</span>` : ""}</td>
-      </tr>`;
-    }).join("") : `<tr><td colspan="13" class="empty">No check-ins in this range.</td></tr>`;
-
-    renderIncidents(data.incidents || []);
-    renderFeedback(data.feedback || []);
+    $(sel).innerHTML = pairs.length ? pairs.map(([k, n]) => `
+      <div class="bar" data-tip="${esc(k)}: ${n}"><div class="bl">${esc(k)}</div><div class="bv">${n}</div>
+        <div class="bt"><div class="bf" style="width:${(n / max * 100).toFixed(1)}%"></div></div></div>`).join("")
+      : `<div class="empty">${emptyMsg}</div>`;
+    bindTips($(sel));
   }
 
+  // 8. Log + student lookup
+  function renderLog(rows) {
+    const q = norm($("#search").value);
+    const list = rows.filter(r => !q || norm(r.name).includes(q)).slice().reverse();
+    $("#tbody").innerHTML = list.length ? list.map(r => `<tr>
+      <td>${esc(when(r.timestamp))}</td>
+      <td><span class="name" data-name="${esc(r.name)}">${esc(r.name)}</span></td>
+      <td>${esc(r.outcome === "Incident Report" ? "Incident report" : r.need === "Basic Need" ? "Basic need" : REASON_SHORT[r.reason] || r.reason || "")}${r.referral === "Staff Referred" ? ' <span class="tag">sent by staff</span>' : ""}</td>
+      <td>${pill(r.moodGroup, r.moodWord)}</td>
+      <td>${r.station ? pill(r.station, r.station) : ""}</td>
+      <td>${r.minutes === "" || r.minutes == null ? "" : esc(r.minutes)}</td>
+      <td>${pill(r.outMoodGroup, r.outMoodWord)}</td>
+      <td>${esc(r.basicNeeds)}</td>
+    </tr>`).join("") : `<tr><td colspan="8" class="empty">No visits in this window${q ? " for that search" : ""}.</td></tr>`;
+    $("#tbody").querySelectorAll("[data-name]").forEach(el => el.addEventListener("click", () => lookup(el.dataset.name)));
+    renderStudent(q);
+  }
+  function lookup(name) { $("#search").value = name; renderLog(data.checkins.filter(r => inWindow(r.timestamp, win()))); $("#search").scrollIntoView({ behavior: "smooth", block: "center" }); }
+  function renderStudent(q) {
+    const box = $("#student");
+    const names = [...new Set(data.checkins.map(r => norm(r.name)).filter(n => q && n.includes(q)))];
+    if (!q || names.length !== 1) { box.classList.remove("show"); return; }
+    const key = names[0];
+    if (!data.checkins.some(r => norm(r.name) === key && inWindow(r.timestamp, win()))) { box.classList.remove("show"); return; }
+    const v = data.checkins.filter(r => norm(r.name) === key && inWindow(r.timestamp, win())).sort((a, b) => new Date(a.timestamp) - new Date(b.timestamp));
+    const incs = (data.incidents || []).filter(r => norm(r.name) === key);
+    const hard = v.filter(r => unpleasant(r.moodGroup)).length;
+    const outs = v.filter(r => r.outMoodGroup);
+    box.innerHTML = `<div class="top"><b>${esc(v.at(-1).name)}</b>
+      <span class="facts">${v.length} visit${v.length === 1 ? "" : "s"} in the last ${win()} days · last ${esc(when(v.at(-1).timestamp))}${hard ? ` · came in red or blue ${hard} time${hard === 1 ? "" : "s"}` : ""}${incs.length ? ` · ${incs.length} incident report${incs.length === 1 ? "" : "s"}` : ""}</span></div>
+      <div class="dots"><span class="lab">Mood in, oldest → newest</span>${v.map(r => r.moodGroup ? `<i style="background:${MOOD[r.moodGroup].v}" data-tip="${esc(when(r.timestamp))}: ${esc(r.moodWord)}"></i>` : "").join("")}</div>
+      ${outs.length ? `<div class="dots"><span class="lab">Mood out</span>${outs.map(r => `<i style="background:${MOOD[r.outMoodGroup].v}" data-tip="${esc(when(r.checkoutTime))}: ${esc(r.outMoodWord)}"></i>`).join("")}</div>` : ""}`;
+    box.classList.add("show");
+    bindTips(box);
+  }
+
+  // 9. Incidents
   function renderIncidents(rows) {
-    rows = rows.slice().sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
-    $("#incCount").textContent = rows.length ? `(${rows.length})` : "";
-    $("#incList").innerHTML = rows.length ? rows.map(r => `
-      <div class="item ${r.urgent === "Yes" ? "urgent" : ""}">
-        <div class="meta">${esc(fmtWhen(r.timestamp))} · <b>${esc(r.name)}</b>${r.grade ? " · " + esc(r.grade) : ""}${r.urgent === "Yes" ? '<span class="urg">Said not safe</span>' : ""}${r.talk === "Yes" ? '<span class="tag">Wants to talk</span>' : ""}</div>
-        <div><b>${esc(r.types)}</b>${r.place ? " · " + esc(r.place) : ""}${r.period ? " · " + esc(r.period) : ""}</div>
+    rows = rows.slice().sort((a, b) => (!!a.reviewed - !!b.reviewed) || (b.urgent === "Yes") - (a.urgent === "Yes") || new Date(b.timestamp) - new Date(a.timestamp));
+    const open = rows.filter(r => !r.reviewed).length;
+    $("#incCount").textContent = rows.length ? `· ${open} to review, ${rows.length} total` : "";
+    $("#incList").innerHTML = rows.length ? rows.map((r, i) => `
+      <div class="inc">
+        <div class="meta">${esc(when(r.timestamp))} · <b>${esc(r.name)}</b>${r.grade ? " · " + esc(r.grade) : ""}
+          ${r.urgent === "Yes" ? '<span class="tag crit">! Said not safe</span>' : ""}${r.talk === "Yes" ? '<span class="tag">Wants to talk</span>' : ""}${r.reviewed ? `<span class="tag ok">✓ Reviewed</span>` : ""}</div>
+        <div class="what">${esc(r.types)}${r.place ? " · " + esc(r.place) : ""}${r.period ? " · " + esc(r.period) : ""}</div>
         ${r.story ? `<div class="story">${esc(r.story)}</div>` : ""}
         ${r.who ? `<div class="meta">Involved: ${esc(r.who)}</div>` : ""}${r.witness ? `<div class="meta">Saw it: ${esc(r.witness)}</div>` : ""}
-        ${r.reviewed ? `<div class="meta">Reviewed by ${esc(r.reviewed)}${r.notes ? " · " + esc(r.notes) : ""}</div>` : ""}
-      </div>`).join("") : `<div class="empty">No incident reports loaded.</div>`;
+        ${r.reviewed ? `<div class="meta">Reviewed by ${esc(r.reviewed)}${r.notes ? " · " + esc(r.notes) : ""}</div>` : `<button type="button" data-inc="${i}">Mark reviewed</button>`}
+      </div>`).join("") : `<div class="empty">No incident reports in this window.</div>`;
+    $("#incList").querySelectorAll("[data-inc]").forEach(b => b.addEventListener("click", () => review(rows[Number(b.dataset.inc)], b)));
+  }
+  async function review(inc, btn) {
+    const notes = prompt(`Mark ${inc.name}'s report reviewed. Optional note (what was done):`, "");
+    if (notes === null) return;
+    btn.disabled = true; btn.textContent = "Saving…";
+    if (TEST) {
+      let rv = {}; try { rv = JSON.parse(localStorage.getItem("ppc_local_reviews") || "{}"); } catch {}
+      rv[inc.timestamp] = { reviewed: "Test mode · " + new Date().toLocaleDateString(), notes };
+      try { localStorage.setItem("ppc_local_reviews", JSON.stringify(rv)); } catch {}
+      return loadLocal();
+    }
+    try {
+      const d = await post({ type: "review", timestamp: inc.timestamp, name: inc.name, notes });
+      if (!d.ok) throw new Error(/Bad token/.test(d.error || "") ? "The script in the Sheet needs updating to save reviews (paste the new Code.gs and deploy a new version)." : d.error);
+      load();
+    } catch (err) {
+      btn.disabled = false; btn.textContent = "Mark reviewed";
+      alert("Couldn't save: " + (err.message || err));
+    }
   }
 
+  // 10. Feedback
   function renderFeedback(rows) {
     rows = rows.slice().sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
     const rated = rows.filter(r => Number(r.rating));
     const avg = rated.length ? (rated.reduce((s, r) => s + Number(r.rating), 0) / rated.length).toFixed(1) : null;
-    $("#fbCount").textContent = rows.length ? `(${rows.length}${avg ? `, avg ${avg}/5` : ""})` : "";
+    $("#fbCount").textContent = rows.length ? `· ${rows.length} response${rows.length === 1 ? "" : "s"}${avg ? `, average ${avg} of 5` : ""}` : "· none yet";
     $("#fbList").innerHTML = rows.length ? rows.map(r => `
-      <div class="item">
-        <div class="meta">${esc(fmtWhen(r.timestamp))} · <b>${esc(r.role || "Unknown")}</b>${r.tried ? " · " + esc(r.tried) : ""}${r.device ? " · " + esc(r.device) : ""}</div>
-        <div>${r.rating ? `<span class="face">${FACES[r.rating] || ""}</span>` : ""}${r.worked ? `<b>Worked:</b> ${esc(r.worked)} ` : ""}</div>
+      <div class="inc">
+        <div class="meta">${esc(when(r.timestamp))} · <b>${esc(r.role || "Unknown")}</b>${r.tried ? " · " + esc(r.tried) : ""}</div>
+        <div>${r.rating ? `<span style="font-size:1.2rem">${FACES[r.rating] || ""}</span> ` : ""}${r.worked ? `<b>Worked:</b> ${esc(r.worked)}` : ""}</div>
         ${r.change ? `<div><b>Change:</b> ${esc(r.change)}</div>` : ""}${r.ideas ? `<div><b>Else:</b> ${esc(r.ideas)}</div>` : ""}
         ${r.contact ? `<div class="meta">Contact: ${esc(r.contact)}</div>` : ""}
       </div>`).join("") : `<div class="empty">No feedback yet.</div>`;
   }
 
+  // ---------- Tooltip ----------
+  const tip = $("#tip");
+  function bindTips(root) {
+    root.querySelectorAll("[data-tip]").forEach(el => {
+      el.addEventListener("mousemove", e => { tip.textContent = el.dataset.tip; tip.classList.add("on"); tip.style.left = Math.min(e.clientX + 12, innerWidth - 270) + "px"; tip.style.top = (e.clientY + 14) + "px"; });
+      el.addEventListener("mouseleave", () => tip.classList.remove("on"));
+    });
+  }
+
   // ---------- CSV ----------
   $("#csv").addEventListener("click", () => {
-    const rows = data.checkins.filter(r => inRange(r.timestamp));
+    const rows = data.checkins.filter(r => inWindow(r.timestamp, win()));
     const cols = ["timestamp", "name", "referral", "reason", "energy", "moodGroup", "moodWord", "happened", "need", "basicNeeds", "outcome", "kiosk", "stationSuggested", "station", "checkoutTime", "minutes", "outEnergy", "outMoodGroup", "outMoodWord", "helped"];
     const q = v => `"${String(v ?? "").replace(/"/g, '""')}"`;
     const csv = [cols.join(",")].concat(rows.map(r => cols.map(c => q(r[c])).join(","))).join("\n");
     const a = document.createElement("a");
     a.href = URL.createObjectURL(new Blob([csv], { type: "text/csv" }));
-    a.download = `pride-center-checkins-${new Date().toISOString().slice(0, 10)}.csv`;
+    a.download = `pride-center-checkins-${todayKey()}.csv`;
     a.click();
   });
 
-  $("#range").addEventListener("change", renderAll);
-  $("#days").addEventListener("change", load);
+  $("#win").addEventListener("change", () => { if (!TEST && win() > 14) load(); else renderAll(); });
+  $("#search").addEventListener("input", () => renderLog(data.checkins.filter(r => inWindow(r.timestamp, win()))));
   $("#refresh").addEventListener("click", load);
+  let rt; addEventListener("resize", () => { clearTimeout(rt); rt = setTimeout(() => { if (!$("#dash").classList.contains("hidden")) { const r = data.checkins.filter(x => inWindow(x.timestamp, win())); renderDaily(r); renderHourly(r); } }, 150); });
   setInterval(() => { if (!$("#dash").classList.contains("hidden")) load(); }, 60000);
   start();
 })();
