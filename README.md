@@ -51,7 +51,7 @@ The sheet already exists: [Pride Center Check-Ins](https://docs.google.com/sprea
 
 1. In the Sheet, go to **Extensions → Apps Script**.
 2. Delete the sample code in `Code.gs` and paste in everything from `apps-script/Code.gs`.
-3. Optional: to limit the dashboard to specific people, add their emails to `ADMIN_EMAILS` near the top. Otherwise anyone with a kresa.org account can open it.
+3. Dashboard access is `ALLOWED_DOMAIN` (any @parchmentschools.org Workspace account) plus the people in `ADMIN_EMAILS` (currently ben.tomlinson@kresa.org). Everyone else is refused. To lock it to named people only, list them in `ADMIN_EMAILS` and set `ALLOWED_DOMAIN` to `''`.
 4. `KIOSK_TOKEN` must match `config.js`. They already match in this repo.
 5. Click **Save**.
 
@@ -90,7 +90,7 @@ The dashboard at `staff.html` uses Google's own sign-in. You need one OAuth Clie
 
 If Cloud Console is locked down in your district, ask your Google Workspace admin to create the Web application client with that origin, or to allow you to. Nothing else in the setup needs the console.
 
-How it works: the sign-in button gives the browser a Google ID token. `staff.html` sends it with every data request, and `Code.gs` verifies it with Google, checks the domain (and `ADMIN_EMAILS` if set), and only then returns data. Tokens expire after an hour, at which point the page asks you to sign in again.
+How it works: the sign-in button gives the browser a Google ID token. `staff.html` sends it with every data request, and `Code.gs` verifies it with Google, checks that the account is a @parchmentschools.org Workspace account or listed in `ADMIN_EMAILS`, and only then returns data. Tokens expire after an hour, at which point the page asks you to sign in again.
 
 ### 6. Publish the config
 
@@ -157,6 +157,7 @@ With `SCRIPT_URL` empty, the kiosk saves check-ins in the browser on that device
 
 ## Privacy notes
 
+- **Sample data:** rows whose Kiosk column says `SAMPLE DATA` (names end in "(sample)") are demo rows for staff to explore. Run **deleteSampleData** in Apps Script to remove them all; real rows are untouched.
 - Student names are stored only in the district Google Sheet. Nothing goes to any other service.
 - The kiosk keeps a copy of the last 500 check-ins in the iPad browser's local storage so nothing is lost offline. Clear Safari website data on the iPad if you ever retire it.
 - The dashboard login is Google's own "Sign in with Google", verified by the script on every request. There is no password or PIN to manage. `ALLOWED_DOMAIN` and the optional `ADMIN_EMAILS` list in `Code.gs` control who gets in.

@@ -641,6 +641,25 @@ function json_(obj) {
     .setMimeType(ContentService.MimeType.JSON);
 }
 
+/**
+ * Removes every sample row (Kiosk = "SAMPLE DATA") from Check-Ins and Incident Reports.
+ * Run from the editor when the sample data is no longer needed. Real rows are untouched.
+ */
+function deleteSampleData() {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const targets = [[SHEET_NAME, 14], [INCIDENT_NAME, 15]]; // tab, Kiosk column (1-based)
+  let removed = 0;
+  targets.forEach(([name, col]) => {
+    const sheet = ss.getSheetByName(name);
+    if (!sheet || sheet.getLastRow() < 2) return;
+    const vals = sheet.getRange(2, col, sheet.getLastRow() - 1, 1).getValues();
+    for (let i = vals.length - 1; i >= 0; i--) {
+      if (String(vals[i][0]).trim() === 'SAMPLE DATA') { sheet.deleteRow(i + 2); removed++; }
+    }
+  });
+  Logger.log('Removed ' + removed + ' sample row(s).');
+}
+
 /** Optional: run this to add a fake check-in and confirm the sheet works. */
 function testInsert() {
   const fake = {
