@@ -15,7 +15,7 @@
 
 // Google OAuth Client ID for "Sign in with Google" on staff.html. Must match
 // GOOGLE_CLIENT_ID in config.js (README step 5).
-const GOOGLE_CLIENT_ID = '';
+const GOOGLE_CLIENT_ID = '680243392561-vod2q88igf1v8mr84uc7b4h075lv6g5p.apps.googleusercontent.com';
 
 // Only Google accounts on this domain may open the dashboard.
 const ALLOWED_DOMAIN = 'kresa.org';
