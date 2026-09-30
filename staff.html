@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Pride Center – Staff</title>
+<title>Pride Center – Admin</title>
 <link rel="icon" href="assets/icon-192.png">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -16,15 +16,18 @@
   }
   * { box-sizing: border-box; }
   body { margin: 0; font-family: "Fredoka", "Avenir Next", "Segoe UI", sans-serif; background: var(--bg); color: var(--ink); }
-  header { background: #fff; border-bottom: 1px solid var(--line); padding: 14px 20px; display: flex; align-items: center; gap: 14px; flex-wrap: wrap; }
+  header { background: #fff; border-bottom: 1px solid var(--line); padding: 12px 20px; display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
   header img { height: 44px; }
-  header h1 { margin: 0; font-size: 1.35rem; font-weight: 600; color: var(--red); }
+  header h1 { margin: 0; font-size: 1.3rem; font-weight: 600; color: var(--red); }
+  header .who { color: var(--muted); font-size: 0.9rem; }
+  header .who button { font: inherit; font-size: 0.85rem; background: none; border: 0; color: var(--red); text-decoration: underline; cursor: pointer; padding: 0 4px; }
   header .spacer { flex: 1; }
-  header select, header button {
-    font: inherit; font-size: 1rem; padding: 9px 14px; border: 1px solid #cfcfd3; border-radius: 10px; background: #fff; color: var(--ink); cursor: pointer;
+  header select, header button.btn, header a.btn {
+    font: inherit; font-size: 0.95rem; padding: 8px 13px; border: 1px solid #cfcfd3; border-radius: 10px; background: #fff; color: var(--ink); text-decoration: none; cursor: pointer;
   }
   main { max-width: 1200px; margin: 0 auto; padding: 18px 16px 40px; }
   .note { color: var(--muted); font-size: 0.95rem; margin: 0 0 14px; }
+  .note.err { color: #b00020; }
 
   .tiles { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 12px; margin-bottom: 18px; }
   .tile { background: var(--panel); border: 1px solid var(--line); border-radius: 14px; padding: 14px 16px; }
@@ -60,12 +63,14 @@
   .item .urg { background: #b00020; color: #fff; } .item .tag { background: #e8e8ea; color: var(--ink); }
   .item .face { font-size: 1.3rem; margin-right: 6px; vertical-align: middle; }
 
-  .gate { min-height: 70vh; display: flex; align-items: center; justify-content: center; }
-  .gate .card { background: #fff; border: 1px solid var(--line); border-radius: 18px; padding: 30px; width: min(92vw, 460px); text-align: center; }
-  .gate img { height: 80px; }
-  .gate h2 { margin: 8px 0 4px; font-weight: 600; }
-  .gate p { color: var(--muted); margin: 0 0 12px; line-height: 1.4; }
-  .gate a.btn { display: inline-block; margin-top: 8px; padding: 12px 22px; background: var(--red); color: #fff; border-radius: 10px; text-decoration: none; font-weight: 600; }
+  /* Sign-in page */
+  .gate { min-height: 72vh; display: flex; align-items: center; justify-content: center; }
+  .gate .card { background: #fff; border: 1px solid var(--line); border-radius: 22px; padding: 36px 32px; width: min(92vw, 440px); text-align: center; box-shadow: 0 10px 30px rgba(0,0,0,0.06); }
+  .gate img { height: 96px; }
+  .gate h2 { margin: 10px 0 4px; font-weight: 700; font-size: 1.6rem; color: var(--red); }
+  .gate p { color: var(--muted); margin: 0 0 20px; line-height: 1.45; }
+  .gate .gsi { display: flex; justify-content: center; min-height: 44px; margin-bottom: 14px; }
+  .gate .small { font-size: 0.85rem; color: var(--muted); margin: 0; }
   .hidden { display: none !important; }
 </style>
 </head>
@@ -73,25 +78,38 @@
 
 <header>
   <img src="assets/panther.png" alt="">
-  <h1>Pride Center · Staff (test mode)</h1>
+  <div>
+    <h1>Pride Center · Admin</h1>
+    <div class="who" id="who"></div>
+  </div>
   <div class="spacer"></div>
-  <select id="range">
-    <option value="today">Today</option>
-    <option value="yesterday">Yesterday</option>
-    <option value="week">This week</option>
-    <option value="all">All on this device</option>
-  </select>
-  <button id="refresh" type="button">↻ Refresh</button>
-  <button id="csv" type="button">⬇ CSV</button>
+  <div id="controls" class="hidden" style="display:contents">
+    <select id="range">
+      <option value="today">Today</option>
+      <option value="yesterday">Yesterday</option>
+      <option value="week">This week</option>
+      <option value="all">All loaded</option>
+    </select>
+    <select id="days">
+      <option value="14">Last 14 days</option>
+      <option value="30">Last 30 days</option>
+      <option value="90">Last 90 days</option>
+      <option value="365">Last year</option>
+    </select>
+    <button class="btn" id="refresh" type="button">↻ Refresh</button>
+    <button class="btn" id="csv" type="button">⬇ CSV</button>
+    <a class="btn hidden" id="sheetLink" href="#" target="_blank" rel="noopener">Open Sheet</a>
+  </div>
 </header>
 
 <main>
-  <div class="gate hidden" id="gate">
+  <div class="gate" id="gate">
     <div class="card">
       <img src="assets/panther.png" alt="">
-      <h2>Admin dashboard has moved</h2>
-      <p>The dashboard now lives in Google, behind a district sign-in. Add the admin dashboard URL to <b>config.js</b> as <b>DASHBOARD_URL</b> and this page will send staff there automatically.</p>
-      <p id="gateLink"></p>
+      <h2>Pride Center staff</h2>
+      <p id="gateText">Sign in with your kresa.org Google account to see check-ins, incident reports, and feedback.</p>
+      <div class="gsi" id="gsiBtn"></div>
+      <p class="small" id="gateMsg"></p>
     </div>
   </div>
 
@@ -119,17 +137,12 @@
 <script src="config.js"></script>
 <script>
 (function () {
-  const CFG = Object.assign({ SCRIPT_URL: "", DASHBOARD_URL: "" }, window.PPC_CONFIG || {});
+  const CFG = Object.assign({ SCRIPT_URL: "", GOOGLE_CLIENT_ID: "", ALLOWED_DOMAIN: "kresa.org", DASHBOARD_DAYS: 14 }, window.PPC_CONFIG || {});
   const $ = s => document.querySelector(s);
-  let all = [];
+  const TEST = !CFG.SCRIPT_URL;
+  let idToken = sessionStorage.getItem("ppc_id_token") || "";
+  let data = { checkins: [], incidents: [], feedback: [] };
 
-  // Production: the real admin dashboard is served by Google Apps Script behind a district sign-in.
-  if (CFG.DASHBOARD_URL) { location.replace(CFG.DASHBOARD_URL); return; }
-
-  // A Sheet is connected but no dashboard URL yet: explain instead of showing device-only data.
-  if (CFG.SCRIPT_URL) { $("#gate").classList.remove("hidden"); return; }
-
-  // Test mode: show what the kiosk saved on this device.
   const REFERRAL = ["Self Referred", "Staff Referred"];
   const REASONS  = ["Drop In: I need a reset", "Scheduled Break", "Drop In: I have a need"];
   const ENERGY   = ["Moving Fast", "Moving Slow", "Moving Ok"];
@@ -138,11 +151,89 @@
   const MOOD_COLORS = { Red: "var(--m-red)", Yellow: "var(--m-yellow)", Blue: "var(--m-blue)", Green: "var(--m-green)" };
   const STATION_COLORS = Object.assign({ "Staff first": "#7e6bb0" }, MOOD_COLORS);
   const STATIONS = ["Red", "Yellow", "Blue", "Green", "Staff first"];
+  const FACES = { 1: "😣", 2: "🙁", 3: "😐", 4: "🙂", 5: "😀" };
 
-  function load() {
-    let raw = [];
-    try { raw = JSON.parse(localStorage.getItem("ppc_local") || "[]"); } catch { raw = []; }
-    const ins = raw.filter(r => r.type !== "checkout");
+  // ---------- Sign-in ----------
+  function start() {
+    $("#days").value = String(CFG.DASHBOARD_DAYS);
+    if (TEST) { $("#who").textContent = "Test mode · this device only"; openDash(); load(); return; }
+    if (!CFG.GOOGLE_CLIENT_ID) {
+      $("#gateMsg").textContent = "Sign-in isn't set up yet: add GOOGLE_CLIENT_ID to config.js (README step 5).";
+      return;
+    }
+    if (idToken) { openDash(); load(); return; }
+    const s = document.createElement("script");
+    s.src = "https://accounts.google.com/gsi/client"; s.async = true;
+    s.onload = () => {
+      google.accounts.id.initialize({
+        client_id: CFG.GOOGLE_CLIENT_ID,
+        hd: CFG.ALLOWED_DOMAIN || undefined,
+        callback: onCredential,
+        auto_select: false,
+        ux_mode: "popup"
+      });
+      google.accounts.id.renderButton($("#gsiBtn"), { theme: "outline", size: "large", text: "signin_with", shape: "pill", width: 280 });
+    };
+    s.onerror = () => { $("#gateMsg").textContent = "Couldn't load Google sign-in. Check the network and try again."; };
+    document.head.appendChild(s);
+  }
+
+  function onCredential(resp) {
+    idToken = resp.credential;
+    sessionStorage.setItem("ppc_id_token", idToken);
+    openDash(); load();
+  }
+
+  function signOut(msg) {
+    idToken = ""; sessionStorage.removeItem("ppc_id_token");
+    if (msg) sessionStorage.setItem("ppc_signin_msg", msg);
+    location.reload();
+  }
+
+  function openDash() {
+    $("#gate").classList.add("hidden");
+    $("#dash").classList.remove("hidden");
+    $("#controls").classList.remove("hidden");
+  }
+
+  const pendingMsg = sessionStorage.getItem("ppc_signin_msg");
+  if (pendingMsg) { $("#gateMsg").textContent = pendingMsg; sessionStorage.removeItem("ppc_signin_msg"); }
+
+  // ---------- Data ----------
+  async function load() {
+    $("#status").className = "note";
+    $("#status").textContent = "Loading…";
+    if (TEST) { loadLocal(); return; }
+    try {
+      const res = await fetch(CFG.SCRIPT_URL, {
+        method: "POST",
+        headers: { "Content-Type": "text/plain;charset=utf-8" },
+        body: JSON.stringify({ type: "dashboard", idToken: idToken, days: Number($("#days").value) }),
+        redirect: "follow"
+      });
+      const d = await res.json();
+      if (!d.ok) {
+        if (/token|sign|expired|authorized|domain/i.test(d.error || "")) return signOut(d.error);
+        throw new Error(d.error || "Could not load");
+      }
+      data = d;
+      $("#who").innerHTML = `Signed in as ${esc(d.email)} <button type="button" id="signout">Sign out</button>`;
+      $("#signout").addEventListener("click", () => signOut());
+      if (d.sheetUrl) { $("#sheetLink").href = d.sheetUrl; $("#sheetLink").classList.remove("hidden"); }
+      $("#status").textContent = `Loaded ${d.checkins.length} check-ins from the last ${d.days} days · updated ${new Date().toLocaleTimeString([], { hour: "numeric", minute: "2-digit" })}`;
+      renderAll();
+    } catch (err) {
+      $("#status").className = "note err";
+      $("#status").textContent = "Could not load: " + (err.message || err);
+    }
+  }
+
+  // Test mode: what the kiosk saved on this device, with check-outs merged onto check-ins.
+  function loadLocal() {
+    let raw = [], fb = [];
+    try { raw = JSON.parse(localStorage.getItem("ppc_local") || "[]"); } catch {}
+    try { fb = JSON.parse(localStorage.getItem("ppc_feedback_local") || "[]"); } catch {}
+    const ins = raw.filter(r => r.type !== "checkout" && r.type !== "incident");
     raw.filter(r => r.type === "checkout").forEach(c => {
       const key = String(c.name || "").trim().toLowerCase();
       const m = ins.find(r => r.timestamp === c.checkinTimestamp) || [...ins].reverse().find(r => {
@@ -151,12 +242,9 @@
       });
       if (m) Object.assign(m, { checkoutTime: c.timestamp, minutes: Math.round((new Date(c.timestamp) - new Date(m.timestamp)) / 60000), outEnergy: c.energy, outMoodGroup: c.moodGroup, outMoodWord: c.moodWord, helped: c.helped });
     });
-    all = ins.filter(r => r.type !== "incident");
-    renderIncidents(raw.filter(r => r.type === "incident"));
-    let fb = []; try { fb = JSON.parse(localStorage.getItem("ppc_feedback_local") || "[]"); } catch {}
-    renderFeedback(fb);
-    $("#status").textContent = "Test mode: showing check-ins saved on this device only. Connect the Google Sheet (see README) for the real admin dashboard.";
-    render();
+    data = { checkins: ins, incidents: raw.filter(r => r.type === "incident"), feedback: fb };
+    $("#status").textContent = "Test mode: showing check-ins saved on this device only. Connect the Google Sheet (see README) for the real dashboard.";
+    renderAll();
   }
 
   function inRange(ts) {
@@ -174,12 +262,12 @@
     }
   }
 
+  // ---------- Render ----------
   function count(rows, key, order) {
     const m = {}; rows.forEach(r => { const k = String(r[key] || "").trim(); if (k) m[k] = (m[k] || 0) + 1; });
     const keys = order ? order.filter(k => k in m).concat(Object.keys(m).filter(k => !order.includes(k))) : Object.keys(m).sort((a, b) => m[b] - m[a]);
     return keys.map(k => [k, m[k]]);
   }
-  function countNeeds(rows) { return countSplit(rows, "basicNeeds"); }
   function countSplit(rows, key) {
     const m = {};
     rows.forEach(r => String(r[key] || "").split(",").map(s => s.trim()).filter(Boolean).forEach(k => { m[k] = (m[k] || 0) + 1; }));
@@ -194,37 +282,11 @@
       </div>`).join("") : `<div class="empty">No check-ins in this range.</div>`;
     return `<div class="chart"><h3>${title}</h3>${body}</div>`;
   }
-  const FACES = { 1: "😣", 2: "🙁", 3: "😐", 4: "🙂", 5: "😀" };
-  function fmtWhen(ts) { return new Date(ts).toLocaleString([], { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" }); }
-  function renderIncidents(rows) {
-    rows = rows.slice().sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
-    $("#incCount").textContent = rows.length ? `(${rows.length})` : "";
-    $("#incList").innerHTML = rows.length ? rows.map(r => `
-      <div class="item ${r.urgent === "Yes" ? "urgent" : ""}">
-        <div class="meta">${esc(fmtWhen(r.timestamp))} · <b>${esc(r.name)}</b>${r.grade ? " · " + esc(r.grade) : ""}${r.urgent === "Yes" ? '<span class="urg">Said not safe</span>' : ""}${r.talk === "Yes" ? '<span class="tag">Wants to talk</span>' : ""}</div>
-        <div><b>${esc(r.types)}</b>${r.place ? " · " + esc(r.place) : ""}${r.period ? " · " + esc(r.period) : ""}</div>
-        ${r.story ? `<div class="story">${esc(r.story)}</div>` : ""}
-        ${r.who ? `<div class="meta">Involved: ${esc(r.who)}</div>` : ""}${r.witness ? `<div class="meta">Saw it: ${esc(r.witness)}</div>` : ""}
-        ${r.reviewed ? `<div class="meta">Reviewed by ${esc(r.reviewed)}${r.notes ? " · " + esc(r.notes) : ""}</div>` : ""}
-      </div>`).join("") : `<div class="empty">No incident reports loaded.</div>`;
-  }
-  function renderFeedback(rows) {
-    rows = rows.slice().sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
-    const rated = rows.filter(r => Number(r.rating));
-    const avg = rated.length ? (rated.reduce((s, r) => s + Number(r.rating), 0) / rated.length).toFixed(1) : null;
-    $("#fbCount").textContent = rows.length ? `(${rows.length}${avg ? `, avg ${avg}/5` : ""})` : "";
-    $("#fbList").innerHTML = rows.length ? rows.map(r => `
-      <div class="item">
-        <div class="meta">${esc(fmtWhen(r.timestamp))} · <b>${esc(r.role || "Unknown")}</b>${r.tried ? " · " + esc(r.tried) : ""}${r.device ? " · " + esc(r.device) : ""}</div>
-        <div>${r.rating ? `<span class="face">${FACES[r.rating] || ""}</span>` : ""}${r.worked ? `<b>Worked:</b> ${esc(r.worked)} ` : ""}</div>
-        ${r.change ? `<div><b>Change:</b> ${esc(r.change)}</div>` : ""}${r.ideas ? `<div><b>Else:</b> ${esc(r.ideas)}</div>` : ""}
-        ${r.contact ? `<div class="meta">Contact: ${esc(r.contact)}</div>` : ""}
-      </div>`).join("") : `<div class="empty">No feedback yet.</div>`;
-  }
   function esc(s) { return String(s ?? "").replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c])); }
+  function fmtWhen(ts) { return new Date(ts).toLocaleString([], { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" }); }
 
-  function render() {
-    const rows = all.filter(r => inRange(r.timestamp)).sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
+  function renderAll() {
+    const rows = data.checkins.filter(r => inRange(r.timestamp)).sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
     const n = rows.length;
     const by = k => rows.filter(r => r.outcome === k).length;
     const outs = rows.filter(r => r.checkoutTime);
@@ -241,7 +303,7 @@
       bars("Mood group", count(rows, "moodGroup", MOODS), k => MOOD_COLORS[k] || "var(--bar)") +
       bars("What happened", count(rows, "happened", HAPPENED)) +
       bars("Top feelings", count(rows, "moodWord").slice(0, 8)) +
-      bars("Basic needs requested", countNeeds(rows)) +
+      bars("Basic needs requested", countSplit(rows, "basicNeeds")) +
       bars("Station", count(rows, "station", STATIONS), k => STATION_COLORS[k] || "var(--bar)") +
       bars("Mood at check-out", count(rows, "outMoodGroup", MOODS), k => MOOD_COLORS[k] || "var(--bar)") +
       bars("What helped", countSplit(rows, "helped"));
@@ -260,10 +322,41 @@
         <td>${r.outMoodGroup ? `<span class="pill g-${esc(r.outMoodGroup)}">${esc(r.outMoodWord)}</span>` : ""}</td>
       </tr>`;
     }).join("") : `<tr><td colspan="13" class="empty">No check-ins in this range.</td></tr>`;
+
+    renderIncidents(data.incidents || []);
+    renderFeedback(data.feedback || []);
   }
 
+  function renderIncidents(rows) {
+    rows = rows.slice().sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
+    $("#incCount").textContent = rows.length ? `(${rows.length})` : "";
+    $("#incList").innerHTML = rows.length ? rows.map(r => `
+      <div class="item ${r.urgent === "Yes" ? "urgent" : ""}">
+        <div class="meta">${esc(fmtWhen(r.timestamp))} · <b>${esc(r.name)}</b>${r.grade ? " · " + esc(r.grade) : ""}${r.urgent === "Yes" ? '<span class="urg">Said not safe</span>' : ""}${r.talk === "Yes" ? '<span class="tag">Wants to talk</span>' : ""}</div>
+        <div><b>${esc(r.types)}</b>${r.place ? " · " + esc(r.place) : ""}${r.period ? " · " + esc(r.period) : ""}</div>
+        ${r.story ? `<div class="story">${esc(r.story)}</div>` : ""}
+        ${r.who ? `<div class="meta">Involved: ${esc(r.who)}</div>` : ""}${r.witness ? `<div class="meta">Saw it: ${esc(r.witness)}</div>` : ""}
+        ${r.reviewed ? `<div class="meta">Reviewed by ${esc(r.reviewed)}${r.notes ? " · " + esc(r.notes) : ""}</div>` : ""}
+      </div>`).join("") : `<div class="empty">No incident reports loaded.</div>`;
+  }
+
+  function renderFeedback(rows) {
+    rows = rows.slice().sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
+    const rated = rows.filter(r => Number(r.rating));
+    const avg = rated.length ? (rated.reduce((s, r) => s + Number(r.rating), 0) / rated.length).toFixed(1) : null;
+    $("#fbCount").textContent = rows.length ? `(${rows.length}${avg ? `, avg ${avg}/5` : ""})` : "";
+    $("#fbList").innerHTML = rows.length ? rows.map(r => `
+      <div class="item">
+        <div class="meta">${esc(fmtWhen(r.timestamp))} · <b>${esc(r.role || "Unknown")}</b>${r.tried ? " · " + esc(r.tried) : ""}${r.device ? " · " + esc(r.device) : ""}</div>
+        <div>${r.rating ? `<span class="face">${FACES[r.rating] || ""}</span>` : ""}${r.worked ? `<b>Worked:</b> ${esc(r.worked)} ` : ""}</div>
+        ${r.change ? `<div><b>Change:</b> ${esc(r.change)}</div>` : ""}${r.ideas ? `<div><b>Else:</b> ${esc(r.ideas)}</div>` : ""}
+        ${r.contact ? `<div class="meta">Contact: ${esc(r.contact)}</div>` : ""}
+      </div>`).join("") : `<div class="empty">No feedback yet.</div>`;
+  }
+
+  // ---------- CSV ----------
   $("#csv").addEventListener("click", () => {
-    const rows = all.filter(r => inRange(r.timestamp));
+    const rows = data.checkins.filter(r => inRange(r.timestamp));
     const cols = ["timestamp", "name", "referral", "reason", "energy", "moodGroup", "moodWord", "happened", "need", "basicNeeds", "outcome", "kiosk", "stationSuggested", "station", "checkoutTime", "minutes", "outEnergy", "outMoodGroup", "outMoodWord", "helped"];
     const q = v => `"${String(v ?? "").replace(/"/g, '""')}"`;
     const csv = [cols.join(",")].concat(rows.map(r => cols.map(c => q(r[c])).join(","))).join("\n");
@@ -273,10 +366,11 @@
     a.click();
   });
 
-  $("#range").addEventListener("change", render);
+  $("#range").addEventListener("change", renderAll);
+  $("#days").addEventListener("change", load);
   $("#refresh").addEventListener("click", load);
-  $("#dash").classList.remove("hidden");
-  load();
+  setInterval(() => { if (!$("#dash").classList.contains("hidden")) load(); }, 60000);
+  start();
 })();
 </script>
 </body>

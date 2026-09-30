@@ -1,22 +1,26 @@
 /**
- * Panther Pride Center – Check-In backend + admin dashboard
+ * Panther Pride Center – Check-In backend
  *
- * Lives inside the Google Sheet (Extensions → Apps Script). Two files:
- *   Code.gs        this file
- *   Dashboard.html the admin dashboard page
+ * Lives inside the Google Sheet (Extensions → Apps Script). One file, one
+ * deployment (Web app, Execute as: Me, Who has access: Anyone).
  *
- * Deployed twice from the same project (see README):
- *   1. Kiosk endpoint   Execute as: Me   Who has access: Anyone
- *      → the iPad POSTs check-ins here. Nobody can read data through it.
- *   2. Admin dashboard  Execute as: Me   Who has access: Anyone within kresa.org
- *      → Google makes staff sign in with a district account first.
+ * - The kiosk POSTs check-ins, check-outs, incident reports, and feedback,
+ *   each carrying KIOSK_TOKEN.
+ * - The admin dashboard (staff.html on GitHub Pages) POSTs a Google ID token
+ *   from "Sign in with Google". It is verified here on every request, and only
+ *   ALLOWED_DOMAIN accounts (or ADMIN_EMAILS) get data back.
  */
 
 // ---- Settings ---------------------------------------------------------------
 
-// Who may open the admin dashboard. Leave the list empty to allow anyone who can
-// sign in under the dashboard deployment's "Who has access" setting (the district).
-// Add emails to restrict it to specific people:
+// Google OAuth Client ID for "Sign in with Google" on staff.html. Must match
+// GOOGLE_CLIENT_ID in config.js (README step 5).
+const GOOGLE_CLIENT_ID = '';
+
+// Only Google accounts on this domain may open the dashboard.
+const ALLOWED_DOMAIN = 'kresa.org';
+
+// Optional: restrict the dashboard to specific people instead of the whole domain.
 //   const ADMIN_EMAILS = ['ben.tomlinson@kresa.org', 'someone@kresa.org'];
 const ADMIN_EMAILS = [];
 
@@ -41,6 +45,7 @@ const COL_CHECKOUT_TIME = 17;
 function doPost(e) {
   try {
     const data = JSON.parse(e.postData.contents);
+    if (data.type === 'dashboard') return json_(dashboard_(data));
     if (KIOSK_TOKEN && String(data.token || '') !== KIOSK_TOKEN) {
       return json_({ ok: false, error: 'Bad token. KIOSK_TOKEN in config.js must match Code.gs.' });
     }
@@ -153,13 +158,11 @@ function incident_(data) {
   return { ok: true };
 }
 
-/** Called from Dashboard.html. Recent incident reports, newest first. */
-function getIncidents(days) {
-  if (!isAdmin_(currentEmail_())) throw new Error('Not authorized');
-  days = Math.min(Math.max(Number(days) || 30, 1), 365);
+/** Recent incident reports, newest first. */
+function incidentRows_(days) {
   const cutoff = new Date(Date.now() - days * 86400000);
   const sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName(INCIDENT_NAME);
-  if (!sheet) return { rows: [] };
+  if (!sheet) return [];
   const values = sheet.getDataRange().getValues();
   const rows = [];
   for (let i = values.length - 1; i >= 1; i--) {
@@ -168,7 +171,7 @@ function getIncidents(days) {
     rows.push({ timestamp: r[0].toISOString(), name: r[3], grade: r[4], safe: r[5], urgent: r[6], types: r[7], place: r[8], period: r[9],
       story: r[10], who: r[11], witness: r[12], talk: r[13], reviewed: r[15], notes: r[16] });
   }
-  return { rows: rows };
+  return rows;
 }
 
 // ---- Trial feedback (feedback.html) -----------------------------------------
@@ -200,13 +203,11 @@ function feedback_(data) {
   return { ok: true };
 }
 
-/** Called from Dashboard.html. Recent feedback entries, newest first. */
-function getFeedback(days) {
-  if (!isAdmin_(currentEmail_())) throw new Error('Not authorized');
-  days = Math.min(Math.max(Number(days) || 30, 1), 365);
+/** Recent feedback entries, newest first. */
+function feedbackRows_(days) {
   const cutoff = new Date(Date.now() - days * 86400000);
   const sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName(FEEDBACK_NAME);
-  if (!sheet) return { rows: [] };
+  if (!sheet) return [];
   const values = sheet.getDataRange().getValues();
   const rows = [];
   for (let i = values.length - 1; i >= 1; i--) {
@@ -214,37 +215,54 @@ function getFeedback(days) {
     if (!(r[0] instanceof Date) || r[0] < cutoff) continue;
     rows.push({ timestamp: r[0].toISOString(), role: r[2], tried: r[3], rating: r[4], worked: r[5], change: r[6], ideas: r[7], contact: r[8], device: r[9] });
   }
-  return { rows: rows };
+  return rows;
 }
 
-// ---- Admin dashboard: served by doGet, guarded by Google sign-in -------------
+// ---- Admin dashboard: Google sign-in verified on every request ---------------
 
-function doGet(e) {
-  const email = currentEmail_();
-  if (!isAdmin_(email)) {
-    return HtmlService.createHtmlOutput(
-      '<div style="font-family:sans-serif;max-width:520px;margin:60px auto;padding:0 20px;color:#333">' +
-      '<h2 style="color:#d61f26">Pride Center dashboard</h2>' +
-      (email
-        ? '<p><b>' + email + '</b> is not on the admin list. Ask the dashboard owner to add you in Code.gs (ADMIN_EMAILS).</p>'
-        : '<p>This link needs a district Google sign-in. Open the <b>admin dashboard</b> link, not the kiosk link.</p>') +
-      '</div>'
-    ).setTitle('Not authorized');
-  }
-  const t = HtmlService.createTemplateFromFile('Dashboard');
-  t.email = email;
-  return t.evaluate()
-    .setTitle('Pride Center – Admin Dashboard')
-    .addMetaTag('viewport', 'width=device-width, initial-scale=1')
-    .setXFrameOptionsMode(HtmlService.XFrameOptionsMode.ALLOWALL);
+/** staff.html POSTs { type: 'dashboard', idToken, days }. */
+function dashboard_(data) {
+  const email = verifyIdToken_(String(data.idToken || ''));
+  const days = Math.min(Math.max(Number(data.days) || 14, 1), 365);
+  return {
+    ok: true,
+    email: email,
+    days: days,
+    sheetUrl: SpreadsheetApp.getActiveSpreadsheet().getUrl(),
+    checkins: checkinRows_(days),
+    incidents: incidentRows_(days),
+    feedback: feedbackRows_(days)
+  };
 }
 
-/** Called from Dashboard.html through google.script.run. */
-function getCheckins(days) {
-  const email = currentEmail_();
-  if (!isAdmin_(email)) throw new Error('Not authorized');
+/**
+ * Verifies a Google ID token from "Sign in with Google" and returns the email.
+ * Throws with a message staff.html shows on the sign-in page.
+ */
+function verifyIdToken_(idToken) {
+  if (!GOOGLE_CLIENT_ID) throw new Error('Sign-in is not set up: GOOGLE_CLIENT_ID is empty in Code.gs.');
+  if (!idToken) throw new Error('Please sign in.');
+  const res = UrlFetchApp.fetch('https://oauth2.googleapis.com/tokeninfo?id_token=' + encodeURIComponent(idToken), { muteHttpExceptions: true });
+  if (res.getResponseCode() !== 200) throw new Error('Your sign-in expired. Please sign in again.');
+  const info = JSON.parse(res.getContentText());
+  if (info.aud !== GOOGLE_CLIENT_ID) throw new Error('Sign-in token was issued for a different app.');
+  if (info.iss !== 'https://accounts.google.com' && info.iss !== 'accounts.google.com') throw new Error('Sign-in token is not from Google.');
+  if (Number(info.exp) * 1000 < Date.now()) throw new Error('Your sign-in expired. Please sign in again.');
+  if (String(info.email_verified) !== 'true') throw new Error('This Google account is not verified.');
+  const email = String(info.email || '').toLowerCase();
+  if (!isAdmin_(email, info.hd)) throw new Error(email + ' is not authorized. Use a ' + ALLOWED_DOMAIN + ' account, or ask to be added to ADMIN_EMAILS.');
+  return email;
+}
 
-  days = Math.min(Math.max(Number(days) || 14, 1), 365);
+function isAdmin_(email, hd) {
+  if (!email) return false;
+  if (ADMIN_EMAILS.length) return ADMIN_EMAILS.map(x => String(x).toLowerCase()).indexOf(email) !== -1;
+  if (!ALLOWED_DOMAIN) return true;
+  return String(hd || '').toLowerCase() === ALLOWED_DOMAIN || email.endsWith('@' + ALLOWED_DOMAIN);
+}
+
+/** Recent check-ins, oldest first, with check-out columns. */
+function checkinRows_(days) {
   const cutoff = new Date(Date.now() - days * 86400000);
   const values = getSheet_().getDataRange().getValues();
   const rows = [];
@@ -261,23 +279,16 @@ function getCheckins(days) {
       outEnergy: r[18], outMoodGroup: r[19], outMoodWord: r[20], helped: r[21]
     });
   }
-  return {
-    rows: rows,
-    days: days,
-    email: email,
-    sheetUrl: SpreadsheetApp.getActiveSpreadsheet().getUrl()
-  };
+  return rows;
 }
 
-function currentEmail_() {
-  try { return String(Session.getActiveUser().getEmail() || '').toLowerCase(); }
-  catch (err) { return ''; }
-}
-
-function isAdmin_(email) {
-  if (!email) return false; // anonymous (the kiosk deployment) never sees the dashboard
-  if (!ADMIN_EMAILS.length) return true;
-  return ADMIN_EMAILS.map(function (x) { return String(x).toLowerCase(); }).indexOf(email) !== -1;
+/** Opening the script URL in a browser: a plain page, no data. */
+function doGet() {
+  return HtmlService.createHtmlOutput(
+    '<div style="font-family:sans-serif;max-width:480px;margin:60px auto;padding:0 20px;color:#333">' +
+    '<h2 style="color:#d61f26">Pride Center check-in endpoint</h2>' +
+    '<p>This address only receives check-ins from the kiosk. The staff dashboard is the <b>staff.html</b> page on the app site.</p></div>'
+  ).setTitle('Pride Center');
 }
 
 // ---- One-time setup ---------------------------------------------------------

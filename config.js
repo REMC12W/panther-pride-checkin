@@ -9,9 +9,11 @@ window.PPC_CONFIG = {
   // Code.gs. Stops junk rows from anyone who finds the script URL.
   KIOSK_TOKEN: "7b4a5c379eb19ea01f851fea",
 
-  // Admin dashboard: the Apps Script deployment with access "Anyone within kresa.org"
-  // (README step 5). staff.html sends staff here; Google asks them to sign in.
-  DASHBOARD_URL: "",
+  // Admin dashboard sign-in (staff.html). A Google OAuth "Web application" Client ID
+  // from Google Cloud Console (README step 5). Must also be set in Code.gs.
+  GOOGLE_CLIENT_ID: "",
+  // Only Google accounts on this domain can open the dashboard. Also set in Code.gs.
+  ALLOWED_DOMAIN: "kresa.org",
 
   // A label for this device so staff can tell kiosks apart in the Sheet.
   KIOSK_NAME: "Pride Center iPad",

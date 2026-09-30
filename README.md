@@ -11,10 +11,9 @@ A tap-through check-in kiosk for the Pride Center, rebuilt from the Google Slide
 | File | What it is |
 |---|---|
 | `index.html` | The student kiosk. Open this on the iPad. |
-| `staff.html` | In test mode, a device-only dashboard. Once connected, it forwards staff to the admin dashboard. |
+| `staff.html` | Admin dashboard behind "Sign in with Google". In test mode, shows device-only data. |
 | `config.js` | The only file you edit: script URLs, kiosk name, timers, basic-needs list. |
-| `apps-script/Code.gs` | Backend that lives inside the Google Sheet. Also serves the admin dashboard. |
-| `apps-script/Dashboard.html` | The admin dashboard page, served by Apps Script behind a Google sign-in. |
+| `apps-script/Code.gs` | Backend that lives inside the Google Sheet. Verifies dashboard sign-ins. |
 | `apps-script/appsscript.json` | Optional manifest (sets the Michigan time zone). |
 | `feedback.html` | Trial feedback portal. Switch off with `FEEDBACK_ENABLED` in `config.js`. |
 | `sw.js` | Service worker. Lets the kiosk open with no Wi-Fi and keeps files fresh when online. |
@@ -48,42 +47,46 @@ The sheet already exists: [Pride Center Check-Ins](https://docs.google.com/sprea
 
 1. In the Sheet, go to **Extensions → Apps Script**.
 2. Delete the sample code in `Code.gs` and paste in everything from `apps-script/Code.gs`.
-3. Click the **+** next to Files → **HTML**, name it `Dashboard` (Apps Script adds `.html`), delete its sample content, and paste in everything from `apps-script/Dashboard.html`.
-4. Optional: to limit the dashboard to specific people, add their emails to `ADMIN_EMAILS` near the top of `Code.gs`. Leave it empty to allow anyone with a kresa.org account.
-5. `KIOSK_TOKEN` in `Code.gs` must match `KIOSK_TOKEN` in `config.js`. They already match in this repo. If you ever change one, change the other.
-6. Click **Save**.
+3. Optional: to limit the dashboard to specific people, add their emails to `ADMIN_EMAILS` near the top. Otherwise anyone with a kresa.org account can open it.
+4. `KIOSK_TOKEN` must match `config.js`. They already match in this repo.
+5. Click **Save**.
 
 ### 3. Run setup once
 
 1. In the function dropdown next to the Run button, pick **setup**, then click **Run**.
 2. Google asks you to authorize. Choose your account, click **Advanced → Go to (project name)**, then **Allow**. This is normal for a script you wrote yourself.
-3. Back in the Sheet you now have a **Check-Ins** tab with headers and a **Summary** tab with live counts.
+3. Back in the Sheet you now have a **Check-Ins** tab with headers and a **Summary** tab with live counts. Incident Reports and Feedback tabs appear on their first entry.
 
 Optional: run **testInsert** the same way to add a fake row and confirm it works. Delete that row afterward.
 
-### 4. Deploy the kiosk endpoint
+### 4. Deploy the script (once)
 
 1. **Deploy → New deployment**. Click the gear next to "Select type" → **Web app**.
-2. Description: `Kiosk`. **Execute as: Me**. **Who has access: Anyone**.
+2. **Execute as: Me**. **Who has access: Anyone**.
 3. **Deploy**, then copy the Web app URL into `config.js`:
 
 ```js
 SCRIPT_URL: "https://script.google.com/macros/s/AKfy.../exec",
 ```
 
-"Anyone" lets the iPad post without a login. Nobody can read data through this URL: opening it in a browser shows a "not authorized" page.
+"Anyone" lets the iPad post without a login. Nobody can read data through this URL without a verified Google sign-in (step 5). Opening it in a browser shows a plain notice page.
 
-### 5. Deploy the admin dashboard
+### 5. Set up "Sign in with Google" for the dashboard
 
-1. **Deploy → New deployment** again. Type: **Web app**.
-2. Description: `Admin dashboard`. **Execute as: Me**. **Who has access: Anyone within kresa.org**.
-3. **Deploy**, then copy this second URL into `config.js`:
+The dashboard at `staff.html` uses Google's own sign-in. You need one OAuth Client ID, which takes about five minutes:
 
-```js
-DASHBOARD_URL: "https://script.google.com/macros/s/AKfy...different.../exec",
-```
+1. Go to https://console.cloud.google.com/ with your kresa.org account. Create a project (any name, for example "Pride Center").
+2. **APIs & Services → OAuth consent screen**. User type **Internal** (only district accounts can sign in). Fill in the app name and your email, save.
+3. **APIs & Services → Credentials → Create credentials → OAuth client ID**. Application type **Web application**.
+4. Under **Authorized JavaScript origins** add `https://remc12w.github.io`. For local testing also add `http://localhost:8765`.
+5. **Create**, then copy the Client ID (it ends in `.apps.googleusercontent.com`).
+6. Paste it into **both** places:
+   - `config.js` → `GOOGLE_CLIENT_ID`
+   - `Code.gs` → `GOOGLE_CLIENT_ID`, then **Deploy → Manage deployments → pencil → New version → Deploy**.
 
-Anyone opening this link is asked to sign in with a district Google account. Non-district accounts are turned away by Google. If `ADMIN_EMAILS` has entries, only those people get past the sign-in.
+If Cloud Console is locked down in your district, ask your Google Workspace admin to create the Web application client with that origin, or to allow you to. Nothing else in the setup needs the console.
+
+How it works: the sign-in button gives the browser a Google ID token. `staff.html` sends it with every data request, and `Code.gs` verifies it with Google, checks the domain (and `ADMIN_EMAILS` if set), and only then returns data. Tokens expire after an hour, at which point the page asks you to sign in again.
 
 ### 6. Publish the config
 
@@ -91,9 +94,9 @@ Anyone opening this link is asked to sign in with a district Google account. Non
 git add -A && git commit -m "Connect the Google Sheet" && git push
 ```
 
-GitHub Pages updates in about a minute. The yellow "test mode" banner disappears from the kiosk, and `staff.html` now forwards to the admin dashboard.
+GitHub Pages updates in about a minute. The yellow "test mode" banner disappears from the kiosk, and `staff.html` shows the sign-in page.
 
-**If you later edit Code.gs or Dashboard.html**, publish a new version of each deployment: **Deploy → Manage deployments → pencil icon → Version: New version → Deploy**. The URLs stay the same.
+**If you later edit Code.gs**, publish a new version: **Deploy → Manage deployments → pencil icon → Version: New version → Deploy**. The URL stays the same.
 
 ### 7. Set up the iPad
 
@@ -103,7 +106,7 @@ GitHub Pages updates in about a minute. The yellow "test mode" banner disappears
 
 ## Admin dashboard
 
-Sign in with a district account. You get:
+Open `staff.html` and sign in with a district Google account. You get:
 
 - Tiles: check-ins, unique students, and counts by outcome
 - Bars: referral, reason, energy, mood group, what happened, top feelings, basic needs requested, station, mood at check-out, what helped
@@ -131,7 +134,7 @@ With `SCRIPT_URL` empty, the kiosk saves check-ins in the browser on that device
 
 - Student names are stored only in the district Google Sheet. Nothing goes to any other service.
 - The kiosk keeps a copy of the last 500 check-ins in the iPad browser's local storage so nothing is lost offline. Clear Safari website data on the iPad if you ever retire it.
-- The dashboard login is Google's own. There is no password or PIN to manage. The `ADMIN_EMAILS` list in `Code.gs` controls who gets in.
+- The dashboard login is Google's own "Sign in with Google", verified by the script on every request. There is no password or PIN to manage. `ALLOWED_DOMAIN` and the optional `ADMIN_EMAILS` list in `Code.gs` control who gets in.
 - The repo is public (GitHub Pages needs that on a free plan). It contains no student data. The script URLs and the kiosk token in `config.js` are visible to anyone who reads the repo; the token stops casual junk rows, not a determined person. The kiosk URL only accepts check-ins, and the dashboard URL requires a district sign-in.
 
 ## Customizing
