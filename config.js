@@ -1,9 +1,13 @@
 // Panther Pride Center check-in settings.
 // Edit this file, save, and reload the app. Nothing else needs to change.
 window.PPC_CONFIG = {
-  // Paste the Google Apps Script "Web app" URL here (see README, step 4).
+  // Kiosk endpoint: the Apps Script deployment with access "Anyone" (README step 4).
   // Leave it empty to run in test mode: check-ins are saved only on this device.
   SCRIPT_URL: "",
+
+  // Admin dashboard: the Apps Script deployment with access "Anyone within kresa.org"
+  // (README step 5). staff.html sends staff here; Google asks them to sign in.
+  DASHBOARD_URL: "",
 
   // A label for this device so staff can tell kiosks apart in the Sheet.
   KIOSK_NAME: "Pride Center iPad",

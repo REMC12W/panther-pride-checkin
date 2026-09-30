@@ -2,9 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Pride Center – Staff</title>
-<link rel="icon" href="assets/icon-192.png">
+<title>Pride Center – Admin Dashboard</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@400;500;600;700&display=swap" rel="stylesheet">
@@ -16,15 +14,17 @@
   }
   * { box-sizing: border-box; }
   body { margin: 0; font-family: "Fredoka", "Avenir Next", "Segoe UI", sans-serif; background: var(--bg); color: var(--ink); }
-  header { background: #fff; border-bottom: 1px solid var(--line); padding: 14px 20px; display: flex; align-items: center; gap: 14px; flex-wrap: wrap; }
+  header { background: #fff; border-bottom: 1px solid var(--line); padding: 12px 20px; display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
   header img { height: 44px; }
-  header h1 { margin: 0; font-size: 1.35rem; font-weight: 600; color: var(--red); }
+  header h1 { margin: 0; font-size: 1.3rem; font-weight: 600; color: var(--red); }
+  header .who { color: var(--muted); font-size: 0.9rem; }
   header .spacer { flex: 1; }
-  header select, header button {
-    font: inherit; font-size: 1rem; padding: 9px 14px; border: 1px solid #cfcfd3; border-radius: 10px; background: #fff; color: var(--ink); cursor: pointer;
+  header select, header button, header a.btn {
+    font: inherit; font-size: 0.95rem; padding: 8px 13px; border: 1px solid #cfcfd3; border-radius: 10px; background: #fff; color: var(--ink); text-decoration: none; cursor: pointer;
   }
   main { max-width: 1200px; margin: 0 auto; padding: 18px 16px 40px; }
   .note { color: var(--muted); font-size: 0.95rem; margin: 0 0 14px; }
+  .note.err { color: #b00020; }
 
   .tiles { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 12px; margin-bottom: 18px; }
   .tile { background: var(--panel); border: 1px solid var(--line); border-radius: 14px; padding: 14px 16px; }
@@ -49,44 +49,38 @@
   .pill { display: inline-block; padding: 3px 9px; border-radius: 999px; font-size: 0.8rem; font-weight: 600; color: #fff; }
   .g-Red { background: var(--m-red); } .g-Yellow { background: var(--m-yellow); color: #2b1d00; } .g-Blue { background: var(--m-blue); } .g-Green { background: var(--m-green); }
   .o-Incident { color: #b00020; font-weight: 600; } .o-Basic { color: #2f6b30; font-weight: 600; }
-
-  .gate { min-height: 70vh; display: flex; align-items: center; justify-content: center; }
-  .gate .card { background: #fff; border: 1px solid var(--line); border-radius: 18px; padding: 30px; width: min(92vw, 460px); text-align: center; }
-  .gate img { height: 80px; }
-  .gate h2 { margin: 8px 0 4px; font-weight: 600; }
-  .gate p { color: var(--muted); margin: 0 0 12px; line-height: 1.4; }
-  .gate a.btn { display: inline-block; margin-top: 8px; padding: 12px 22px; background: var(--red); color: #fff; border-radius: 10px; text-decoration: none; font-weight: 600; }
-  .hidden { display: none !important; }
+  .loading { text-align: center; color: var(--muted); padding: 60px 0; }
 </style>
 </head>
 <body>
 
 <header>
-  <img src="assets/panther.png" alt="">
-  <h1>Pride Center · Staff (test mode)</h1>
+  <img src="https://remc12w.github.io/panther-pride-checkin/assets/panther.png" alt="">
+  <div>
+    <h1>Pride Center · Admin Dashboard</h1>
+    <div class="who">Signed in as <?!= email ?></div>
+  </div>
   <div class="spacer"></div>
   <select id="range">
     <option value="today">Today</option>
     <option value="yesterday">Yesterday</option>
     <option value="week">This week</option>
-    <option value="all">All on this device</option>
+    <option value="all">All loaded</option>
+  </select>
+  <select id="days">
+    <option value="14">Last 14 days</option>
+    <option value="30">Last 30 days</option>
+    <option value="90">Last 90 days</option>
+    <option value="365">Last year</option>
   </select>
   <button id="refresh" type="button">↻ Refresh</button>
   <button id="csv" type="button">⬇ CSV</button>
+  <a class="btn" id="sheetLink" href="#" target="_blank" rel="noopener">Open Sheet</a>
 </header>
 
 <main>
-  <div class="gate hidden" id="gate">
-    <div class="card">
-      <img src="assets/panther.png" alt="">
-      <h2>Admin dashboard has moved</h2>
-      <p>The dashboard now lives in Google, behind a district sign-in. Add the admin dashboard URL to <b>config.js</b> as <b>DASHBOARD_URL</b> and this page will send staff there automatically.</p>
-      <p id="gateLink"></p>
-    </div>
-  </div>
-
-  <div id="dash" class="hidden">
-    <p class="note" id="status"></p>
+  <p class="note" id="status">Loading…</p>
+  <div id="dash">
     <div class="tiles" id="tiles"></div>
     <div class="charts" id="charts"></div>
     <div class="table">
@@ -94,26 +88,17 @@
         <thead><tr>
           <th>Time</th><th>Name / ID</th><th>Referral</th><th>Reason</th><th>Energy</th><th>Mood</th><th>What happened</th><th>Outcome</th><th>Basic needs</th>
         </tr></thead>
-        <tbody id="tbody"></tbody>
+        <tbody id="tbody"><tr><td colspan="9" class="loading">Loading check-ins…</td></tr></tbody>
       </table>
     </div>
   </div>
 </main>
 
-<script src="config.js"></script>
 <script>
 (function () {
-  const CFG = Object.assign({ SCRIPT_URL: "", DASHBOARD_URL: "" }, window.PPC_CONFIG || {});
   const $ = s => document.querySelector(s);
   let all = [];
 
-  // Production: the real admin dashboard is served by Google Apps Script behind a district sign-in.
-  if (CFG.DASHBOARD_URL) { location.replace(CFG.DASHBOARD_URL); return; }
-
-  // A Sheet is connected but no dashboard URL yet: explain instead of showing device-only data.
-  if (CFG.SCRIPT_URL) { $("#gate").classList.remove("hidden"); return; }
-
-  // Test mode: show what the kiosk saved on this device.
   const REFERRAL = ["Self Referred", "Staff Referred"];
   const REASONS  = ["Drop In: I need a reset", "Scheduled Break", "Drop In: I have a need"];
   const ENERGY   = ["Moving Fast", "Moving Slow", "Moving Ok"];
@@ -122,9 +107,19 @@
   const MOOD_COLORS = { Red: "var(--m-red)", Yellow: "var(--m-yellow)", Blue: "var(--m-blue)", Green: "var(--m-green)" };
 
   function load() {
-    try { all = JSON.parse(localStorage.getItem("ppc_local") || "[]"); } catch { all = []; }
-    $("#status").textContent = "Test mode: showing check-ins saved on this device only. Connect the Google Sheet (see README) for the real admin dashboard.";
-    render();
+    $("#status").textContent = "Loading…";
+    google.script.run
+      .withSuccessHandler(data => {
+        all = data.rows || [];
+        $("#sheetLink").href = data.sheetUrl || "#";
+        $("#status").textContent = `Loaded ${all.length} check-ins from the last ${data.days} days · updated ${new Date().toLocaleTimeString([], { hour: "numeric", minute: "2-digit" })}`;
+        render();
+      })
+      .withFailureHandler(err => {
+        $("#status").textContent = "Could not load check-ins: " + (err && err.message ? err.message : err);
+        $("#status").className = "note err";
+      })
+      .getCheckins(Number($("#days").value));
   }
 
   function inRange(ts) {
@@ -207,8 +202,9 @@
   });
 
   $("#range").addEventListener("change", render);
+  $("#days").addEventListener("change", load);
   $("#refresh").addEventListener("click", load);
-  $("#dash").classList.remove("hidden");
+  setInterval(load, 60000);
   load();
 })();
 </script>

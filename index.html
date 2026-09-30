@@ -121,6 +121,7 @@
   }
   .card:active { transform: translateY(3px); box-shadow: none; filter: brightness(0.96); }
   .card b { font-weight: 700; }
+  .card small { display: block; font-size: 0.78em; font-weight: 400; margin-top: 4px; }
   /* Basic needs: multi-select */
   .cards.needs { grid-template-columns: repeat(3, 1fr); gap: 14px; width: min(96vw, 960px); margin: 0 0 16px; }
   .cards.needs .card { min-height: clamp(84px, 14vh, 118px); padding: 16px 12px; font-size: clamp(1rem, 2.1vw, 1.3rem); position: relative; flex-direction: column; gap: 6px; background: #f3f3f3; border-color: #cfcfcf; }
@@ -213,19 +214,27 @@
     <button class="big-btn" type="button" id="nameNext">Next</button>
   </section>
 
-  <!-- 3. Reason -->
-  <section class="screen" id="reason" data-step="2">
+  <!-- 3. Referral -->
+  <section class="screen" id="referral" data-step="2">
     <h1>Why are you here today?</h1>
     <div class="cards">
-      <button class="card" style="background:var(--card-pink)"   data-answer="reason" data-value="Sent by a teacher or staff"><span>Sent by a teacher or staff</span></button>
-      <button class="card" style="background:var(--card-coral)"  data-answer="reason" data-value="Scheduled Break"><span>Scheduled Break</span></button>
+      <button class="card" style="background:var(--card-green)" data-answer="referral" data-value="Self Referred"><span>Self Referred<br><small>(I have a need)</small></span></button>
+      <button class="card" style="background:var(--card-pink)"  data-answer="referral" data-value="Staff Referred"><span>Staff Referred<br><small>(A teacher sent me)</small></span></button>
+    </div>
+  </section>
+
+  <!-- 4. Reason -->
+  <section class="screen" id="reason" data-step="3">
+    <h1>What do you need today?</h1>
+    <div class="cards three">
       <button class="card" style="background:var(--card-green)"  data-answer="reason" data-value="Drop In: I need a reset"><span>Drop In:<br>I need a <b>reset</b></span></button>
-      <button class="card" style="background:var(--card-orange)" data-answer="reason" data-value="Drop In: I have a need"><span>Drop In:<br>I have a <b>need</b>…</span></button>
+      <button class="card" style="background:var(--card-coral)"  data-answer="reason" data-value="Scheduled Break"><span>Scheduled Break</span></button>
+      <button class="card" style="background:var(--card-orange)" data-answer="reason" data-value="Drop In: I have a need"><span>I have a <b>need</b>…<br><small>(medical, food, clothing)</small></span></button>
     </div>
   </section>
 
   <!-- 4. Energy -->
-  <section class="screen" id="energy" data-step="3">
+  <section class="screen" id="energy" data-step="4">
     <h1>How is your body + brain feeling right now?</h1>
     <div class="cards three">
       <button class="card" style="background:var(--energy-fast)" data-answer="energy" data-value="Moving Fast"><span>Moving Fast!<br>Lots of energy!</span></button>
@@ -235,13 +244,13 @@
   </section>
 
   <!-- 5. Mood words -->
-  <section class="screen" id="mood" data-step="4">
+  <section class="screen" id="mood" data-step="5">
     <h1>Which group of words do you think best describes how you are feeling?<span class="sub">Tap the one word that fits best.</span></h1>
     <div class="grids" id="grids"></div>
   </section>
 
   <!-- 6. What happened -->
-  <section class="screen" id="happened" data-step="5">
+  <section class="screen" id="happened" data-step="6">
     <h1>What happened to make you feel this way?<span class="sub">Did something happen…</span></h1>
     <div class="cards">
       <button class="card" style="background:var(--card-green)"  data-answer="happened" data-value="At Home"><span>At Home</span></button>
@@ -252,7 +261,7 @@
   </section>
 
   <!-- 7. Need (only on the "I have a need" path) -->
-  <section class="screen" id="need" data-step="6">
+  <section class="screen" id="need" data-step="7">
     <h1>What is your need today…</h1>
     <div class="cards">
       <button class="card" style="background:var(--need-incident)" data-answer="need" data-value="Incident Report"><span>I need to report something with an Incident Report</span></button>
@@ -261,14 +270,14 @@
   </section>
 
   <!-- 8. Basic needs (only after "I have a basic need") -->
-  <section class="screen" id="basic" data-step="7">
+  <section class="screen" id="basic" data-step="8">
     <h1>What do you need?<span class="sub">Tap everything that fits.</span></h1>
     <div class="cards needs" id="needsGrid"></div>
     <button class="big-btn needs-next" type="button" id="needsNext" disabled>That's everything</button>
   </section>
 
   <!-- 9. Done -->
-  <section class="screen done" id="done" data-step="8">
+  <section class="screen done" id="done" data-step="9">
     <h1 id="doneTitle">Thanks for answering those questions!</h1>
     <p>That's a good start. Let's find a way to get you feeling ok again.</p>
     <p>The next step is to make sure we get you ALL the way signed in.</p>
@@ -352,7 +361,7 @@
 
   const $ = (s) => document.querySelector(s);
   const screens = [...document.querySelectorAll(".screen")];
-  const STEPS = 8; // number of dots
+  const STEPS = 9; // number of dots
 
   function show(id, push = true) {
     if (push && current !== id) history.push(current);
@@ -409,7 +418,7 @@
     const v = $("#nameInput").value.trim();
     if (!v) { $("#nameInput").focus(); $("#nameInput").style.borderColor = "var(--red)"; return; }
     answers.name = v;
-    show("reason");
+    show("referral");
   }
   $("#nameNext").addEventListener("click", submitName);
   $("#nameInput").addEventListener("keydown", e => { if (e.key === "Enter") { e.preventDefault(); submitName(); } });
@@ -425,6 +434,7 @@
 
   function next(afterKey) {
     switch (afterKey) {
+      case "referral": return show("reason");
       case "reason":   return answers.reason === "Drop In: I have a need" ? show("need") : show("energy");
       case "energy":   buildGrids(answers.energy); return show("mood");
       case "mood":     return show("happened");
@@ -521,6 +531,7 @@
     const record = {
       timestamp: new Date().toISOString(),
       name: answers.name,
+      referral: answers.referral || "",
       reason: answers.reason,
       energy: answers.energy,
       moodGroup: answers.moodGroup || "",

@@ -1,27 +1,35 @@
 /**
- * Panther Pride Center – Check-In backend
+ * Panther Pride Center – Check-In backend + admin dashboard
  *
- * Paste this whole file into Extensions → Apps Script in your Google Sheet,
- * change STAFF_PIN, run setup() once, then Deploy → New deployment → Web app.
- * Full steps are in the project README.
+ * Lives inside the Google Sheet (Extensions → Apps Script). Two files:
+ *   Code.gs        this file
+ *   Dashboard.html the admin dashboard page
+ *
+ * Deployed twice from the same project (see README):
+ *   1. Kiosk endpoint   Execute as: Me   Who has access: Anyone
+ *      → the iPad POSTs check-ins here. Nobody can read data through it.
+ *   2. Admin dashboard  Execute as: Me   Who has access: Anyone within kresa.org
+ *      → Google makes staff sign in with a district account first.
  */
 
 // ---- Settings ---------------------------------------------------------------
 
-// Staff type this PIN into staff.html to view the dashboard. Change it!
-const STAFF_PIN = '2468';
+// Who may open the admin dashboard. Leave the list empty to allow anyone who can
+// sign in under the dashboard deployment's "Who has access" setting (the district).
+// Add emails to restrict it to specific people:
+//   const ADMIN_EMAILS = ['ben.tomlinson@kresa.org', 'someone@kresa.org'];
+const ADMIN_EMAILS = [];
 
 const SHEET_NAME   = 'Check-Ins';
 const SUMMARY_NAME = 'Summary';
 
 const HEADERS = [
-  'Timestamp', 'Date', 'Time', 'Name / ID', 'Reason', 'Energy',
+  'Timestamp', 'Date', 'Time', 'Name / ID', 'Referral', 'Reason', 'Energy',
   'Mood Group', 'Mood Word', 'What Happened', 'Need', 'Basic Needs', 'Outcome', 'Kiosk'
 ];
 
-// ---- Web app entry points ---------------------------------------------------
+// ---- Kiosk: one check-in per POST -------------------------------------------
 
-/** The kiosk POSTs one check-in as JSON. */
 function doPost(e) {
   try {
     const data = JSON.parse(e.postData.contents);
@@ -35,15 +43,16 @@ function doPost(e) {
       dateOnly,
       Utilities.formatDate(ts, tz, 'h:mm a'),
       String(data.name || '').trim(),
-      data.reason    || '',
-      data.energy    || '',
-      data.moodGroup || '',
-      data.moodWord  || '',
-      data.happened  || '',
-      data.need      || '',
+      data.referral   || '',
+      data.reason     || '',
+      data.energy     || '',
+      data.moodGroup  || '',
+      data.moodWord   || '',
+      data.happened   || '',
+      data.need       || '',
       data.basicNeeds || '',
-      data.outcome   || '',
-      data.kiosk     || ''
+      data.outcome    || '',
+      data.kiosk      || ''
     ]);
     return json_({ ok: true });
   } catch (err) {
@@ -51,28 +60,63 @@ function doPost(e) {
   }
 }
 
-/** The staff dashboard GETs recent rows. Requires ?pin=STAFF_PIN. */
-function doGet(e) {
-  const p = (e && e.parameter) || {};
-  if (String(p.pin || '') !== String(STAFF_PIN)) {
-    return json_({ ok: false, error: 'Wrong PIN' });
-  }
-  const days = Math.min(Math.max(Number(p.days) || 14, 1), 90);
-  const cutoff = new Date(Date.now() - days * 86400000);
+// ---- Admin dashboard: served by doGet, guarded by Google sign-in -------------
 
-  const sheet = getSheet_();
-  const values = sheet.getDataRange().getValues();
+function doGet(e) {
+  const email = currentEmail_();
+  if (!isAdmin_(email)) {
+    return HtmlService.createHtmlOutput(
+      '<div style="font-family:sans-serif;max-width:520px;margin:60px auto;padding:0 20px;color:#333">' +
+      '<h2 style="color:#d61f26">Pride Center dashboard</h2>' +
+      (email
+        ? '<p><b>' + email + '</b> is not on the admin list. Ask the dashboard owner to add you in Code.gs (ADMIN_EMAILS).</p>'
+        : '<p>This link needs a district Google sign-in. Open the <b>admin dashboard</b> link, not the kiosk link.</p>') +
+      '</div>'
+    ).setTitle('Not authorized');
+  }
+  const t = HtmlService.createTemplateFromFile('Dashboard');
+  t.email = email;
+  return t.evaluate()
+    .setTitle('Pride Center – Admin Dashboard')
+    .addMetaTag('viewport', 'width=device-width, initial-scale=1')
+    .setXFrameOptionsMode(HtmlService.XFrameOptionsMode.ALLOWALL);
+}
+
+/** Called from Dashboard.html through google.script.run. */
+function getCheckins(days) {
+  const email = currentEmail_();
+  if (!isAdmin_(email)) throw new Error('Not authorized');
+
+  days = Math.min(Math.max(Number(days) || 14, 1), 365);
+  const cutoff = new Date(Date.now() - days * 86400000);
+  const values = getSheet_().getDataRange().getValues();
   const rows = [];
   for (let i = 1; i < values.length; i++) {
     const r = values[i];
     if (!(r[0] instanceof Date) || r[0] < cutoff) continue;
     rows.push({
       timestamp: r[0].toISOString(),
-      name: r[3], reason: r[4], energy: r[5], moodGroup: r[6], moodWord: r[7],
-      happened: r[8], need: r[9], basicNeeds: r[10], outcome: r[11], kiosk: r[12]
+      name: r[3], referral: r[4], reason: r[5], energy: r[6], moodGroup: r[7], moodWord: r[8],
+      happened: r[9], need: r[10], basicNeeds: r[11], outcome: r[12], kiosk: r[13]
     });
   }
-  return json_({ ok: true, days: days, rows: rows });
+  return {
+    rows: rows,
+    days: days,
+    email: email,
+    sheetUrl: SpreadsheetApp.getActiveSpreadsheet().getUrl()
+  };
+}
+
+function currentEmail_() {
+  try { return String(Session.getActiveUser().getEmail() || '').toLowerCase(); }
+  catch (err) { return ''; }
+}
+
+function isAdmin_(email) {
+  if (!email) return false; // anonymous (the kiosk deployment) never sees the dashboard
+  if (!ADMIN_EMAILS.length) return true;
+  return ADMIN_EMAILS.map(function (x) { return String(x).toLowerCase(); }).indexOf(email) !== -1;
 }
 
 // ---- One-time setup ---------------------------------------------------------
@@ -81,24 +125,20 @@ function doGet(e) {
 function setup() {
   const ss = SpreadsheetApp.getActiveSpreadsheet();
 
-  // Check-Ins tab
   let sheet = ss.getSheetByName(SHEET_NAME);
   if (!sheet) sheet = ss.insertSheet(SHEET_NAME);
-  if (sheet.getLastRow() === 0) {
-    sheet.appendRow(HEADERS);
-  }
-  const header = sheet.getRange(1, 1, 1, HEADERS.length);
-  header.setFontWeight('bold').setBackground('#d61f26').setFontColor('#ffffff');
+  if (sheet.getLastRow() === 0) sheet.appendRow(HEADERS);
+  sheet.getRange(1, 1, 1, HEADERS.length)
+    .setFontWeight('bold').setBackground('#d61f26').setFontColor('#ffffff');
   sheet.setFrozenRows(1);
   sheet.getRange('A:A').setNumberFormat('yyyy-mm-dd h:mm am/pm');
   sheet.getRange('B:B').setNumberFormat('yyyy-mm-dd');
   sheet.setColumnWidth(1, 160);
   sheet.setColumnWidth(4, 180);
-  sheet.setColumnWidth(5, 200);
-  sheet.setColumnWidth(9, 150);
-  sheet.setColumnWidth(11, 220);
+  sheet.setColumnWidth(6, 200);
+  sheet.setColumnWidth(10, 150);
+  sheet.setColumnWidth(12, 220);
 
-  // Remove the default empty "Sheet1" if it is still around and empty
   const s1 = ss.getSheetByName('Sheet1');
   if (s1 && s1.getLastRow() === 0 && ss.getSheets().length > 1) ss.deleteSheet(s1);
 
@@ -119,16 +159,16 @@ function buildSummary_(ss) {
   push('Panther Pride Center – Summary');
   push('');
   push('Totals', 'Count');
-  push('Today',       `=COUNTIF(${C}B:B, TODAY())`);
-  push('This week',   `=COUNTIFS(${C}B:B, ">="&(TODAY()-WEEKDAY(TODAY(),2)+1), ${C}B:B, "<="&TODAY())`);
-  push('This month',  `=COUNTIFS(${C}B:B, ">="&DATE(YEAR(TODAY()),MONTH(TODAY()),1), ${C}B:B, "<="&TODAY())`);
-  push('All time',    `=COUNTA(${C}A:A)-1`);
+  push('Today',      `=COUNTIF(${C}B:B, TODAY())`);
+  push('This week',  `=COUNTIFS(${C}B:B, ">="&(TODAY()-WEEKDAY(TODAY(),2)+1), ${C}B:B, "<="&TODAY())`);
+  push('This month', `=COUNTIFS(${C}B:B, ">="&DATE(YEAR(TODAY()),MONTH(TODAY()),1), ${C}B:B, "<="&TODAY())`);
+  push('All time',   `=COUNTA(${C}A:A)-1`);
   push('');
 
   const section = (title, col, items) => {
     push(title, 'Today', 'All time');
     items.forEach(v => {
-      const r = rows.length + 1; // 1-based sheet row this item will land on
+      const r = rows.length + 1;
       push(v,
         `=COUNTIFS(${C}${col}:${col}, A${r}, ${C}B:B, TODAY())`,
         `=COUNTIF(${C}${col}:${col}, A${r})`);
@@ -136,32 +176,28 @@ function buildSummary_(ss) {
     push('');
   };
 
-  section('By reason', 'E', ['Sent by a teacher or staff', 'Scheduled Break', 'Drop In: I need a reset', 'Drop In: I have a need']);
-  section('By energy', 'F', ['Moving Fast', 'Moving Slow', 'Moving Ok']);
-  section('By mood group', 'G', ['Red', 'Yellow', 'Blue', 'Green']);
-  section('By what happened', 'I', ['At Home', 'With my Teacher', 'With a friend', 'Just with myself']);
-  section('By outcome', 'L', ['Check In', 'Incident Report', 'Basic Need']);
+  section('By referral', 'E', ['Self Referred', 'Staff Referred']);
+  section('By reason', 'F', ['Drop In: I need a reset', 'Scheduled Break', 'Drop In: I have a need']);
+  section('By energy', 'G', ['Moving Fast', 'Moving Slow', 'Moving Ok']);
+  section('By mood group', 'H', ['Red', 'Yellow', 'Blue', 'Green']);
+  section('By what happened', 'J', ['At Home', 'With my Teacher', 'With a friend', 'Just with myself']);
+  section('By outcome', 'M', ['Check In', 'Incident Report', 'Basic Need']);
 
   push('Most common feelings (all time)', 'Count');
-  const r0 = rows.length + 1;
-  push(`=IFERROR(INDEX(SORT(QUERY(${C}H2:H, "select H, count(H) where H <> '' group by H label count(H) ''"), 2, FALSE), 1, 1), "")`,
-       `=IFERROR(INDEX(SORT(QUERY(${C}H2:H, "select H, count(H) where H <> '' group by H label count(H) ''"), 2, FALSE), 1, 2), "")`);
-  for (let i = 2; i <= 5; i++) {
-    push(`=IFERROR(INDEX(SORT(QUERY(${C}H2:H, "select H, count(H) where H <> '' group by H label count(H) ''"), 2, FALSE), ${i}, 1), "")`,
-         `=IFERROR(INDEX(SORT(QUERY(${C}H2:H, "select H, count(H) where H <> '' group by H label count(H) ''"), 2, FALSE), ${i}, 2), "")`);
+  const q = `QUERY(${C}I2:I, "select I, count(I) where I <> '' group by I label count(I) ''")`;
+  for (let i = 1; i <= 5; i++) {
+    push(`=IFERROR(INDEX(SORT(${q}, 2, FALSE), ${i}, 1), "")`,
+         `=IFERROR(INDEX(SORT(${q}, 2, FALSE), ${i}, 2), "")`);
   }
-
   push('');
   push('Basic needs requested (all time)', 'Count');
-  // One formula that spills: splits the comma-separated Basic Needs column and counts each item.
-  push(`=IFERROR(QUERY(FLATTEN(ARRAYFORMULA(SPLIT(FILTER(${C}K2:K, ${C}K2:K<>""), ", ", FALSE))), "select Col1, count(Col1) where Col1 <> '' group by Col1 order by count(Col1) desc label count(Col1) ''"), "None yet")`);
+  push(`=IFERROR(QUERY(FLATTEN(ARRAYFORMULA(SPLIT(FILTER(${C}L2:L, ${C}L2:L<>""), ", ", FALSE))), "select Col1, count(Col1) where Col1 <> '' group by Col1 order by count(Col1) desc label count(Col1) ''"), "None yet")`);
 
   s.getRange(1, 1, rows.length, 3).setValues(rows);
   s.getRange('A1').setFontSize(16).setFontWeight('bold').setFontColor('#d61f26');
   s.setColumnWidth(1, 260);
   s.setColumnWidth(2, 100);
   s.setColumnWidth(3, 100);
-  // Bold the section headers (any row whose column B says Today/Count)
   for (let i = 0; i < rows.length; i++) {
     if (rows[i][1] === 'Count' || rows[i][1] === 'Today') {
       s.getRange(i + 1, 1, 1, 3).setFontWeight('bold').setBackground('#f3f3f3');
@@ -189,7 +225,7 @@ function json_(obj) {
 function testInsert() {
   const fake = {
     postData: { contents: JSON.stringify({
-      timestamp: new Date().toISOString(), name: 'Test Student', reason: 'Drop In: I need a reset',
+      timestamp: new Date().toISOString(), name: 'Test Student', referral: 'Self Referred', reason: 'Drop In: I need a reset',
       energy: 'Moving Fast', moodGroup: 'Red', moodWord: 'Frustrated', happened: 'With a friend',
       need: '', basicNeeds: '', outcome: 'Check In', kiosk: 'Editor test'
     }) }
