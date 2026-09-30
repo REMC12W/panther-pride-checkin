@@ -33,10 +33,12 @@ const KIOSK_ACCOUNTS = [];
 const KIOSK_SESSION_DAYS = 30;
 
 const ROSTER_NAME = 'Roster';
-// The roster lives in its own spreadsheet so staff who fill it in never see check-in data.
-// "Pride Center Roster": https://docs.google.com/spreadsheets/d/1KrnT0Uxswi7Avz6IZn7xwHYBZ7YB-hPZA6myjMKo-wI/edit
-// Leave empty to use a Roster tab inside this spreadsheet instead.
-const ROSTER_SPREADSHEET_ID = '1KrnT0Uxswi7Avz6IZn7xwHYBZ7YB-hPZA6myjMKo-wI';
+// The roster is a tab in this spreadsheet: the tab with this gid (from the URL, #gid=...).
+// setup() renames it "Roster" and formats it. If that tab is missing, a "Roster" tab is used or created.
+const ROSTER_SHEET_GID = 70415989;
+// Optional: keep the roster in a separate spreadsheet instead (so roster editors can't see
+// check-in data). Put that spreadsheet's ID here; leave empty to use the tab above.
+const ROSTER_SPREADSHEET_ID = '';
 
 // Must match KIOSK_TOKEN in the app's config.js. Check-ins without it are rejected.
 // Leave empty to accept any POST (not recommended once the app is live).
@@ -461,7 +463,8 @@ function rosterSheet_() {
     return book.getSheetByName(ROSTER_NAME) || book.getSheets()[0];
   }
   const ss = SpreadsheetApp.getActiveSpreadsheet();
-  let sheet = ss.getSheetByName(ROSTER_NAME);
+  let sheet = ROSTER_SHEET_GID ? ss.getSheets().find(sh => sh.getSheetId() === ROSTER_SHEET_GID) : null;
+  if (!sheet) sheet = ss.getSheetByName(ROSTER_NAME);
   if (!sheet) {
     sheet = ss.insertSheet(ROSTER_NAME);
     sheet.getRange(1, 1, 1, 4).setValues([['Student ID', 'First Name', 'Last Name', 'Grade']]);
