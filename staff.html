@@ -237,6 +237,15 @@
   .fb-btn.show { display: inline-flex; }
   .fb-btn:hover { background: #000; }
 
+  /* Staff confirm */
+  .idc { display: flex; gap: 6px; margin-top: 6px; flex-wrap: wrap; align-items: center; }
+  .idc button { font-size: 0.78rem; padding: 4px 9px; border-radius: 8px; border: 1px solid var(--line); background: var(--panel); cursor: pointer; }
+  .idc button.yes { border-color: color-mix(in srgb, var(--st-good) 50%, var(--line)); }
+  .idc button.no { border-color: color-mix(in srgb, var(--st-critical) 45%, var(--line)); }
+  .idc .ok { font-size: 0.78rem; font-weight: 600; color: var(--st-good); }
+  .idc .bad { font-size: 0.78rem; font-weight: 600; color: var(--st-critical); }
+  .idc .q { font-size: 0.78rem; color: var(--ink-3); }
+
   /* Tooltip */
   .tip { position: fixed; pointer-events: none; background: var(--ink); color: var(--panel); font-size: 0.82rem; padding: 6px 9px; border-radius: 8px; z-index: 20; opacity: 0; transition: opacity .08s; max-width: 260px; }
   .tip.on { opacity: 1; }
@@ -560,6 +569,8 @@
       });
       if (m) Object.assign(m, { checkoutTime: c.timestamp, minutes: Math.round((new Date(c.timestamp) - new Date(m.timestamp)) / 60000), outEnergy: c.energy, outMoodGroup: c.moodGroup, outMoodWord: c.moodWord, helped: c.helped, checkedOutBy: c.checkedOutBy || "Student" });
     });
+    let confirms = {}; try { confirms = JSON.parse(localStorage.getItem("ppc_local_confirms") || "{}"); } catch {}
+    ins.forEach(r => { if (confirms[r.timestamp]) r.confirmed = confirms[r.timestamp]; });
     let reviews = {}; try { reviews = JSON.parse(localStorage.getItem("ppc_local_reviews") || "{}"); } catch {}
     const incs = raw.filter(r => r.type === "incident").map(r => Object.assign({}, r, reviews[r.timestamp] || {}));
     data = { checkins: ins, incidents: incs, feedback: fb };
@@ -630,6 +641,10 @@
       key: "sf:" + r.timestamp, rank: 1, level: "critical", icon: "!", label: "Staff should go to this student",
       title: r.name, detail: `Picked "${r.moodWord}" at check-in · ${ago(r.timestamp)}`
     }));
+    all.filter(r => isNotThem(r) && inWindow(r.timestamp, 7)).forEach(r => items.push({
+      key: "nt:" + r.timestamp, rank: 3, level: "warning", icon: "?", label: "Check-in not by this student",
+      title: r.name, detail: `Staff marked the ${time(r.timestamp)} ${dayKey(r.timestamp) === todayKey() ? "" : "(" + fmtDay(dayKey(r.timestamp)) + ") "}check-in as someone else. Fix the name in the Sheet, then tap Done.`
+    }));
     today.filter(r => r.checkoutTime && unpleasant(r.outMoodGroup)).forEach(r => items.push({
       key: "out:" + r.timestamp, rank: 4, level: "warning", icon: "↩", label: "Left still " + r.outMoodGroup.toLowerCase(),
       title: r.name, detail: `Came in ${r.moodGroup ? r.moodGroup.toLowerCase() + " (" + r.moodWord + ")" : "—"}, left ${r.outMoodGroup.toLowerCase()} (${r.outMoodWord}) at ${time(r.checkoutTime)}. Consider a follow-up.`
@@ -682,11 +697,40 @@
         <span class="dot" style="background:${MOOD[g] ? MOOD[g].v : "var(--ink-3)"}"></span>
         <div><div class="n">${esc(r.name)}</div>
           <div class="m">${r.station ? esc(r.station) + (r.station === "Staff first" ? "" : " station") : esc(REASON_SHORT[r.reason] || r.outcome || "")}${r.moodWord ? " · " + esc(r.moodWord) : ""}</div>
-          ${r.basicNeeds ? `<div class="need">Needs: ${esc(r.basicNeeds)}</div>` : ""}</div>
+          ${r.basicNeeds ? `<div class="need">Needs: ${esc(r.basicNeeds)}</div>` : ""}
+          <div class="idc">${confirmHtml(r)}</div></div>
         <div class="right"><span class="mins" title="Minutes since check-in">${mins} min</span><button type="button" class="co" data-co="${esc(r.timestamp)}">Check out</button></div>
       </div>`;
     }).join("") : `<div class="empty">No one is checked in right now.</div>`;
     $("#room").querySelectorAll("[data-co]").forEach(b => b.addEventListener("click", () => openCheckout(here.find(r => r.timestamp === b.dataset.co))));
+    bindConfirm($("#room"), here);
+  }
+
+  // Staff confirm: is the student who checked in who they said they were?
+  const isNotThem = r => /^not them/i.test(r.confirmed || "");
+  function confirmHtml(r) {
+    if (/^confirmed/i.test(r.confirmed || "")) return `<span class="ok">✓ Staff confirmed</span>`;
+    if (isNotThem(r)) return `<span class="bad">⚠ Staff: not this student</span>`;
+    return `<span class="q">Is this them?</span><button type="button" class="yes" data-cf="${esc(r.timestamp)}" data-res="Confirmed">✓ Confirm</button><button type="button" class="no" data-cf="${esc(r.timestamp)}" data-res="Not them">Not them</button>`;
+  }
+  function bindConfirm(root, rows) {
+    root.querySelectorAll("[data-cf]").forEach(b => b.addEventListener("click", () => confirmVisit(rows.find(r => r.timestamp === b.dataset.cf), b.dataset.res, b)));
+  }
+  async function confirmVisit(r, result, btn) {
+    if (!r) return;
+    if (result === "Not them" && !confirm(`Mark this check-in as not ${r.name}? It stays in the Sheet, flagged so you can fix the name.`)) return;
+    btn.disabled = true; btn.textContent = "Saving…";
+    if (TEST) {
+      let c = {}; try { c = JSON.parse(localStorage.getItem("ppc_local_confirms") || "{}"); } catch {}
+      c[r.timestamp] = result + " · Test mode · " + new Date().toLocaleTimeString([], { hour: "numeric", minute: "2-digit" });
+      try { localStorage.setItem("ppc_local_confirms", JSON.stringify(c)); } catch {}
+      return loadLocal();
+    }
+    try {
+      const d = await post({ type: "confirmVisit", timestamp: r.timestamp, name: r.name, result });
+      if (!d.ok) throw new Error(/Bad token|Unknown request/.test(d.error || "") ? "The script in the Sheet needs updating to save confirmations (paste the new Code.gs and deploy a new version)." : d.error);
+      load();
+    } catch (err) { btn.disabled = false; btn.textContent = result === "Confirmed" ? "✓ Confirm" : "Not them"; alert("Couldn't save: " + (err.message || err)); }
   }
 
   // 3. Today tiles with a 14-school-day sparkline
@@ -830,7 +874,7 @@
     const list = rows.filter(r => !q || norm(r.name).includes(q) || String(r.studentId || "").toLowerCase().includes(q)).slice().reverse();
     $("#tbody").innerHTML = list.length ? list.map(r => `<tr>
       <td>${esc(when(r.timestamp))}</td>
-      <td><span class="name" data-name="${esc(r.name)}">${esc(r.name)}</span></td>
+      <td><span class="name" data-name="${esc(r.name)}">${esc(r.name)}</span>${isNotThem(r) ? ' <span class="tag" style="color:var(--st-critical)">⚠ not them</span>' : /^confirmed/i.test(r.confirmed || "") ? ' <span class="tag">✓</span>' : ""}</td>
       <td>${esc(r.outcome === "Incident Report" ? "Incident report" : r.need === "Basic Need" ? "Basic need" : REASON_SHORT[r.reason] || r.reason || "")}${r.referral === "Staff Referred" ? ' <span class="tag">sent by staff</span>' : ""}</td>
       <td>${pill(r.moodGroup, r.moodWord)}</td>
       <td>${r.station ? pill(r.station, r.station) : ""}</td>
@@ -937,6 +981,7 @@
         moodChip(r.moodGroup, r.moodWord) +
         chip(r.outcome === "Incident Report" ? "Incident report" : r.need === "Basic Need" ? "Basic need" : REASON_SHORT[r.reason] || r.reason) +
         (r.referral === "Staff Referred" ? chip("Sent by staff") : "") +
+        (isNotThem(r) ? chip("⚠ Staff: not this student", "crit") : /^confirmed/i.test(r.confirmed || "") ? chip("✓ Staff confirmed") : "") +
         (r.happened ? chip(r.happened) : "") +
         (r.station && r.station !== "Staff first" ? `<span class="chip"><i style="background:${MOOD[r.station].v}"></i>${esc(r.station)} station${r.stationSuggested && r.stationSuggested !== r.station && r.stationSuggested !== "Staff first" ? " (suggested " + esc(r.stationSuggested) + ")" : ""}</span>` : "") +
         (r.basicNeeds ? r.basicNeeds.split(",").map(x => chip("Needs " + x.trim().toLowerCase())).join("") : "");
@@ -1066,7 +1111,7 @@
   // ---------- CSV ----------
   $("#csv").addEventListener("click", () => {
     const rows = data.checkins.filter(r => inWindow(r.timestamp, win()));
-    const cols = ["timestamp", "name", "referral", "reason", "energy", "moodGroup", "moodWord", "happened", "need", "basicNeeds", "outcome", "kiosk", "stationSuggested", "station", "checkoutTime", "minutes", "outEnergy", "outMoodGroup", "outMoodWord", "helped", "checkedOutBy", "studentId"];
+    const cols = ["timestamp", "name", "referral", "reason", "energy", "moodGroup", "moodWord", "happened", "need", "basicNeeds", "outcome", "kiosk", "stationSuggested", "station", "checkoutTime", "minutes", "outEnergy", "outMoodGroup", "outMoodWord", "helped", "checkedOutBy", "studentId", "confirmed"];
     const q = v => `"${String(v ?? "").replace(/"/g, '""')}"`;
     const csv = [cols.join(",")].concat(rows.map(r => cols.map(c => q(r[c])).join(","))).join("\n");
     const a = document.createElement("a");

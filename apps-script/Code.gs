@@ -46,9 +46,10 @@ const HEADERS = [
   'Mood Group', 'Mood Word', 'What Happened', 'Need', 'Basic Needs', 'Outcome', 'Kiosk',
   'Station Suggested', 'Station',
   'Checkout Time', 'Minutes in Room', 'Checkout Energy', 'Checkout Mood Group', 'Checkout Mood Word', 'What Helped',
-  'Checked Out By', 'Student ID'
+  'Checked Out By', 'Student ID', 'Staff Confirmed'
 ];
 const COL_STUDENT_ID = 24;
+const COL_CONFIRMED = 25;
 // Column numbers (1-based) used by the check-out matcher.
 const COL_CHECKOUT_TIME = 17;
 
@@ -60,6 +61,7 @@ function doPost(e) {
     if (data.type === 'dashboard') return json_(dashboard_(data));
     if (data.type === 'review') return json_(review_(data));
     if (data.type === 'staffCheckout') return json_(staffCheckout_(data));
+    if (data.type === 'confirmVisit') return json_(confirmVisit_(data));
     if (data.type === 'kioskSignIn') return json_(kioskSignIn_(data));
     if (data.type === 'kioskStatus') return json_(kioskStatus_(data));
     if (data.type === 'lookup') return json_(lookup_(data));
@@ -340,7 +342,7 @@ function checkinRows_(days) {
       stationSuggested: r[14], station: r[15],
       checkoutTime: r[16] instanceof Date ? r[16].toISOString() : '',
       minutes: r[17] === '' ? '' : Number(r[17]),
-      outEnergy: r[18], outMoodGroup: r[19], outMoodWord: r[20], helped: r[21], checkedOutBy: r[22] || '', studentId: String(r[23] || '')
+      outEnergy: r[18], outMoodGroup: r[19], outMoodWord: r[20], helped: r[21], checkedOutBy: r[22] || '', studentId: String(r[23] || ''), confirmed: String(r[24] || '')
     });
   }
   return rows;
@@ -353,6 +355,32 @@ function doGet() {
     '<h2 style="color:#d61f26">Pride Center check-in endpoint</h2>' +
     '<p>This address only receives check-ins from the kiosk. The staff dashboard is the <b>staff.html</b> page on the app site.</p></div>'
   ).setTitle('Pride Center');
+}
+
+/**
+ * Staff confirm that the student who checked in is who they said they were,
+ * or flag "Not them". Writes "Confirmed · email · time" to the Staff Confirmed column.
+ */
+function confirmVisit_(data) {
+  const email = verifyIdToken_(String(data.idToken || ''));
+  const result = data.result === 'Not them' ? 'Not them' : 'Confirmed';
+  const sheet = getSheet_();
+  const target = new Date(data.timestamp).getTime();
+  const nameKey = String(data.name || '').trim().toLowerCase();
+  const lastRow = sheet.getLastRow();
+  const start = Math.max(2, lastRow - 500);
+  if (lastRow < 2) throw new Error('No check-ins yet.');
+  const vals = sheet.getRange(start, 1, lastRow - start + 1, 4).getValues();
+  for (let i = vals.length - 1; i >= 0; i--) {
+    const r = vals[i];
+    if (!(r[0] instanceof Date) || Math.abs(r[0].getTime() - target) > 1000) continue;
+    if (String(r[3]).trim().toLowerCase() !== nameKey) continue;
+    ensureHeader_(sheet, COL_CONFIRMED, 'Staff Confirmed');
+    const stamp = result + ' · ' + email + ' · ' + Utilities.formatDate(new Date(), Session.getScriptTimeZone(), 'h:mm a');
+    sheet.getRange(start + i, COL_CONFIRMED).setValue(stamp);
+    return { ok: true, confirmed: stamp };
+  }
+  throw new Error('Could not find that check-in in the Sheet.');
 }
 
 // ---- Kiosk sign-in + roster lookup ------------------------------------------

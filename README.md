@@ -139,6 +139,10 @@ Students can scan their badge (or type their student ID) instead of typing a nam
 
 If the iPad isn't signed in, is offline, or an ID isn't on the roster, the student is asked to type their name and the ID is still saved with the visit.
 
+**Is this you?** After a badge or ID matches the roster, the kiosk shows the student's name and grade with "Yes, that's me" and "No, that's not me." No sends them back to scan their own badge or type their name. Typed names skip this screen.
+
+**Staff confirm.** On the dashboard, each student under "In the room now" has **✓ Confirm** and **Not them**. Confirm records "Confirmed · your email · time" in the Staff Confirmed column. Not them flags the visit in the Sheet, the visit log, and the Today timeline, and puts a "Check-in not by this student" item in Needs attention so someone fixes the name. Flagged visits are not deleted and still count in the charts until the name is corrected.
+
 ## Trial feedback portal
 
 `feedback.html` is a one-minute form for anyone trialing the app: who they are, what they tried, a five-face rating, what worked, what to change, anything else, and optional contact. Responses land in a **Feedback** tab in the Sheet and at the bottom of the admin dashboard. A "Provide feedback during trial" button floats in the bottom-right corner of every kiosk screen and the staff dashboard while `FEEDBACK_ENABLED` is true in `config.js`. Feedback records which screen it was started from, and the back link returns there. Set it to false when the trial ends.

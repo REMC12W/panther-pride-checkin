@@ -157,6 +157,8 @@
   /* Confirmation screens start at the top so the color block is always visible first. */
   .screen.done { justify-content: flex-start; padding-top: 18px; }
   #visit { justify-content: center; }
+  #confirm { justify-content: center; }
+  #confirm .dest { text-align: center; margin-bottom: 24px; }
   /* Already checked in / not checked in */
   #visit { justify-content: center; }
   #visit p { font-size: clamp(1.15rem, 2.6vw, 1.6rem); text-align: center; margin: 0 0 22px; max-width: 760px; }
@@ -282,6 +284,16 @@
     <div class="name-msg" id="nameMsg" aria-live="polite"></div>
     <div class="hint" id="nameHint">Scan your badge, or type your student ID or your first and last name.</div>
     <button class="big-btn" type="button" id="nameNext">Next</button>
+  </section>
+
+  <!-- 2a. Is this you? (after a badge / ID lookup) -->
+  <section class="screen" id="confirm" data-step="1">
+    <h1>Is this you?</h1>
+    <div class="dest" id="confirmWho" style="background:#f3f3f3"></div>
+    <div class="cards">
+      <button class="card" type="button" id="confirmYes" style="background:var(--card-green)"><span><b>Yes</b>, that's me</span></button>
+      <button class="card" type="button" id="confirmNo" style="background:var(--card-pink)"><span><b>No</b>, that's not me</span></button>
+    </div>
   </section>
 
   <!-- 2b. Already checked in / no check-in found -->
@@ -446,7 +458,7 @@
 <script src="config.js"></script>
 <script>
 (function () {
-  const APP_VERSION = "2026.09.30e";
+  const APP_VERSION = "2026.09.30f";
   const CFG = Object.assign({
     SCRIPT_URL: "", KIOSK_TOKEN: "", KIOSK_NAME: "Kiosk",
     RESET_SECONDS: 8, IDLE_SECONDS: 120,
@@ -628,11 +640,23 @@
       }
       answers.firstName = found.firstName;
       answers.name = found.firstName + (found.lastInitial ? " " + found.lastInitial + "." : "");
+      // Show who the badge belongs to and let the student confirm before going on.
+      $("#confirmWho").innerHTML = `<div class="v">${escapeHtml(answers.name)}</div>${found.grade ? `<div class="w">Grade ${escapeHtml(String(found.grade).replace(/^grade\s*/i, ""))}</div>` : ""}`;
+      show("confirm");
+      return;
     } else {
       answers.name = v;
     }
     routeAfterName();
   }
+  $("#confirmYes").addEventListener("click", () => routeAfterName());
+  $("#confirmNo").addEventListener("click", () => {
+    delete answers.studentId; delete answers.firstName; delete answers.name;
+    show("name");
+    $("#nameInput").value = "";
+    $("#nameMsg").textContent = "Okay! Scan your own badge, or type your name.";
+    $("#nameInput").focus();
+  });
   function routeAfterName() {
     const open = openVisit(answers.name, answers.studentId);
     if (mode === "checkin" && open) return askVisit("already", open);
