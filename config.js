@@ -25,7 +25,10 @@ window.PPC_CONFIG = {
 
   // The Google Forms the original slide deck linked to. Leave a URL empty to hide
   // that button and finish in-app instead. Both forms require a KRESA Google login.
-  FORM_INCIDENT_URL: "https://docs.google.com/forms/d/e/1FAIpQLSdje0uEmj6XIAjNtu8oVpvtO9ix5l7jL_QO7txhiTFJTzJg0g/viewform?usp=header",
+  // Incident reports are now filled out inside the app (see INCIDENT_TYPES below).
+  // To ALSO show the old district Google Form button on the end screen, put its URL back:
+  // "https://docs.google.com/forms/d/e/1FAIpQLSdje0uEmj6XIAjNtu8oVpvtO9ix5l7jL_QO7txhiTFJTzJg0g/viewform?usp=header"
+  FORM_INCIDENT_URL: "",
   FORM_SIGNIN_URL:   "https://docs.google.com/forms/d/e/1FAIpQLSff7BwiBHnNVS7DDczWokE5al_T83F7ubH3DCsG_YAsfJCKXg/viewform?usp=header",
 
   // Basic needs a student can request after tapping "I have a basic need".
@@ -75,6 +78,34 @@ window.PPC_CONFIG = {
     { icon: "❓", label: "Something else" },
     { icon: "🤷", label: "Nothing really helped" },
   ],
+
+  // Incident report: what happened (multi-select) and where (single).
+  INCIDENT_TYPES: [
+    { icon: "😠", label: "Someone was mean to me" },
+    { icon: "👊", label: "Someone hit or pushed me" },
+    { icon: "😨", label: "Someone threatened me" },
+    { icon: "📱", label: "Something happened online" },
+    { icon: "🚫", label: "Someone touched me in a way I didn't like" },
+    { icon: "👀", label: "I saw something happen to someone else" },
+    { icon: "🎒", label: "Something was taken or broken" },
+    { icon: "⚠️", label: "Something unsafe" },
+    { icon: "❓", label: "Something else" },
+  ],
+  INCIDENT_PLACES: [
+    { icon: "🏫", label: "Classroom" },
+    { icon: "🚪", label: "Hallway" },
+    { icon: "🍽️", label: "Cafeteria" },
+    { icon: "🚻", label: "Bathroom" },
+    { icon: "🏀", label: "Gym or locker room" },
+    { icon: "🚌", label: "Bus" },
+    { icon: "🌳", label: "Outside" },
+    { icon: "💬", label: "Online" },
+    { icon: "❓", label: "Somewhere else" },
+  ],
+
+  // Trial feedback portal (feedback.html). Shows a small "Give feedback" link on the
+  // kiosk start screen and the admin dashboard. Set to false when the trial ends.
+  FEEDBACK_ENABLED: true,
 
   // How many days of check-ins the staff dashboard loads.
   DASHBOARD_DAYS: 14,

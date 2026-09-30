@@ -49,6 +49,16 @@
   .pill { display: inline-block; padding: 3px 9px; border-radius: 999px; font-size: 0.8rem; font-weight: 600; color: #fff; }
   .g-Red { background: var(--m-red); } .g-Yellow { background: var(--m-yellow); color: #2b1d00; } .g-Blue { background: var(--m-blue); } .g-Green { background: var(--m-green); }
   .o-Incident { color: #b00020; font-weight: 600; } .o-Basic { color: #2f6b30; font-weight: 600; }
+  .sec { margin: 24px 0 10px; font-size: 1.1rem; font-weight: 600; }
+  .sec .count { color: var(--muted); font-weight: 500; font-size: 0.95rem; }
+  .list { display: grid; gap: 10px; }
+  .item { background: var(--panel); border: 1px solid var(--line); border-radius: 14px; padding: 12px 14px; font-size: 0.92rem; }
+  .item.urgent { border-color: #b00020; background: #fff5f5; }
+  .item .meta { color: var(--muted); font-size: 0.82rem; margin: 2px 0; }
+  .item .story { white-space: pre-wrap; margin-top: 6px; line-height: 1.4; }
+  .item .urg, .item .tag { display: inline-block; border-radius: 999px; padding: 2px 8px; font-size: 0.75rem; font-weight: 600; margin-left: 6px; }
+  .item .urg { background: #b00020; color: #fff; } .item .tag { background: #e8e8ea; color: var(--ink); }
+  .item .face { font-size: 1.3rem; margin-right: 6px; vertical-align: middle; }
   .loading { text-align: center; color: var(--muted); padding: 60px 0; }
 </style>
 </head>
@@ -91,6 +101,12 @@
         <tbody id="tbody"><tr><td colspan="13" class="loading">Loading check-ins…</td></tr></tbody>
       </table>
     </div>
+
+    <h2 class="sec">Incident reports <span class="count" id="incCount"></span></h2>
+    <div class="list" id="incList"></div>
+
+    <h2 class="sec">Trial feedback <span class="count" id="fbCount"></span></h2>
+    <div class="list" id="fbList"></div>
   </div>
 </main>
 
@@ -116,6 +132,9 @@
         $("#sheetLink").href = data.sheetUrl || "#";
         $("#status").textContent = `Loaded ${all.length} check-ins from the last ${data.days} days · updated ${new Date().toLocaleTimeString([], { hour: "numeric", minute: "2-digit" })}`;
         render();
+        const d = Number($("#days").value);
+        google.script.run.withSuccessHandler(x => renderIncidents(x.rows || [])).withFailureHandler(() => {}).getIncidents(d);
+        google.script.run.withSuccessHandler(x => renderFeedback(x.rows || [])).withFailureHandler(() => {}).getFeedback(d);
       })
       .withFailureHandler(err => {
         $("#status").textContent = "Could not load check-ins: " + (err && err.message ? err.message : err);
@@ -158,6 +177,33 @@
         <div class="track"><div class="fill" style="width:${(n / max * 100).toFixed(1)}%;${colorFn ? "background:" + colorFn(k) : ""}"></div></div>
       </div>`).join("") : `<div class="empty">No check-ins in this range.</div>`;
     return `<div class="chart"><h3>${title}</h3>${body}</div>`;
+  }
+  const FACES = { 1: "😣", 2: "🙁", 3: "😐", 4: "🙂", 5: "😀" };
+  function fmtWhen(ts) { return new Date(ts).toLocaleString([], { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" }); }
+  function renderIncidents(rows) {
+    rows = rows.slice().sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
+    $("#incCount").textContent = rows.length ? `(${rows.length})` : "";
+    $("#incList").innerHTML = rows.length ? rows.map(r => `
+      <div class="item ${r.urgent === "Yes" ? "urgent" : ""}">
+        <div class="meta">${esc(fmtWhen(r.timestamp))} · <b>${esc(r.name)}</b>${r.urgent === "Yes" ? '<span class="urg">Said not safe</span>' : ""}${r.talk === "Yes" ? '<span class="tag">Wants to talk</span>' : ""}</div>
+        <div><b>${esc(r.types)}</b>${r.place ? " · " + esc(r.place) : ""}${r.when ? " · " + esc(r.when) : ""}</div>
+        ${r.story ? `<div class="story">${esc(r.story)}</div>` : ""}
+        ${r.who ? `<div class="meta">Involved: ${esc(r.who)}</div>` : ""}${r.witness ? `<div class="meta">Saw it: ${esc(r.witness)}</div>` : ""}
+        ${r.reviewed ? `<div class="meta">Reviewed by ${esc(r.reviewed)}${r.notes ? " · " + esc(r.notes) : ""}</div>` : ""}
+      </div>`).join("") : `<div class="empty">No incident reports loaded.</div>`;
+  }
+  function renderFeedback(rows) {
+    rows = rows.slice().sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
+    const rated = rows.filter(r => Number(r.rating));
+    const avg = rated.length ? (rated.reduce((s, r) => s + Number(r.rating), 0) / rated.length).toFixed(1) : null;
+    $("#fbCount").textContent = rows.length ? `(${rows.length}${avg ? `, avg ${avg}/5` : ""})` : "";
+    $("#fbList").innerHTML = rows.length ? rows.map(r => `
+      <div class="item">
+        <div class="meta">${esc(fmtWhen(r.timestamp))} · <b>${esc(r.role || "Unknown")}</b>${r.tried ? " · " + esc(r.tried) : ""}${r.device ? " · " + esc(r.device) : ""}</div>
+        <div>${r.rating ? `<span class="face">${FACES[r.rating] || ""}</span>` : ""}${r.worked ? `<b>Worked:</b> ${esc(r.worked)} ` : ""}</div>
+        ${r.change ? `<div><b>Change:</b> ${esc(r.change)}</div>` : ""}${r.ideas ? `<div><b>Else:</b> ${esc(r.ideas)}</div>` : ""}
+        ${r.contact ? `<div class="meta">Contact: ${esc(r.contact)}</div>` : ""}
+      </div>`).join("") : `<div class="empty">No feedback yet.</div>`;
   }
   function esc(s) { return String(s ?? "").replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c])); }
 

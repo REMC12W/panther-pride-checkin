@@ -1,0 +1,234 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Pride Center App – Feedback</title>
+<link rel="icon" href="assets/icon-192.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --red: #d61f26; --ink: #3d3d3d; --muted: #777; --bg: #fff; --line: #dcdcdc;
+    --salmon: #e9967f; --green: #b6d7a8; --border: #5f5f5f; --shadow: 0 6px 0 rgba(0,0,0,0.10);
+  }
+  * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+  body { margin: 0; background: var(--bg); color: var(--ink); font-family: "Fredoka", "Avenir Next", "Segoe UI", sans-serif; }
+  .wrap { max-width: 760px; margin: 0 auto; padding: 20px 20px 60px; }
+  header { display: flex; align-items: center; gap: 14px; margin-bottom: 8px; }
+  header img { height: 56px; }
+  header h1 { margin: 0; font-size: clamp(1.5rem, 4vw, 2.1rem); font-weight: 700; color: var(--red); line-height: 1.1; }
+  header .sub { color: var(--muted); font-weight: 500; }
+  a.back { color: var(--muted); font-size: 0.95rem; text-decoration: none; }
+  .intro { color: var(--ink); font-size: 1.05rem; line-height: 1.45; margin: 10px 0 22px; }
+
+  fieldset { border: 0; padding: 0; margin: 0 0 26px; }
+  legend { font-weight: 600; font-size: 1.2rem; margin-bottom: 10px; padding: 0; }
+  legend small { display: block; font-weight: 400; color: var(--muted); font-size: 0.85rem; margin-top: 2px; }
+
+  .chips { display: flex; flex-wrap: wrap; gap: 10px; }
+  .chip {
+    font: inherit; font-weight: 500; font-size: 1rem; padding: 12px 18px; border-radius: 999px;
+    border: 2px solid var(--line); background: #f6f6f6; color: var(--ink); cursor: pointer; min-height: 48px;
+  }
+  .chip[aria-pressed="true"] { background: var(--green); border-color: var(--border); }
+
+  .faces { display: grid; grid-template-columns: repeat(5, 1fr); gap: 8px; max-width: 520px; }
+  .face {
+    font: inherit; border: 2px solid var(--line); background: #f6f6f6; border-radius: 16px; padding: 12px 4px;
+    cursor: pointer; text-align: center; min-height: 84px;
+  }
+  .face .e { font-size: 2rem; line-height: 1; display: block; }
+  .face .l { font-size: 0.78rem; color: var(--muted); display: block; margin-top: 6px; }
+  .face[aria-pressed="true"] { background: var(--green); border-color: var(--border); }
+
+  textarea, input[type="text"] {
+    width: 100%; font: inherit; font-size: 1.05rem; padding: 14px; border: 2px solid var(--line); border-radius: 14px;
+    outline: none; color: var(--ink); background: #fff;
+  }
+  textarea { min-height: 96px; resize: vertical; }
+  textarea:focus, input:focus { border-color: var(--red); }
+
+  .big-btn {
+    font: inherit; font-weight: 600; font-size: 1.25rem; background: var(--salmon); color: #1a1a1a;
+    border: 2px solid var(--border); border-radius: 18px; padding: 18px 40px; cursor: pointer; box-shadow: var(--shadow); width: 100%;
+  }
+  .big-btn:disabled { opacity: 0.5; cursor: default; box-shadow: none; }
+  .err { color: #b00020; margin: 10px 0 0; min-height: 1.2em; }
+  .note { color: var(--muted); font-size: 0.9rem; margin-top: 12px; }
+
+  .thanks { text-align: center; padding: 60px 0; display: none; }
+  .thanks.show { display: block; }
+  .thanks h2 { color: var(--red); font-size: 2rem; margin: 0 0 8px; }
+  .thanks p { font-size: 1.15rem; }
+  .thanks a { color: var(--ink); }
+  .hidden { display: none !important; }
+  .banner { background: #fff3cd; color: #6b5200; padding: 8px 14px; border-radius: 10px; font-size: 0.95rem; margin-bottom: 16px; display: none; }
+  .banner.show { display: block; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <img src="assets/panther.png" alt="">
+    <div>
+      <h1>Pride Center app feedback</h1>
+      <div class="sub">Help us make the check-in app better</div>
+    </div>
+  </header>
+  <a class="back" href="index.html">← Back to the app</a>
+  <div class="banner" id="banner"></div>
+
+  <form id="form" novalidate>
+    <p class="intro">You're trying out a new version of the check-in app. Tell us what worked and what didn't. It takes about a minute, and you don't have to answer everything.</p>
+
+    <fieldset>
+      <legend>I am a…</legend>
+      <div class="chips" id="role">
+        <button type="button" class="chip" data-v="Student">Student</button>
+        <button type="button" class="chip" data-v="Pride Center staff">Pride Center staff</button>
+        <button type="button" class="chip" data-v="Teacher">Teacher</button>
+        <button type="button" class="chip" data-v="Admin or counselor">Admin or counselor</button>
+        <button type="button" class="chip" data-v="Other">Other</button>
+      </div>
+    </fieldset>
+
+    <fieldset>
+      <legend>What did you try?<small>Tap all that apply.</small></legend>
+      <div class="chips" id="tried">
+        <button type="button" class="chip" data-v="Check-in">Check-in</button>
+        <button type="button" class="chip" data-v="Check-out">Check-out</button>
+        <button type="button" class="chip" data-v="Feelings words">Feelings words</button>
+        <button type="button" class="chip" data-v="Basic needs">Basic needs</button>
+        <button type="button" class="chip" data-v="Stations">Stations</button>
+        <button type="button" class="chip" data-v="Admin dashboard">Admin dashboard</button>
+        <button type="button" class="chip" data-v="Google Sheet">Google Sheet</button>
+        <button type="button" class="chip" data-v="Setup">Setup</button>
+      </div>
+    </fieldset>
+
+    <fieldset>
+      <legend>How did it go?</legend>
+      <div class="faces" id="rating">
+        <button type="button" class="face" data-v="1"><span class="e">😣</span><span class="l">Rough</span></button>
+        <button type="button" class="face" data-v="2"><span class="e">🙁</span><span class="l">Not great</span></button>
+        <button type="button" class="face" data-v="3"><span class="e">😐</span><span class="l">Okay</span></button>
+        <button type="button" class="face" data-v="4"><span class="e">🙂</span><span class="l">Good</span></button>
+        <button type="button" class="face" data-v="5"><span class="e">😀</span><span class="l">Great</span></button>
+      </div>
+    </fieldset>
+
+    <fieldset>
+      <legend>What worked well?</legend>
+      <textarea id="worked" placeholder="Anything that felt easy, clear, or helpful"></textarea>
+    </fieldset>
+
+    <fieldset>
+      <legend>What was confusing, or what would you change?</legend>
+      <textarea id="change" placeholder="Screens that were hard to read, words that didn't fit, things you'd take out or add"></textarea>
+    </fieldset>
+
+    <fieldset>
+      <legend>Anything else?</legend>
+      <textarea id="ideas" placeholder="Ideas, bugs, questions"></textarea>
+    </fieldset>
+
+    <fieldset>
+      <legend>Your name or email<small>Optional. Only so we can follow up.</small></legend>
+      <input type="text" id="contact" autocomplete="off" placeholder="Optional">
+    </fieldset>
+
+    <button class="big-btn" type="submit" id="submit">Send feedback</button>
+    <div class="err" id="err"></div>
+    <p class="note">Feedback goes to the Pride Center team. Please don't include another student's name.</p>
+  </form>
+
+  <div class="thanks" id="thanks">
+    <h2>Thank you!</h2>
+    <p id="thanksMsg">Your feedback was sent.</p>
+    <p><a href="index.html">Back to the app</a> · <a href="feedback.html">Send more feedback</a></p>
+  </div>
+</div>
+
+<script src="config.js"></script>
+<script>
+(function () {
+  const CFG = Object.assign({ SCRIPT_URL: "", KIOSK_TOKEN: "", KIOSK_NAME: "Kiosk" }, window.PPC_CONFIG || {});
+  const $ = s => document.querySelector(s);
+  const QUEUE_KEY = "ppc_feedback_queue", LOCAL_KEY = "ppc_feedback_local";
+  const readJSON = k => { try { return JSON.parse(localStorage.getItem(k) || "[]"); } catch { return []; } };
+  const writeJSON = (k, v) => { try { localStorage.setItem(k, JSON.stringify(v)); } catch {} };
+
+  // Single-select and multi-select chip groups.
+  function group(sel, multi) {
+    const el = $(sel);
+    el.querySelectorAll("button").forEach(b => {
+      b.setAttribute("aria-pressed", "false");
+      b.addEventListener("click", () => {
+        const on = b.getAttribute("aria-pressed") === "true";
+        if (!multi) el.querySelectorAll("button").forEach(x => x.setAttribute("aria-pressed", "false"));
+        b.setAttribute("aria-pressed", String(multi ? !on : true));
+      });
+    });
+    return () => [...el.querySelectorAll('button[aria-pressed="true"]')].map(b => b.dataset.v);
+  }
+  const role = group("#role", false), tried = group("#tried", true), rating = group("#rating", false);
+
+  async function post(record) {
+    const res = await fetch(CFG.SCRIPT_URL, {
+      method: "POST",
+      headers: { "Content-Type": "text/plain;charset=utf-8" },
+      body: JSON.stringify(Object.assign({ token: CFG.KIOSK_TOKEN }, record)),
+      redirect: "follow"
+    });
+    const data = await res.json();
+    if (!data.ok) throw new Error(data.error || "Rejected");
+  }
+
+  async function flush() {
+    if (!CFG.SCRIPT_URL) return;
+    let q = readJSON(QUEUE_KEY);
+    while (q.length) { try { await post(q[0]); q.shift(); writeJSON(QUEUE_KEY, q); } catch { break; } }
+  }
+
+  $("#form").addEventListener("submit", async e => {
+    e.preventDefault();
+    const r = rating()[0] || "";
+    const worked = $("#worked").value.trim(), change = $("#change").value.trim(), ideas = $("#ideas").value.trim();
+    if (!r && !worked && !change && !ideas) { $("#err").textContent = "Pick a face or write something first."; return; }
+    $("#err").textContent = "";
+    $("#submit").disabled = true; $("#submit").textContent = "Sending…";
+
+    const record = {
+      type: "feedback",
+      timestamp: new Date().toISOString(),
+      role: role()[0] || "",
+      tried: tried().join(", "),
+      rating: r,
+      worked, change, ideas,
+      contact: $("#contact").value.trim(),
+      device: (navigator.userAgent.match(/iPad|iPhone|Android|Macintosh|Windows|CrOS/) || ["Unknown"])[0] + (navigator.maxTouchPoints > 1 ? " (touch)" : ""),
+      version: (document.referrer || "").slice(0, 120),
+      kiosk: CFG.KIOSK_NAME
+    };
+    const local = readJSON(LOCAL_KEY); local.push(record); writeJSON(LOCAL_KEY, local.slice(-200));
+
+    let msg = "Your feedback was sent.";
+    if (!CFG.SCRIPT_URL) msg = "Test mode: your feedback was saved on this device only.";
+    else {
+      try { await post(record); }
+      catch { const q = readJSON(QUEUE_KEY); q.push(record); writeJSON(QUEUE_KEY, q); msg = "Saved on this device. It will send when the connection is back."; }
+    }
+    $("#thanksMsg").textContent = msg;
+    $("#form").classList.add("hidden");
+    $("#thanks").classList.add("show");
+  });
+
+  if (!CFG.SCRIPT_URL) { $("#banner").textContent = "Test mode: not connected to the Google Sheet yet, so feedback stays on this device."; $("#banner").classList.add("show"); }
+  window.addEventListener("online", flush);
+  flush();
+})();
+</script>
+</body>
+</html>

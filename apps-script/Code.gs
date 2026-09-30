@@ -45,6 +45,8 @@ function doPost(e) {
       return json_({ ok: false, error: 'Bad token. KIOSK_TOKEN in config.js must match Code.gs.' });
     }
     if (data.type === 'checkout') return json_(checkout_(data));
+    if (data.type === 'feedback') return json_(feedback_(data));
+    if (data.type === 'incident') return json_(incident_(data));
     const sheet = getSheet_();
     const ts = data.timestamp ? new Date(data.timestamp) : new Date();
     const tz = Session.getScriptTimeZone();
@@ -109,6 +111,110 @@ function checkout_(data) {
     '', '', '', '', '', '', '', '', 'Check Out (no check-in found)', data.kiosk || '', '', ''
   ].concat(outVals));
   return { ok: true, matched: false };
+}
+
+// ---- Incident reports ---------------------------------------------------------
+
+const INCIDENT_NAME = 'Incident Reports';
+const INCIDENT_HEADERS = ['Timestamp', 'Date', 'Time', 'Name / ID', 'Safe now?', 'Urgent', 'What happened', 'Where', 'When',
+  'Story', 'Who was involved', 'Witnesses', 'Wants to talk', 'Kiosk', 'Reviewed by', 'Notes'];
+
+function incidentSheet_() {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  let sheet = ss.getSheetByName(INCIDENT_NAME);
+  if (!sheet) {
+    sheet = ss.insertSheet(INCIDENT_NAME);
+    sheet.appendRow(INCIDENT_HEADERS);
+    sheet.getRange(1, 1, 1, INCIDENT_HEADERS.length).setFontWeight('bold').setBackground('#d61f26').setFontColor('#ffffff');
+    sheet.setFrozenRows(1);
+    sheet.getRange('A:A').setNumberFormat('yyyy-mm-dd h:mm am/pm');
+    sheet.getRange('B:B').setNumberFormat('yyyy-mm-dd');
+    sheet.setColumnWidth(7, 240);
+    sheet.setColumnWidth(10, 360);
+    sheet.getRange('J:L').setWrap(true);
+    // Urgent rows turn red.
+    const rule = SpreadsheetApp.newConditionalFormatRule()
+      .whenFormulaSatisfied('=$F2="Yes"').setBackground('#f4cccc')
+      .setRanges([sheet.getRange('A2:P')]).build();
+    sheet.setConditionalFormatRules([rule]);
+  }
+  return sheet;
+}
+
+function incident_(data) {
+  const sheet = incidentSheet_();
+  const ts = data.timestamp ? new Date(data.timestamp) : new Date();
+  const tz = Session.getScriptTimeZone();
+  sheet.appendRow([
+    ts, new Date(Utilities.formatDate(ts, tz, 'yyyy/MM/dd')), Utilities.formatDate(ts, tz, 'h:mm a'),
+    String(data.name || '').trim(), data.safe || '', data.urgent || '', data.types || '', data.place || '', data.when || '',
+    data.story || '', data.who || '', data.witness || '', data.talk || '', data.kiosk || '', '', ''
+  ]);
+  return { ok: true };
+}
+
+/** Called from Dashboard.html. Recent incident reports, newest first. */
+function getIncidents(days) {
+  if (!isAdmin_(currentEmail_())) throw new Error('Not authorized');
+  days = Math.min(Math.max(Number(days) || 30, 1), 365);
+  const cutoff = new Date(Date.now() - days * 86400000);
+  const sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName(INCIDENT_NAME);
+  if (!sheet) return { rows: [] };
+  const values = sheet.getDataRange().getValues();
+  const rows = [];
+  for (let i = values.length - 1; i >= 1; i--) {
+    const r = values[i];
+    if (!(r[0] instanceof Date) || r[0] < cutoff) continue;
+    rows.push({ timestamp: r[0].toISOString(), name: r[3], safe: r[4], urgent: r[5], types: r[6], place: r[7], when: r[8],
+      story: r[9], who: r[10], witness: r[11], talk: r[12], reviewed: r[14], notes: r[15] });
+  }
+  return { rows: rows };
+}
+
+// ---- Trial feedback (feedback.html) -----------------------------------------
+
+const FEEDBACK_NAME = 'Feedback';
+const FEEDBACK_HEADERS = ['Timestamp', 'Date', 'Role', 'Tried', 'Rating', 'What worked', 'What to change', 'Anything else', 'Contact', 'Device', 'Came from', 'Kiosk'];
+
+function feedback_(data) {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  let sheet = ss.getSheetByName(FEEDBACK_NAME);
+  if (!sheet) {
+    sheet = ss.insertSheet(FEEDBACK_NAME);
+    sheet.appendRow(FEEDBACK_HEADERS);
+    sheet.getRange(1, 1, 1, FEEDBACK_HEADERS.length).setFontWeight('bold').setBackground('#d61f26').setFontColor('#ffffff');
+    sheet.setFrozenRows(1);
+    sheet.getRange('A:A').setNumberFormat('yyyy-mm-dd h:mm am/pm');
+    sheet.getRange('B:B').setNumberFormat('yyyy-mm-dd');
+    [6, 7, 8].forEach(c => sheet.setColumnWidth(c, 320));
+    sheet.getRange('F:H').setWrap(true);
+  }
+  const ts = data.timestamp ? new Date(data.timestamp) : new Date();
+  const tz = Session.getScriptTimeZone();
+  sheet.appendRow([
+    ts, new Date(Utilities.formatDate(ts, tz, 'yyyy/MM/dd')),
+    data.role || '', data.tried || '', data.rating === '' ? '' : Number(data.rating) || '',
+    data.worked || '', data.change || '', data.ideas || '', data.contact || '',
+    data.device || '', data.version || '', data.kiosk || ''
+  ]);
+  return { ok: true };
+}
+
+/** Called from Dashboard.html. Recent feedback entries, newest first. */
+function getFeedback(days) {
+  if (!isAdmin_(currentEmail_())) throw new Error('Not authorized');
+  days = Math.min(Math.max(Number(days) || 30, 1), 365);
+  const cutoff = new Date(Date.now() - days * 86400000);
+  const sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName(FEEDBACK_NAME);
+  if (!sheet) return { rows: [] };
+  const values = sheet.getDataRange().getValues();
+  const rows = [];
+  for (let i = values.length - 1; i >= 1; i--) {
+    const r = values[i];
+    if (!(r[0] instanceof Date) || r[0] < cutoff) continue;
+    rows.push({ timestamp: r[0].toISOString(), role: r[2], tried: r[3], rating: r[4], worked: r[5], change: r[6], ideas: r[7], contact: r[8], device: r[9] });
+  }
+  return { rows: rows };
 }
 
 // ---- Admin dashboard: served by doGet, guarded by Google sign-in -------------
