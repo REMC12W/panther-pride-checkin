@@ -26,20 +26,20 @@ A tap-through check-in kiosk for the Pride Center, rebuilt from the Google Slide
 Matches the hyperlinks in the current PowerPoint deck.
 
 1. Start → student types name or ID
-2. Why are you here today? **Self Referred** (I have a need) or **Staff Referred** (a teacher sent me)
+2. Why are you here today? **Self Referred** (I came on my own) or **Staff Referred** (a teacher sent me)
 3. What do you need today? **Drop In: I need a reset**, **Scheduled Break**, or **I have a need… (medical, food, clothing)**
 4. **I have a need** goes to: Incident Report or Basic Need. Incident Report opens a short in-app report that covers every question on the district "Student Incident Report" form: Are you safe right now? → Grade (6th/7th/8th) → What happened (multi-select from `INCIDENT_TYPES`) → Where (`INCIDENT_PLACES`, the district's list) → When (`INCIDENT_PERIODS`, the district's class hours) → Tell us what happened (own words, who was involved, witnesses) → Do you want to talk to someone today? The district form collects the student's Google email automatically; the kiosk can't, so the name typed at check-in is the identifier. A student who says they are not safe is routed to "a staff member is coming to you." Reports land in an **Incident Reports** tab in the Sheet with urgent rows highlighted, and in the admin dashboard. Basic Need opens "What do you need?" where the student taps one or more items from `BASIC_NEEDS` in `config.js`, then continues to the feelings questions below.
 5. How is your body + brain feeling? (Fast / Slow / Ok)
 6. "Pick the word that fits how you feel." Fast shows the red and yellow grids, Slow shows blue, Ok shows green. A student can tap one word, or tap "Just pick Red" (etc.) under a grid when no single word fits; the Sheet then records the color with no word.
-7. What happened? (Home / Teacher / Friend / Myself)
+7. What happened? (Home / Teacher / Friend / Myself / I'm not sure right now). "Not sure" is recorded as Not sure.
 8. Station suggestion. The mood word's color picks a regulation station (Red, Yellow, Blue, Green). The app says "The blue station is set up for how you're feeling. Go there, or pick another," and records both the suggestion and the choice. Words in `STAFF_FIRST_WORDS` (enraged, hopeless, and so on) skip the picker and show "A staff member is coming to you" instead.
 9. End screen with the deck's CLICK HERE button: Incident Report opens the incident form, Check In and Basic Need open the sign-in form. Both need a KRESA Google login, exactly as before. Clear `FORM_INCIDENT_URL` or `FORM_SIGNIN_URL` in `config.js` to hide a button. The app resets for the next student after 30 seconds.
 
 **Already checked in?** After typing their name, a student who already has an open check-in today on that iPad (within 4 hours, not checked out) sees "Welcome back" with two choices: check out, or start a new visit. A student who taps check-out without a check-in sees "We don't see a check-in for you today" with: check in, or check out anyway. So nobody answers the check-in questions twice by accident. This uses the iPad's own record, so a staff check-out from the dashboard isn't known to the iPad; "start a new visit" covers that case.
 
-**Confirmation screens** lead with a big block in the color of the station they're headed to (or "A staff member is coming to you"), and on check-out the color they're leaving with.
+**Confirmation screens** lead with a big block in the color of the station they're headed to (or "A staff member is coming to you"), On check-out it shows the word the student picked on a neutral card, with only a small color mark, so it reflects their answer instead of assigning them a color.
 
-**Check-out.** The start screen has a "Leaving? Tap here to check out" link. The student types their name, answers the body + brain question and the word grid again, then taps what helped (from `WHAT_HELPED` in `config.js`). The Sheet fills in the check-out columns on that student's check-in row: check-out time, minutes in room, mood at check-out, and what helped. The end screen tells the student "You came in Blue and you're leaving Green."
+**Check-out.** The start screen has a "Leaving? Tap here to check out" link. The student types their name, answers the body + brain question and the word grid again, then taps what helped (from `WHAT_HELPED` in `config.js`). The Sheet fills in the check-out columns on that student's check-in row: check-out time, minutes in room, mood at check-out, and what helped. The end screen says "You said you feel calm" in the student's own word.
 
 Every check-in is saved the moment the end screen appears. If Wi-Fi drops, it's kept on the iPad and synced automatically when the connection returns. If a student walks away mid-flow, the app returns to the start after two minutes so nobody sees their answers.
 
