@@ -65,7 +65,7 @@
   /* Start: maroon field, panther bleeding off the left edge, white type set right */
   #start { background: var(--surface-brand); color: var(--fg-on-brand); justify-content: center; align-items: flex-end; padding: var(--space-7) clamp(24px, 7vw, 96px); overflow: hidden; }
   /* Panther fills the left side and bleeds off the edge (logo is ~1.39:1); its right edge stops near 46% of the width. */
-  #start .mark { position: absolute; top: 50%; transform: translateY(-50%); height: 82vh; width: auto; left: calc(46vw - 114vh); pointer-events: none; }
+  #start .mark { position: absolute; top: 50%; transform: translateY(-50%); height: 82vh; width: auto; left: calc(46vw - 114vh); -webkit-user-select: none; user-select: none; -webkit-user-drag: none; -webkit-touch-callout: none; }
   @media (orientation: portrait) { #start .mark { height: 46vh; left: calc(50vw - 64vh); top: 30%; } #start { justify-content: flex-end; } }
   #start .copy { position: relative; text-align: right; max-width: 620px; display: flex; flex-direction: column; align-items: flex-end; }
   #start .eyebrow { color: var(--psd-maroon-100); font-size: clamp(13px, 1.6vw, 16px); }
@@ -1057,7 +1057,7 @@
     if (!s && CFG.GOOGLE_CLIENT_ID) {
       const render = () => {
         google.accounts.id.initialize({ client_id: CFG.GOOGLE_CLIENT_ID, hd: CFG.KIOSK_DOMAIN || undefined, auto_select: false, ux_mode: "popup", callback: kioskCredential });
-        google.accounts.id.renderButton($("#kioskGsi"), { theme: "outline", size: "large", text: "signin_with", shape: "pill", width: 300 });
+        google.accounts.id.renderButton($("#kioskGsi"), { theme: "outline", size: "large", text: "signin_with", shape: "rectangular", width: 300 });
       };
       if (window.google && google.accounts) render();
       else { const sc = document.createElement("script"); sc.src = "https://accounts.google.com/gsi/client"; sc.async = true; sc.onload = render; sc.onerror = () => { $("#kioskMsg").textContent = "Couldn't reach Google sign-in. Check the Wi-Fi and try again."; }; document.head.appendChild(sc); }

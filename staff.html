@@ -7,52 +7,39 @@
 <link rel="icon" href="assets/icon-192.png">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="ds.css">
 <style>
+  /* Dashboard names mapped onto the Parchment Panthers Design System (ds.css). Light only, like the DS. */
   :root {
     color-scheme: light;
-    --brand: #d61f26;
-    --bg: #f5f5f3; --panel: #ffffff; --line: #e6e5e1; --grid: #ecebe7;
-    --ink: #1f1f1e; --ink-2: #52514e; --ink-3: #7a7974;
-    --series: #2a78d6;
-    /* Mood meter quadrants. Order Red, Yellow, Blue, Green validated for CVD (adjacent) in both modes. */
-    --m-red: #c1272d; --m-yellow: #eda232; --m-blue: #2b5090; --m-green: #4c9a47; --m-staff: #7e6bb0;
-    /* Status: always paired with an icon and a label */
-    --st-critical: #d03b3b; --st-warning: #b87a00; --st-good: #0a8a0a; --st-info: #2a78d6;
-    --tint: 14%;
-  }
-  @media (prefers-color-scheme: dark) {
-    :root:where(:not([data-theme="light"])) {
-      color-scheme: dark;
-      --bg: #121211; --panel: #1a1a19; --line: #2e2e2c; --grid: #262624;
-      --ink: #f4f4f1; --ink-2: #c3c2b7; --ink-3: #9a998f;
-      --series: #3987e5;
-      --m-red: #d9474c; --m-yellow: #c98500; --m-blue: #5b86d6; --m-green: #3a9a44; --m-staff: #9085e9;
-      --st-critical: #e66767; --st-warning: #fab219; --st-good: #0ca30c; --st-info: #3987e5;
-      --tint: 22%;
-    }
-  }
-  :root[data-theme="dark"] {
-    color-scheme: dark;
-    --bg: #121211; --panel: #1a1a19; --line: #2e2e2c; --grid: #262624;
-    --ink: #f4f4f1; --ink-2: #c3c2b7; --ink-3: #9a998f;
-    --series: #3987e5;
-    --m-red: #d9474c; --m-yellow: #c98500; --m-blue: #5b86d6; --m-green: #3a9a44; --m-staff: #9085e9;
-    --st-critical: #e66767; --st-warning: #fab219; --st-good: #0ca30c; --st-info: #3987e5;
-    --tint: 22%;
+    --brand: var(--psd-maroon);
+    --bg: var(--psd-gray-50); --panel: var(--psd-white); --line: var(--psd-gray-200); --grid: var(--psd-gray-100);
+    --ink: var(--fg-1); --ink-2: var(--fg-2); --ink-3: var(--fg-3);
+    --series: var(--psd-maroon);
+    /* Mood Meter quadrants (app exception, see ds.css); "Staff first" uses the brand maroon. */
+    --m-red: var(--mood-red); --m-yellow: var(--mood-yellow); --m-blue: var(--mood-blue); --m-green: var(--mood-green); --m-staff: var(--psd-maroon);
+    --tint: 13%;
   }
   * { box-sizing: border-box; }
-  body { margin: 0; font-family: "Fredoka", "Avenir Next", "Segoe UI", sans-serif; background: var(--bg); color: var(--ink); }
+  body { margin: 0; font-family: var(--font-body); background: var(--bg); color: var(--ink); }
   button, input, select { font: inherit; color: inherit; }
 
-  header { background: var(--panel); border-bottom: 1px solid var(--line); padding: 12px 20px; display: flex; align-items: center; gap: 12px; flex-wrap: wrap; position: sticky; top: 0; z-index: 5; }
-  header img { height: 42px; }
-  header h1 { margin: 0; font-size: 1.25rem; font-weight: 600; color: var(--brand); }
-  header .who { color: var(--ink-3); font-size: 0.85rem; }
-  header .who button { font-size: 0.85rem; background: none; border: 0; color: var(--brand); text-decoration: underline; cursor: pointer; padding: 0 4px; }
+  header { background: var(--surface-page); border-bottom: 4px solid var(--psd-maroon); padding: 10px 24px; display: flex; align-items: center; gap: 12px; flex-wrap: wrap; position: sticky; top: 0; z-index: 5; }
+  header .psd-lockup img { height: 46px; }
+  header .psd-lockup .nm { font-size: 20px; }
+  header .psd-lockup .tg { font-size: 13px; }
+  header .who { color: var(--ink-3); font-size: 0.82rem; margin-top: 2px; }
+  header .who button { font-size: 0.82rem; background: none; border: 0; color: var(--brand); text-decoration: underline; cursor: pointer; padding: 0 4px; font-weight: 600; }
   header .spacer { flex: 1; }
-  .ctl { font-size: 0.92rem; padding: 8px 12px; border: 1px solid var(--line); border-radius: 10px; background: var(--panel); text-decoration: none; cursor: pointer; }
-  .ctl:hover { border-color: var(--ink-3); }
+  .ctl { display: inline-flex; align-items: center; gap: 6px; font-size: 14px; font-weight: 700; padding: 8px 14px; border: 1px solid var(--border-2); border-radius: var(--radius-sm); background: var(--panel); color: var(--fg-1); text-decoration: none; cursor: pointer; transition: background var(--duration-fast) var(--ease-standard); }
+  .ctl:hover { background: var(--psd-gray-100); color: var(--fg-1); }
+  select.ctl { font-weight: 600; }
+  @media (max-width: 640px) {
+    header { position: static; padding: 10px 16px; }
+    header .psd-lockup img { height: 38px; }
+    header .psd-lockup .nm { font-size: 18px; }
+    .ctl { padding: 7px 11px; }
+  }
 
   main { max-width: 1180px; margin: 0 auto; padding: 18px 16px 48px; }
   .status-line { color: var(--ink-3); font-size: 0.88rem; margin: 0 0 14px; }
@@ -60,7 +47,7 @@
   h2 { font-size: 1.12rem; font-weight: 600; margin: 0 0 4px; }
   .sub { color: var(--ink-3); font-size: 0.86rem; margin: 0 0 12px; }
   section { margin-bottom: 26px; }
-  .panel { background: var(--panel); border: 1px solid var(--line); border-radius: 16px; padding: 16px 18px; }
+  .panel { background: var(--panel); border: 1px solid var(--line); border-radius: var(--radius-md); padding: 16px 18px; }
   .row2 { display: grid; grid-template-columns: 1.6fr 1fr; gap: 14px; }
   .row3 { display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px; }
   .row4 { display: grid; grid-template-columns: repeat(4, 1fr); gap: 14px; }
@@ -72,24 +59,25 @@
 
   /* Needs attention */
   .alerts { display: grid; gap: 10px; }
-  .alert { display: grid; grid-template-columns: 34px 1fr auto; gap: 12px; align-items: start; padding: 12px 14px; border-radius: 12px; border: 1px solid var(--line); background: var(--panel); }
-  .alert .ic { width: 34px; height: 34px; border-radius: 50%; display: grid; place-items: center; font-size: 1rem; font-weight: 700; color: #fff; }
+  .alert { display: grid; grid-template-columns: 34px 1fr auto; gap: 12px; align-items: start; padding: 12px 14px; border-radius: var(--radius-md); border: 1px solid var(--line); background: var(--panel); }
+  .alert .aic { width: 34px; height: 34px; border-radius: 50%; display: grid; place-items: center; font-size: 1rem; font-weight: 700; color: #fff; }
   .alert.critical { border-color: color-mix(in srgb, var(--st-critical) 45%, var(--line)); background: color-mix(in srgb, var(--st-critical) 7%, var(--panel)); }
-  .alert.critical .ic { background: var(--st-critical); }
-  .alert.warning .ic { background: var(--st-warning); color: #1a1200; }
-  .alert.info .ic { background: var(--st-info); }
+  .alert.critical .aic { background: var(--st-critical); }
+  .alert.warning .aic { background: var(--st-warning); color: #1a1200; }
+  .alert.info .aic { background: var(--st-info); }
   .alert .lbl { font-size: 0.75rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.04em; color: var(--ink-2); }
   .alert .t { font-weight: 600; font-size: 1rem; margin-top: 1px; }
   .alert .d { color: var(--ink-2); font-size: 0.9rem; margin-top: 2px; line-height: 1.35; }
   .alert .acts { display: flex; gap: 6px; }
-  .alert .acts button { font-size: 0.82rem; padding: 6px 10px; border-radius: 8px; border: 1px solid var(--line); background: var(--panel); cursor: pointer; white-space: nowrap; }
-  .alert .acts button.primary { background: var(--ink); color: var(--panel); border-color: var(--ink); }
+  .alert .acts button { font-size: 0.82rem; padding: 6px 10px; border-radius: var(--radius-sm); border: 1px solid var(--line); background: var(--panel); cursor: pointer; white-space: nowrap; }
+  .alert .acts button.primary { background: var(--surface-brand); color: var(--fg-on-brand); border-color: var(--surface-brand); font-weight: 700; }
+  .alert .acts button.primary:hover { background: var(--surface-brand-hover); }
   .allclear { display: flex; align-items: center; gap: 10px; color: var(--ink-2); padding: 10px 2px; }
-  .allclear .ic { width: 28px; height: 28px; border-radius: 50%; background: var(--st-good); color: #fff; display: grid; place-items: center; font-weight: 700; }
+  .allclear .aic { width: 28px; height: 28px; border-radius: 50%; background: var(--st-good); color: #fff; display: grid; place-items: center; font-weight: 700; }
 
   /* In the room */
   .room { display: grid; gap: 8px; }
-  .person { display: grid; grid-template-columns: 12px 1fr auto; gap: 10px; align-items: center; padding: 8px 10px; border-radius: 10px; background: color-mix(in srgb, var(--ink) 4%, var(--panel)); }
+  .person { display: grid; grid-template-columns: 12px 1fr auto; gap: 10px; align-items: center; padding: 8px 10px; border-radius: var(--radius-sm); background: color-mix(in srgb, var(--ink) 4%, var(--panel)); }
   .person .dot { width: 12px; height: 12px; border-radius: 50%; }
   .person .n { font-weight: 600; }
   .person .m { color: var(--ink-3); font-size: 0.82rem; }
@@ -99,7 +87,7 @@
   /* KPI tiles */
   .tiles { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; }
   @media (max-width: 760px) { .tiles { grid-template-columns: repeat(2, 1fr); } }
-  .tile { background: var(--panel); border: 1px solid var(--line); border-radius: 16px; padding: 14px 16px 10px; }
+  .tile { background: var(--panel); border: 1px solid var(--line); border-radius: var(--radius-md); padding: 14px 16px 10px; }
   .tile .k { color: var(--ink-2); font-size: 0.86rem; font-weight: 500; }
   .tile .v { font-size: 2.3rem; font-weight: 600; line-height: 1.05; margin-top: 4px; font-variant-numeric: tabular-nums; }
   .tile .c { color: var(--ink-3); font-size: 0.8rem; margin-top: 2px; min-height: 1em; }
@@ -110,7 +98,7 @@
   .meter-y { grid-row: 1; writing-mode: vertical-rl; transform: rotate(180deg); text-align: center; color: var(--ink-3); font-size: 0.8rem; }
   .meter-x { grid-column: 2; text-align: center; color: var(--ink-3); font-size: 0.8rem; }
   .meter { display: grid; grid-template-columns: 1fr 1fr; grid-template-rows: 1fr 1fr; gap: 6px; }
-  .quad { border-radius: 12px; padding: 12px 14px; min-height: 128px; position: relative; background: color-mix(in srgb, var(--q) var(--tint), var(--panel)); border: 1.5px solid color-mix(in srgb, var(--q) 55%, transparent); }
+  .quad { border-radius: var(--radius-md); padding: 12px 14px; min-height: 128px; position: relative; background: color-mix(in srgb, var(--q) var(--tint), var(--panel)); border: 1.5px solid color-mix(in srgb, var(--q) 55%, transparent); }
   .quad .qn { font-weight: 600; font-size: 0.95rem; display: flex; align-items: center; gap: 6px; }
   .quad .qn i { width: 10px; height: 10px; border-radius: 50%; background: var(--q); display: inline-block; }
   .quad .qd { color: var(--ink-2); font-size: 0.78rem; }
@@ -122,7 +110,7 @@
   .flow { margin-top: 4px; }
   .flow .fr { display: grid; grid-template-columns: 64px 1fr; align-items: center; gap: 10px; margin: 10px 0; }
   .flow .fl { color: var(--ink-2); font-size: 0.88rem; }
-  .stack { display: flex; gap: 2px; height: 30px; border-radius: 6px; overflow: hidden; }
+  .stack { display: flex; gap: 2px; height: 30px; border-radius: var(--radius-sm); overflow: hidden; }
   .stack span { display: flex; align-items: center; justify-content: center; color: #fff; font-size: 0.8rem; font-weight: 600; min-width: 0; overflow: hidden; white-space: nowrap; }
   .stack span.dk { color: #1a1200; }
   .legend { display: flex; flex-wrap: wrap; gap: 14px; color: var(--ink-2); font-size: 0.82rem; margin-top: 6px; }
@@ -135,13 +123,13 @@
   .bar { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 4px 8px; font-size: 0.9rem; }
   .bar .bl { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .bar .bv { font-weight: 600; font-variant-numeric: tabular-nums; }
-  .bar .bt { grid-column: 1 / -1; height: 8px; background: var(--grid); border-radius: 4px; }
-  .bar .bf { height: 100%; border-radius: 4px; background: var(--series); }
+  .bar .bt { grid-column: 1 / -1; height: 8px; background: var(--grid); border-radius: var(--radius-sm); }
+  .bar .bf { height: 100%; border-radius: var(--radius-sm); background: var(--series); }
   .chart svg { display: block; width: 100%; }
 
   /* Log */
   .logbar { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; margin-bottom: 10px; }
-  .logbar input { flex: 1; min-width: 220px; padding: 10px 14px; border: 1px solid var(--line); border-radius: 10px; background: var(--panel); }
+  .logbar input { flex: 1; min-width: 220px; padding: 10px 14px; border: 1px solid var(--line); border-radius: var(--radius-sm); background: var(--panel); }
   .student { display: none; margin-bottom: 12px; }
   .student.show { display: block; }
   .student .top { display: flex; gap: 18px; flex-wrap: wrap; align-items: baseline; }
@@ -150,7 +138,7 @@
   .dots { display: flex; gap: 5px; flex-wrap: wrap; margin-top: 10px; align-items: center; }
   .dots i { width: 16px; height: 16px; border-radius: 50%; display: inline-block; }
   .dots .lab { color: var(--ink-3); font-size: 0.78rem; margin-right: 4px; }
-  .table { border: 1px solid var(--line); border-radius: 14px; overflow: auto; background: var(--panel); max-height: 520px; }
+  .table { border: 1px solid var(--line); border-radius: var(--radius-md); overflow: auto; background: var(--panel); max-height: 520px; }
   table { width: 100%; border-collapse: collapse; font-size: 0.9rem; }
   th, td { text-align: left; padding: 9px 12px; border-bottom: 1px solid var(--line); white-space: nowrap; }
   th { position: sticky; top: 0; background: var(--panel); color: var(--ink-3); font-weight: 600; font-size: 0.76rem; text-transform: uppercase; letter-spacing: 0.04em; }
@@ -161,18 +149,19 @@
   .arrow { color: var(--ink-3); margin: 0 4px; }
 
   /* Incidents + feedback */
-  .inc { border: 1px solid var(--line); border-radius: 12px; padding: 12px 14px; background: var(--panel); }
+  .inc { border: 1px solid var(--line); border-radius: var(--radius-md); padding: 12px 14px; background: var(--panel); }
   .inc + .inc { margin-top: 10px; }
   .inc .meta { color: var(--ink-3); font-size: 0.82rem; }
   .inc .what { font-weight: 600; margin: 4px 0; }
   .inc .story { white-space: pre-wrap; line-height: 1.4; margin: 6px 0; }
-  .tag { display: inline-flex; align-items: center; gap: 4px; font-size: 0.74rem; font-weight: 600; padding: 2px 8px; border-radius: 999px; margin-left: 6px; border: 1px solid var(--line); color: var(--ink-2); }
+  .tag { display: inline-flex; align-items: center; gap: 4px; font-size: 0.74rem; font-weight: 600; padding: 2px 8px; border-radius: var(--radius-sm); margin-left: 6px; border: 1px solid var(--line); color: var(--ink-2); }
   .tag.crit { background: var(--st-critical); border-color: var(--st-critical); color: #fff; }
   .tag.ok { color: var(--st-good); border-color: color-mix(in srgb, var(--st-good) 40%, var(--line)); }
-  .inc button { font-size: 0.82rem; padding: 6px 10px; border-radius: 8px; border: 1px solid var(--line); background: var(--panel); cursor: pointer; margin-top: 6px; }
+  .inc button { font-size: 0.82rem; padding: 6px 10px; border-radius: var(--radius-sm); border: 1px solid var(--line); background: var(--panel); cursor: pointer; margin-top: 6px; }
   details > summary { cursor: pointer; font-weight: 600; font-size: 1.12rem; list-style: none; }
-  details > summary::before { content: "▸ "; color: var(--ink-3); }
-  details[open] > summary::before { content: "▾ "; }
+  details > summary::-webkit-details-marker { display: none; }
+  details > summary .chev { display: inline-flex; color: var(--ink-3); transition: transform var(--duration-base) var(--ease-standard); vertical-align: -3px; }
+  details[open] > summary .chev { transform: rotate(90deg); }
 
   /* Today timeline drawer */
   .scrim { position: fixed; inset: 0; background: rgba(0,0,0,0.28); opacity: 0; pointer-events: none; transition: opacity .18s; z-index: 30; }
@@ -182,11 +171,11 @@
   .dr-head { padding: 16px 18px 10px; background: var(--panel); border-bottom: 1px solid var(--line); }
   .dr-top { display: flex; align-items: center; gap: 10px; }
   .dr-top h2 { margin: 0; flex: 1; font-size: 1.25rem; }
-  .dr-top button { border: 1px solid var(--line); background: var(--panel); border-radius: 10px; padding: 6px 11px; cursor: pointer; font-size: 1rem; }
+  .dr-top button { border: 1px solid var(--line); background: var(--panel); border-radius: var(--radius-sm); padding: 6px 11px; cursor: pointer; font-size: 1rem; }
   .dr-sum { color: var(--ink-2); font-size: 0.88rem; margin: 4px 0 10px; }
   .filters { display: flex; gap: 6px; flex-wrap: wrap; }
-  .filters button { border: 1px solid var(--line); background: var(--panel); border-radius: 999px; padding: 5px 12px; font-size: 0.84rem; cursor: pointer; color: var(--ink-2); }
-  .filters button[aria-pressed="true"] { background: var(--ink); color: var(--panel); border-color: var(--ink); }
+  .filters button { border: 1px solid var(--line); background: var(--panel); border-radius: var(--radius-sm); padding: 5px 12px; font-size: 0.84rem; cursor: pointer; color: var(--ink-2); }
+  .filters button[aria-pressed="true"] { background: var(--surface-brand); color: var(--fg-on-brand); border-color: var(--surface-brand); }
   .dr-body { overflow-y: auto; padding: 8px 18px 28px; flex: 1; }
   .hour { color: var(--ink-3); font-size: 0.78rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em; margin: 16px 0 6px 58px; }
   .ev { display: grid; grid-template-columns: 50px 16px 1fr; gap: 0 8px; position: relative; }
@@ -194,13 +183,13 @@
   .ev .rail { position: relative; }
   .ev .rail::before { content: ""; position: absolute; left: 7px; top: 0; bottom: 0; width: 2px; background: var(--line); }
   .ev .rail i { position: absolute; left: 1px; top: 11px; width: 14px; height: 14px; border-radius: 50%; border: 2px solid var(--bg); box-sizing: content-box; margin-left: -2px; }
-  .ev .rail i.sq { border-radius: 4px; }
-  .ev .card { background: var(--panel); border: 1px solid var(--line); border-radius: 12px; padding: 8px 11px; margin: 4px 0; }
+  .ev .rail i.sq { border-radius: var(--radius-sm); }
+  .ev .card { background: var(--panel); border: 1px solid var(--line); border-radius: var(--radius-md); padding: 8px 11px; margin: 4px 0; }
   .ev.crit .card { border-color: color-mix(in srgb, var(--st-critical) 45%, var(--line)); background: color-mix(in srgb, var(--st-critical) 7%, var(--panel)); }
   .ev .who2 { font-weight: 600; cursor: pointer; }
   .ev .kind { color: var(--ink-3); font-size: 0.8rem; margin-left: 6px; font-weight: 500; }
   .chips { display: flex; flex-wrap: wrap; gap: 5px; margin-top: 6px; }
-  .chip { display: inline-flex; align-items: center; gap: 5px; font-size: 0.78rem; padding: 2px 9px; border-radius: 999px; border: 1px solid var(--line); color: var(--ink-2); background: var(--panel); white-space: nowrap; }
+  .chip { display: inline-flex; align-items: center; gap: 5px; font-size: 0.78rem; padding: 2px 9px; border-radius: var(--radius-sm); border: 1px solid var(--line); color: var(--ink-2); background: var(--panel); white-space: nowrap; }
   .chip i { width: 8px; height: 8px; border-radius: 50%; display: inline-block; }
   .chip.crit { background: var(--st-critical); border-color: var(--st-critical); color: #fff; }
   .chip.mood { color: var(--ink); border-color: color-mix(in srgb, var(--q) 50%, var(--line)); background: color-mix(in srgb, var(--q) var(--tint), var(--panel)); }
@@ -208,38 +197,37 @@
   .now span { text-align: right; font-size: 0.78rem; font-weight: 700; color: var(--brand); }
   .now hr { grid-column: 2 / 4; border: 0; border-top: 2px dashed var(--brand); margin: 0; }
   .ctl.today { font-weight: 600; }
-  .ctl.today b { display: inline-grid; place-items: center; min-width: 20px; height: 20px; padding: 0 5px; margin-left: 4px; border-radius: 999px; background: var(--brand); color: #fff; font-size: 0.74rem; }
+  .ctl.today b { display: inline-grid; place-items: center; min-width: 20px; height: 20px; padding: 0 5px; margin-left: 4px; border-radius: var(--radius-sm); background: var(--brand); color: #fff; font-size: 0.74rem; }
 
   /* Staff check-out dialog */
-  .person .co { font-size: 0.8rem; padding: 5px 10px; border-radius: 8px; border: 1px solid var(--line); background: var(--panel); cursor: pointer; margin-left: 8px; }
+  .person .co { font-size: 0.8rem; padding: 5px 10px; border-radius: var(--radius-sm); border: 1px solid var(--line); background: var(--panel); cursor: pointer; margin-left: 8px; }
   .person .co:hover { border-color: var(--ink-3); }
   .person .right { display: flex; align-items: center; }
-  dialog.co-dlg { border: 1px solid var(--line); border-radius: 18px; padding: 0; width: min(560px, 94vw); background: var(--panel); color: var(--ink); box-shadow: 0 20px 50px rgba(0,0,0,0.25); }
+  dialog.co-dlg { border: 1px solid var(--line); border-radius: var(--radius-md); padding: 0; width: min(560px, 94vw); background: var(--panel); color: var(--ink); box-shadow: 0 20px 50px rgba(0,0,0,0.25); }
   dialog.co-dlg::backdrop { background: rgba(0,0,0,0.3); }
   .co-in { padding: 18px 20px 20px; }
   .co-in h2 { margin: 0 0 2px; }
   .co-in .q { font-weight: 600; margin: 16px 0 8px; font-size: 0.95rem; }
   .co-in .q small { color: var(--ink-3); font-weight: 400; }
   .quads { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; }
-  .quads button { border-radius: 12px; padding: 12px 6px; cursor: pointer; font-weight: 600; border: 2px solid color-mix(in srgb, var(--q) 55%, transparent); background: color-mix(in srgb, var(--q) var(--tint), var(--panel)); }
+  .quads button { border-radius: var(--radius-md); padding: 12px 6px; cursor: pointer; font-weight: 600; border: 2px solid color-mix(in srgb, var(--q) 55%, transparent); background: color-mix(in srgb, var(--q) var(--tint), var(--panel)); }
   .quads button small { display: block; font-weight: 400; font-size: 0.72rem; color: var(--ink-2); margin-top: 2px; }
   .quads button[aria-pressed="true"] { border-color: var(--q); box-shadow: 0 0 0 2px var(--q); }
   .pick { display: flex; flex-wrap: wrap; gap: 6px; }
-  .pick button { border: 1px solid var(--line); background: var(--panel); border-radius: 999px; padding: 5px 11px; font-size: 0.84rem; cursor: pointer; color: var(--ink-2); }
-  .pick button[aria-pressed="true"] { background: var(--ink); color: var(--panel); border-color: var(--ink); }
+  .pick button { border: 1px solid var(--line); background: var(--panel); border-radius: var(--radius-sm); padding: 5px 11px; font-size: 0.84rem; cursor: pointer; color: var(--ink-2); }
+  .pick button[aria-pressed="true"] { background: var(--surface-brand); color: var(--fg-on-brand); border-color: var(--surface-brand); }
   .co-foot { display: flex; justify-content: flex-end; gap: 8px; margin-top: 18px; }
-  .co-foot button { padding: 9px 16px; border-radius: 10px; border: 1px solid var(--line); background: var(--panel); cursor: pointer; font-weight: 600; }
-  .co-foot button.primary { background: var(--ink); color: var(--panel); border-color: var(--ink); }
+  .co-foot button { padding: 9px 16px; border-radius: var(--radius-sm); border: 1px solid var(--line); background: var(--panel); cursor: pointer; font-weight: 600; }
+  .co-foot button.primary { background: var(--surface-brand); color: var(--fg-on-brand); border-color: var(--surface-brand); }
   .co-foot button:disabled { opacity: 0.45; cursor: default; }
   .co-err { color: var(--st-critical); font-size: 0.86rem; margin-top: 8px; min-height: 1em; }
 
-  .fb-btn { display: none; position: fixed; right: 14px; bottom: 14px; z-index: 40; align-items: center; gap: 6px; padding: 10px 16px; border-radius: 999px; background: #1f1f1e; color: #fff; font: inherit; font-weight: 600; font-size: 0.9rem; text-decoration: none; box-shadow: 0 6px 18px rgba(0,0,0,0.18); }
+  .fb-btn { display: none; position: fixed; right: 16px; bottom: 16px; z-index: 40; box-shadow: var(--shadow-md); }
   .fb-btn.show { display: inline-flex; }
-  .fb-btn:hover { background: #000; }
 
   /* Staff confirm */
   .idc { display: flex; gap: 6px; margin-top: 6px; flex-wrap: wrap; align-items: center; }
-  .idc button { font-size: 0.78rem; padding: 4px 9px; border-radius: 8px; border: 1px solid var(--line); background: var(--panel); cursor: pointer; }
+  .idc button { font-size: 0.78rem; padding: 4px 9px; border-radius: var(--radius-sm); border: 1px solid var(--line); background: var(--panel); cursor: pointer; }
   .idc button.yes { border-color: color-mix(in srgb, var(--st-good) 50%, var(--line)); }
   .idc button.no { border-color: color-mix(in srgb, var(--st-critical) 45%, var(--line)); }
   .idc .ok { font-size: 0.78rem; font-weight: 600; color: var(--st-good); }
@@ -247,29 +235,28 @@
   .idc .q { font-size: 0.78rem; color: var(--ink-3); }
 
   /* Help */
-  .help-btn { font-size: 0.92rem; padding: 8px 13px; border-radius: 10px; border: 1px solid var(--line); background: var(--panel); cursor: pointer; font-weight: 600; }
-  .help-btn:hover { border-color: var(--ink-3); }
-  dialog.help-dlg { border: 1px solid var(--line); border-radius: 18px; padding: 0; width: min(980px, 95vw); background: var(--panel); color: var(--ink); box-shadow: 0 20px 50px rgba(0,0,0,0.3); }
+  dialog.help-dlg { border: 1px solid var(--line); border-radius: var(--radius-md); padding: 0; width: min(980px, 95vw); background: var(--panel); color: var(--ink); box-shadow: 0 20px 50px rgba(0,0,0,0.3); }
   dialog.help-dlg::backdrop { background: rgba(0,0,0,0.45); }
   .help-in { padding: 16px 18px 18px; }
   .help-top { display: flex; align-items: center; gap: 10px; margin-bottom: 10px; }
   .help-top h2 { margin: 0; flex: 1; }
-  .help-top button { border: 1px solid var(--line); background: var(--panel); border-radius: 10px; padding: 6px 11px; cursor: pointer; font-size: 1rem; }
-  .help-in video { width: 100%; border-radius: 12px; background: #000; display: block; aspect-ratio: 16 / 10; }
+  .help-top button { border: 1px solid var(--line); background: var(--panel); border-radius: var(--radius-sm); padding: 6px 11px; cursor: pointer; font-size: 1rem; }
+  .help-in video { width: 100%; border-radius: var(--radius-md); background: #000; display: block; aspect-ratio: 16 / 10; }
   .tips { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin-top: 14px; }
   @media (max-width: 700px) { .tips { grid-template-columns: 1fr; } }
-  .tip-card { border: 1px solid var(--line); border-radius: 12px; padding: 10px 12px; font-size: 0.88rem; color: var(--ink-2); line-height: 1.4; }
+  .tip-card { border: 1px solid var(--line); border-radius: var(--radius-md); padding: 10px 12px; font-size: 0.88rem; color: var(--ink-2); line-height: 1.4; }
   .tip-card b { display: block; color: var(--ink); font-size: 0.92rem; margin-bottom: 2px; }
 
   /* Tooltip */
-  .tip { position: fixed; pointer-events: none; background: var(--ink); color: var(--panel); font-size: 0.82rem; padding: 6px 9px; border-radius: 8px; z-index: 20; opacity: 0; transition: opacity .08s; max-width: 260px; }
+  .tip { position: fixed; pointer-events: none; background: var(--ink); color: var(--panel); font-size: 0.82rem; padding: 6px 9px; border-radius: var(--radius-sm); z-index: 20; opacity: 0; transition: opacity .08s; max-width: 260px; }
   .tip.on { opacity: 1; }
 
   /* Sign-in page */
   .gate { min-height: 72vh; display: flex; align-items: center; justify-content: center; }
-  .gate .card { background: var(--panel); border: 1px solid var(--line); border-radius: 22px; padding: 36px 32px; width: min(92vw, 440px); text-align: center; box-shadow: 0 10px 30px rgba(0,0,0,0.06); }
+  .gate .card { background: var(--panel); border: 1px solid var(--line); border-top: 4px solid var(--psd-maroon); border-radius: var(--radius-md); padding: 36px 32px; width: min(92vw, 440px); text-align: center; }
   .gate img { height: 96px; }
-  .gate h2 { margin: 10px 0 4px; font-weight: 700; font-size: 1.6rem; color: var(--brand); }
+  .gate h2 { margin: 2px 0 6px; font-weight: 700; font-size: 1.7rem; color: var(--fg-1); }
+  .gate .eyebrow { margin-top: 8px; }
   .gate p { color: var(--ink-3); margin: 0 0 20px; line-height: 1.45; }
   .gate .gsi { display: flex; justify-content: center; min-height: 44px; margin-bottom: 14px; }
   .gate .small { font-size: 0.85rem; margin: 0; }
@@ -279,32 +266,32 @@
 <body>
 
 <header>
-  <img src="assets/panther.png" alt="">
   <div>
-    <h1>Pride Center · Staff</h1>
+    <div class="psd-lockup"><img src="assets/parchment-logo.png" alt=""><span><span class="nm">Panther Pride Center · Staff</span><span class="tg">Parchment School District</span></span></div>
     <div class="who" id="who"></div>
   </div>
   <div class="spacer"></div>
-  <button class="help-btn" id="helpBtn" type="button" aria-haspopup="dialog">? Help</button>
+  <button class="ctl" id="helpBtn" type="button" aria-haspopup="dialog"><i data-icon="circle-help" data-size="16"></i>Help</button>
   <div id="controls" class="hidden" style="display:contents">
-    <button class="ctl today" id="todayBtn" type="button" aria-controls="drawer" aria-expanded="false">🕒 Today <b id="todayCount">0</b></button>
+    <button class="ctl today" id="todayBtn" type="button" aria-controls="drawer" aria-expanded="false"><i data-icon="clock-3" data-size="16"></i>Today <b id="todayCount">0</b></button>
     <select class="ctl" id="win" aria-label="Time window for charts and the visit log">
       <option value="7">Last 7 days</option>
       <option value="14" selected>Last 14 days</option>
       <option value="30">Last 30 days</option>
       <option value="90">Last 90 days</option>
     </select>
-    <button class="ctl" id="refresh" type="button">↻ Refresh</button>
-    <button class="ctl" id="csv" type="button">⬇ CSV</button>
-    <a class="ctl hidden" id="sheetLink" href="#" target="_blank" rel="noopener">Open Sheet</a>
+    <button class="ctl" id="refresh" type="button"><i data-icon="refresh-cw" data-size="16"></i>Refresh</button>
+    <button class="ctl" id="csv" type="button"><i data-icon="download" data-size="16"></i>CSV</button>
+    <a class="ctl hidden" id="sheetLink" href="#" target="_blank" rel="noopener"><i data-icon="external-link" data-size="16"></i>Open Sheet</a>
   </div>
 </header>
 
 <main>
   <div class="gate" id="gate">
     <div class="card">
-      <img src="assets/panther.png" alt="">
-      <h2>Pride Center staff</h2>
+      <img src="assets/parchment-logo.png" alt="">
+      <div class="eyebrow">Parchment School District</div>
+      <h2>Pride Center Staff</h2>
       <p id="gateText">Sign in with your @parchmentschools.org staff Google account to see check-ins, incident reports, and feedback.</p>
       <div class="gsi" id="gsiBtn"></div>
       <p class="small" id="gateMsg"></p>
@@ -339,9 +326,9 @@
         <h2>How students arrived</h2>
         <p class="sub" id="meterSub"></p>
         <div class="meter-wrap">
-          <div class="meter-y">← lower energy · higher energy →</div>
+          <div class="meter-y">Lower energy · Higher energy</div>
           <div class="meter" id="meter"></div>
-          <div class="meter-x">← unpleasant · pleasant →</div>
+          <div class="meter-x">Unpleasant · Pleasant</div>
         </div>
       </div>
       <div class="panel">
@@ -434,7 +421,7 @@
     <!-- 8. Feedback -->
     <section>
       <details class="panel">
-        <summary>Trial feedback <span class="sub" id="fbCount" style="display:inline"></span></summary>
+        <summary><span class="chev"><i data-icon="chevron-right" data-size="18"></i></span> Trial Feedback <span class="sub" id="fbCount" style="display:inline"></span></summary>
         <div id="fbList" style="margin-top:12px"></div>
       </details>
     </section>
@@ -444,7 +431,7 @@
 <div class="scrim" id="scrim"></div>
 <aside class="drawer" id="drawer" aria-label="Today's timeline" aria-hidden="true">
   <div class="dr-head">
-    <div class="dr-top"><h2 id="drTitle">Today</h2><button type="button" id="drClose" aria-label="Close">✕</button></div>
+    <div class="dr-top"><h2 id="drTitle">Today</h2><button type="button" id="drClose" aria-label="Close"><i data-icon="x" data-size="18"></i></button></div>
     <div class="dr-sum" id="drSum"></div>
     <div class="filters" id="drFilters">
       <button type="button" data-f="all" aria-pressed="true">All</button>
@@ -474,7 +461,7 @@
 
 <dialog class="help-dlg" id="helpDlg" aria-labelledby="helpTitle">
   <div class="help-in">
-    <div class="help-top"><h2 id="helpTitle">How the Pride Center app works</h2><button type="button" id="helpClose" aria-label="Close">✕</button></div>
+    <div class="help-top"><h2 id="helpTitle">How the Pride Center app works</h2><button type="button" id="helpClose" aria-label="Close"><i data-icon="x" data-size="18"></i></button></div>
     <video id="helpVideo" controls playsinline preload="none" poster="assets/overview-poster.jpg">
       <source src="assets/overview.mp4" type="video/mp4">
       Your browser can't play this video. <a href="assets/overview.mp4">Download it</a> instead.
@@ -488,8 +475,9 @@
 </dialog>
 
 <div class="tip" id="tip"></div>
-<a class="fb-btn" id="feedbackLink" href="feedback.html?from=staff">💬 Provide feedback during trial</a>
+<a class="btn btn-dark btn-sm fb-btn" id="feedbackLink" href="feedback.html?from=staff"><i data-icon="message-square-text" data-size="16"></i>Provide Feedback During Trial</a>
 
+<script src="icons.js"></script>
 <script src="config.js"></script>
 <script>
 (function () {
@@ -511,7 +499,7 @@
   };
   const HAPPENED = ["At Home", "With my Teacher", "With a friend", "Just with myself"];
   const REASON_SHORT = { "Drop In: I need a reset": "Reset", "Scheduled Break": "Scheduled break", "Drop In: I have a need": "Has a need" };
-  const FACES = { 1: "😣", 2: "🙁", 3: "😐", 4: "🙂", 5: "😀" };
+  const FACES = { 1: "frown", 2: "annoyed", 3: "meh", 4: "smile", 5: "laugh" };
   const DISMISS_KEY = "ppc_dismissed";
 
   // ---------- Sign-in ----------
@@ -534,7 +522,7 @@
         auto_select: false,
         ux_mode: "popup"
       });
-      google.accounts.id.renderButton($("#gsiBtn"), { theme: "outline", size: "large", text: "signin_with", shape: "pill", width: 280 });
+      google.accounts.id.renderButton($("#gsiBtn"), { theme: "outline", size: "large", text: "signin_with", shape: "rectangular", width: 280 });
     };
     s.onerror = () => { $("#gateMsg").textContent = "Couldn't load Google sign-in. Check the network and try again."; };
     document.head.appendChild(s);
@@ -662,22 +650,22 @@
       const notSafe = r.urgent === "Yes";
       items.push({
         key: "inc:" + r.timestamp, rank: notSafe ? 0 : r.talk === "Yes" ? 2 : 3, level: notSafe ? "critical" : "warning",
-        icon: "!", label: notSafe ? "Said they are not safe" : r.talk === "Yes" ? "Incident · wants to talk" : "Incident report",
+        icon: notSafe ? "triangle-alert" : "shield-alert", label: notSafe ? "Said they are not safe" : r.talk === "Yes" ? "Incident · wants to talk" : "Incident report",
         title: `${r.name || "A student"}${r.grade ? " · " + r.grade : ""}`,
         detail: `${r.types || "Incident"}${r.place ? " · " + r.place : ""}${r.period ? " · " + r.period : ""} · reported ${ago(r.timestamp)}`,
         incident: r
       });
     });
     today.filter(r => r.station === "Staff first" && r.outcome !== "Incident Report").forEach(r => items.push({
-      key: "sf:" + r.timestamp, rank: 1, level: "critical", icon: "!", label: "Staff should go to this student",
+      key: "sf:" + r.timestamp, rank: 1, level: "critical", icon: "triangle-alert", label: "Staff should go to this student",
       title: r.name, detail: `Picked "${r.moodWord}" at check-in · ${ago(r.timestamp)}`
     }));
     all.filter(r => isNotThem(r) && inWindow(r.timestamp, 7)).forEach(r => items.push({
-      key: "nt:" + r.timestamp, rank: 3, level: "warning", icon: "?", label: "Check-in not by this student",
+      key: "nt:" + r.timestamp, rank: 3, level: "warning", icon: "user-x", label: "Check-in not by this student",
       title: r.name, detail: `Staff marked the ${time(r.timestamp)} ${dayKey(r.timestamp) === todayKey() ? "" : "(" + fmtDay(dayKey(r.timestamp)) + ") "}check-in as someone else. Fix the name in the Sheet, then tap Done.`
     }));
     today.filter(r => r.checkoutTime && unpleasant(r.outMoodGroup)).forEach(r => items.push({
-      key: "out:" + r.timestamp, rank: 4, level: "warning", icon: "↩", label: "Left still " + r.outMoodGroup.toLowerCase(),
+      key: "out:" + r.timestamp, rank: 4, level: "warning", icon: "undo-2", label: "Left still " + r.outMoodGroup.toLowerCase(),
       title: r.name, detail: `Came in ${r.moodGroup ? r.moodGroup.toLowerCase() + " (" + r.moodWord + ")" : "—"}, left ${r.outMoodGroup.toLowerCase()} (${r.outMoodWord}) at ${time(r.checkoutTime)}. Consider a follow-up.`
     }));
     // Patterns over the last 7 days.
@@ -690,7 +678,7 @@
       if (v.length < 3 && hard < 2) return;
       const reason = v.length >= 3 ? `${v.length} drop-in visits in 7 days${hard ? `, ${hard} came in red or blue` : ""}` : `Came in ${v.filter(r => unpleasant(r.moodGroup)).map(r => r.moodGroup.toLowerCase()).join(", ")} this week`;
       items.push({
-        key: "pat:" + who(v[0]) + ":" + dayKey(v.at(-1).timestamp), rank: 5, score: hard * 2 + v.length, level: "info", icon: "↻", label: "Pattern to check in on",
+        key: "pat:" + who(v[0]) + ":" + dayKey(v.at(-1).timestamp), rank: 5, score: hard * 2 + v.length, level: "info", icon: "history", label: "Pattern to check in on",
         title: v.at(-1).name, detail: reason, dots: v.map(r => r.moodGroup)
       });
     });
@@ -701,7 +689,7 @@
     const hiddenPatterns = patterns.length - Math.min(3, patterns.length);
     $("#alerts").innerHTML = shown.length ? shown.map((i, n) => `
       <div class="alert ${i.level}">
-        <div class="ic" aria-hidden="true">${i.icon}</div>
+        <div class="aic" aria-hidden="true">${window.PPC_ICON(i.icon, 18)}</div>
         <div>
           <div class="lbl">${esc(i.label)}</div>
           <div class="t"><span class="name" data-name="${esc(i.title)}" style="cursor:pointer">${esc(i.title)}</span></div>
@@ -712,7 +700,7 @@
           ? `<button type="button" class="primary" data-review="${n}">Mark reviewed</button>`
           : `<button type="button" data-dismiss="${esc(i.key)}">Done</button>`}</div>
       </div>`).join("") + (hiddenPatterns ? `<div class="empty">+ ${hiddenPatterns} more pattern${hiddenPatterns === 1 ? "" : "s"}. Search the visit log to see a student's history.</div>` : "")
-      : `<div class="allclear"><span class="ic">✓</span> Nothing needs attention right now.</div>`;
+      : `<div class="allclear"><span class="aic">${window.PPC_ICON("check", 16)}</span> Nothing needs attention right now.</div>`;
     $("#alerts").querySelectorAll("[data-dismiss]").forEach(b => b.addEventListener("click", () => dismiss(b.dataset.dismiss)));
     $("#alerts").querySelectorAll("[data-review]").forEach(b => b.addEventListener("click", () => review(shown[Number(b.dataset.review)].incident, b)));
     $("#alerts").querySelectorAll("[data-name]").forEach(el => el.addEventListener("click", () => lookup(el.dataset.name)));
@@ -740,9 +728,9 @@
   // Staff confirm: is the student who checked in who they said they were?
   const isNotThem = r => /^not them/i.test(r.confirmed || "");
   function confirmHtml(r) {
-    if (/^confirmed/i.test(r.confirmed || "")) return `<span class="ok">✓ Staff confirmed</span>`;
-    if (isNotThem(r)) return `<span class="bad">⚠ Staff: not this student</span>`;
-    return `<span class="q">Is this them?</span><button type="button" class="yes" data-cf="${esc(r.timestamp)}" data-res="Confirmed">✓ Confirm</button><button type="button" class="no" data-cf="${esc(r.timestamp)}" data-res="Not them">Not them</button>`;
+    if (/^confirmed/i.test(r.confirmed || "")) return `<span class="ok">${window.PPC_ICON("check", 14)} Staff confirmed</span>`;
+    if (isNotThem(r)) return `<span class="bad">${window.PPC_ICON("triangle-alert", 14)} Staff: not this student</span>`;
+    return `<span class="q">Is this them?</span><button type="button" class="yes" data-cf="${esc(r.timestamp)}" data-res="Confirmed">${window.PPC_ICON("check", 14)} Confirm</button><button type="button" class="no" data-cf="${esc(r.timestamp)}" data-res="Not them">Not them</button>`;
   }
   function bindConfirm(root, rows) {
     root.querySelectorAll("[data-cf]").forEach(b => b.addEventListener("click", () => confirmVisit(rows.find(r => r.timestamp === b.dataset.cf), b.dataset.res, b)));
@@ -761,7 +749,7 @@
       const d = await post({ type: "confirmVisit", timestamp: r.timestamp, name: r.name, result });
       if (!d.ok) throw new Error(/Bad token|Unknown request/.test(d.error || "") ? "The script in the Sheet needs updating to save confirmations (paste the new Code.gs and deploy a new version)." : d.error);
       load();
-    } catch (err) { btn.disabled = false; btn.textContent = result === "Confirmed" ? "✓ Confirm" : "Not them"; alert("Couldn't save: " + (err.message || err)); }
+    } catch (err) { btn.disabled = false; btn.innerHTML = result === "Confirmed" ? window.PPC_ICON("check", 14) + " Confirm" : "Not them"; alert("Couldn't save: " + (err.message || err)); }
   }
 
   // 3. Today tiles with a 14-school-day sparkline
@@ -905,7 +893,7 @@
     const list = rows.filter(r => !q || norm(r.name).includes(q) || String(r.studentId || "").toLowerCase().includes(q)).slice().reverse();
     $("#tbody").innerHTML = list.length ? list.map(r => `<tr>
       <td>${esc(when(r.timestamp))}</td>
-      <td><span class="name" data-name="${esc(r.name)}">${esc(r.name)}</span>${isNotThem(r) ? ' <span class="tag" style="color:var(--st-critical)">⚠ not them</span>' : /^confirmed/i.test(r.confirmed || "") ? ' <span class="tag">✓</span>' : ""}</td>
+      <td><span class="name" data-name="${esc(r.name)}">${esc(r.name)}</span>${isNotThem(r) ? ` <span class="tag" style="color:var(--st-critical)">${window.PPC_ICON("triangle-alert", 12)} not them</span>` : /^confirmed/i.test(r.confirmed || "") ? ` <span class="tag" title="Staff confirmed">${window.PPC_ICON("check", 12)}</span>` : ""}</td>
       <td>${esc(r.outcome === "Incident Report" ? "Incident report" : r.need === "Basic Need" ? "Basic need" : REASON_SHORT[r.reason] || r.reason || "")}${r.referral === "Staff Referred" ? ' <span class="tag">sent by staff</span>' : ""}</td>
       <td>${pill(r.moodGroup, r.moodWord)}</td>
       <td>${r.station ? pill(r.station, r.station) : ""}</td>
@@ -929,7 +917,7 @@
     const outs = v.filter(r => r.outMoodGroup);
     box.innerHTML = `<div class="top"><b>${esc(v.at(-1).name)}</b>${v.at(-1).studentId ? `<span class="facts">ID ${esc(v.at(-1).studentId)}</span>` : ""}
       <span class="facts">${v.length} visit${v.length === 1 ? "" : "s"} in the last ${win()} days · last ${esc(when(v.at(-1).timestamp))}${hard ? ` · came in red or blue ${hard} time${hard === 1 ? "" : "s"}` : ""}${incs.length ? ` · ${incs.length} incident report${incs.length === 1 ? "" : "s"}` : ""}</span></div>
-      <div class="dots"><span class="lab">Mood in, oldest → newest</span>${v.map(r => r.moodGroup ? `<i style="background:${MOOD[r.moodGroup].v}" data-tip="${esc(when(r.timestamp))}: ${esc(r.moodWord)}"></i>` : "").join("")}</div>
+      <div class="dots"><span class="lab">Mood in, oldest to newest</span>${v.map(r => r.moodGroup ? `<i style="background:${MOOD[r.moodGroup].v}" data-tip="${esc(when(r.timestamp))}: ${esc(r.moodWord)}"></i>` : "").join("")}</div>
       ${outs.length ? `<div class="dots"><span class="lab">Mood out</span>${outs.map(r => `<i style="background:${MOOD[r.outMoodGroup].v}" data-tip="${esc(when(r.checkoutTime))}: ${esc(r.outMoodWord)}"></i>`).join("")}</div>` : ""}`;
     box.classList.add("show");
     bindTips(box);
@@ -943,7 +931,7 @@
     $("#incList").innerHTML = rows.length ? rows.map((r, i) => `
       <div class="inc">
         <div class="meta">${esc(when(r.timestamp))} · <b>${esc(r.name)}</b>${r.grade ? " · " + esc(r.grade) : ""}
-          ${r.urgent === "Yes" ? '<span class="tag crit">! Said not safe</span>' : ""}${r.talk === "Yes" ? '<span class="tag">Wants to talk</span>' : ""}${r.reviewed ? `<span class="tag ok">✓ Reviewed</span>` : ""}</div>
+          ${r.urgent === "Yes" ? `<span class="tag crit">${window.PPC_ICON("triangle-alert", 12)} Said not safe</span>` : ""}${r.talk === "Yes" ? '<span class="tag">Wants to talk</span>' : ""}${r.reviewed ? `<span class="tag ok">${window.PPC_ICON("check", 12)} Reviewed</span>` : ""}</div>
         <div class="what">${esc(r.types)}${r.place ? " · " + esc(r.place) : ""}${r.period ? " · " + esc(r.period) : ""}</div>
         ${r.story ? `<div class="story">${esc(r.story)}</div>` : ""}
         ${r.who ? `<div class="meta">Involved: ${esc(r.who)}</div>` : ""}${r.witness ? `<div class="meta">Saw it: ${esc(r.witness)}</div>` : ""}
@@ -980,7 +968,7 @@
     $("#fbList").innerHTML = rows.length ? rows.map(r => `
       <div class="inc">
         <div class="meta">${esc(when(r.timestamp))} · <b>${esc(r.role || "Unknown")}</b>${r.tried ? " · " + esc(r.tried) : ""}</div>
-        <div>${r.rating ? `<span style="font-size:1.2rem">${FACES[r.rating] || ""}</span> ` : ""}${r.worked ? `<b>Worked:</b> ${esc(r.worked)}` : ""}</div>
+        <div>${r.rating ? `<span style="color:var(--psd-maroon);vertical-align:-4px" title="${esc(r.rating)} of 5">${window.PPC_ICON(FACES[r.rating] || "meh", 20)}</span> ` : ""}${r.worked ? `<b>Worked:</b> ${esc(r.worked)}` : ""}</div>
         ${r.change ? `<div><b>Change:</b> ${esc(r.change)}</div>` : ""}${r.ideas ? `<div><b>Else:</b> ${esc(r.ideas)}</div>` : ""}
         ${r.contact ? `<div class="meta">Contact: ${esc(r.contact)}</div>` : ""}
       </div>`).join("") : `<div class="empty">No feedback yet.</div>`;
@@ -1001,6 +989,7 @@
   }
   const moodChip = (g, w, prefix) => g && MOOD[g] ? `<span class="chip mood" style="--q:${MOOD[g].v}"><i style="background:${MOOD[g].v}"></i>${prefix ? prefix + " " : ""}${esc(w || g)}</span>` : "";
   const chip = (txt, cls) => txt ? `<span class="chip ${cls || ""}">${esc(txt)}</span>` : "";
+  const chipH = (html, cls) => `<span class="chip ${cls || ""}">${html}</span>`; // trusted icon + fixed text
   function evHtml(e) {
     const r = e.r;
     let dotColor = "var(--ink-3)", sq = false, kind = "", chips = "", crit = false;
@@ -1008,11 +997,11 @@
       crit = r.station === "Staff first" && r.outcome !== "Incident Report";
       dotColor = MOOD[r.moodGroup] ? MOOD[r.moodGroup].v : "var(--ink-3)";
       kind = r.outcome === "Incident Report" ? "checked in to report" : "checked in";
-      chips = (crit ? chip("! Staff should go to them", "crit") : "") +
+      chips = (crit ? chipH(window.PPC_ICON("triangle-alert", 12) + " Staff should go to them", "crit") : "") +
         moodChip(r.moodGroup, r.moodWord) +
         chip(r.outcome === "Incident Report" ? "Incident report" : r.need === "Basic Need" ? "Basic need" : REASON_SHORT[r.reason] || r.reason) +
         (r.referral === "Staff Referred" ? chip("Sent by staff") : "") +
-        (isNotThem(r) ? chip("⚠ Staff: not this student", "crit") : /^confirmed/i.test(r.confirmed || "") ? chip("✓ Staff confirmed") : "") +
+        (isNotThem(r) ? chipH(window.PPC_ICON("triangle-alert", 12) + " Staff: not this student", "crit") : /^confirmed/i.test(r.confirmed || "") ? chipH(window.PPC_ICON("check", 12) + " Staff confirmed") : "") +
         (r.happened ? chip(r.happened) : "") +
         (r.station && r.station !== "Staff first" ? `<span class="chip"><i style="background:${MOOD[r.station].v}"></i>${esc(r.station)} station${r.stationSuggested && r.stationSuggested !== r.station && r.stationSuggested !== "Staff first" ? " (suggested " + esc(r.stationSuggested) + ")" : ""}</span>` : "") +
         (r.basicNeeds ? r.basicNeeds.split(",").map(x => chip("Needs " + x.trim().toLowerCase())).join("") : "");
@@ -1026,9 +1015,9 @@
     } else {
       crit = r.urgent === "Yes"; dotColor = "var(--st-critical)"; sq = true;
       kind = "incident report";
-      chips = (crit ? chip("! Said not safe", "crit") : "") + (r.talk === "Yes" ? chip("Wants to talk") : "") +
+      chips = (crit ? chipH(window.PPC_ICON("triangle-alert", 12) + " Said not safe", "crit") : "") + (r.talk === "Yes" ? chip("Wants to talk") : "") +
         (r.types ? r.types.split(",").map(x => chip(x.trim())).join("") : "") + chip(r.place) + chip(r.period) +
-        (r.reviewed ? chip("✓ Reviewed") : chip("Not reviewed yet"));
+        (r.reviewed ? chipH(window.PPC_ICON("check", 12) + " Reviewed") : chip("Not reviewed yet"));
     }
     return `<div class="ev ${crit ? "crit" : ""}"><div class="tm">${time(e.at)}</div><div class="rail"><i class="${sq ? "sq" : ""}" style="background:${dotColor}"></i></div>
       <div class="card"><span class="who2" data-name="${esc(r.name)}">${esc(r.name)}</span><span class="kind">${kind}</span><div class="chips">${chips}</div></div></div>`;
