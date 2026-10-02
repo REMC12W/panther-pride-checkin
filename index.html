@@ -13,268 +13,248 @@
 <link rel="icon" href="assets/icon-192.png">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="ds.css">
 <style>
-  :root {
-    --red: #d61f26;
-    --ink: #3d3d3d;
-    --muted: #777;
-    --bg: #ffffff;
-    --salmon: #e9967f;
-    --card-pink: #e8d0d8;
-    --card-coral: #e89898;
-    --card-green: #b6d7a8;
-    --card-orange: #f9cb9c;
-    --card-blue: #a4c2f4;
-    --card-purple: #b4a7d6;
-    --energy-fast: #e06666;
-    --energy-slow: #a4c2f4;
-    --energy-ok: #93c47c;
-    --need-incident: #ea9999;
-    --need-basic: #93c47c;
-    --done-checkin: #2f6fe4;
-    --done-incident: #e06666;
-    --done-basic: #5da146;
-    --border: #5f5f5f;
-    --radius: 26px;
-    --shadow: 0 6px 0 rgba(0,0,0,0.10);
-  }
-  * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+  /* Kiosk layout on the Parchment Panthers Design System (ds.css). */
+  * { -webkit-tap-highlight-color: transparent; }
   html, body {
     margin: 0; height: 100%;
-    background: var(--bg); color: var(--ink);
-    font-family: "Fredoka", "Avenir Next", "Segoe UI", sans-serif;
     -webkit-user-select: none; user-select: none;
-    touch-action: manipulation;
-    overscroll-behavior: none;
+    touch-action: manipulation; overscroll-behavior: none;
   }
-  body { display: flex; flex-direction: column; }
+  body { display: flex; flex-direction: column; background: var(--surface-page); }
 
-  /* Top bar */
+  /* Header: district lockup + navigation + progress */
   .bar {
-    display: flex; align-items: center; justify-content: space-between;
-    padding: 12px 18px; padding-top: max(12px, env(safe-area-inset-top));
-    min-height: 60px;
+    display: grid; grid-template-columns: 1fr auto 1fr; align-items: center; gap: var(--space-4);
+    padding: var(--space-3) var(--space-5); padding-top: max(12px, env(safe-area-inset-top));
+    background: var(--surface-page); border-bottom: 4px solid var(--psd-maroon);
   }
-  .bar button {
-    font: inherit; font-weight: 600; font-size: 1.05rem;
-    background: #f1f1f1; color: var(--ink); border: 0; border-radius: 999px;
-    padding: 10px 20px; cursor: pointer; visibility: hidden;
-  }
-  .bar button.show { visibility: visible; }
-  .dots { display: flex; gap: 8px; }
-  .dots span { width: 12px; height: 12px; border-radius: 50%; background: #e2e2e2; transition: background .2s; }
-  .dots span.on { background: var(--red); }
-  .dots span.done { background: #c9c9c9; }
+  .bar .psd-lockup img { height: 44px; }
+  .bar .psd-lockup .nm { font-size: 18px; }
+  .bar .psd-lockup .tg { font-size: 13px; }
+  .bar .navs { display: flex; gap: var(--space-2); justify-content: flex-end; }
+  .bar .navs .btn { visibility: hidden; }
+  .bar .navs .btn.show { visibility: visible; }
+  .bar #backBtn { visibility: hidden; }
+  .bar #backBtn.show { visibility: visible; }
+  .dots { display: flex; gap: 4px; justify-content: center; }
+  .dots span { width: 26px; height: 6px; border-radius: var(--radius-sm); background: var(--psd-gray-200); transition: background var(--duration-base) var(--ease-standard); }
+  .dots span.on { background: var(--psd-maroon); }
+  .dots span.done { background: var(--psd-maroon-100); }
+  body[data-screen="start"] .bar { display: none; }
+  @media (max-width: 700px) { .bar .psd-lockup .txt { display: none; } .dots span { width: 14px; } }
 
   /* Screens */
   main { flex: 1; position: relative; overflow: hidden; }
   .screen {
     position: absolute; inset: 0; display: none;
     flex-direction: column; align-items: center;
-    padding: 8px 24px 28px; overflow-y: auto; -webkit-overflow-scrolling: touch;
+    padding: var(--space-5) var(--space-5) var(--space-6); overflow-y: auto; -webkit-overflow-scrolling: touch;
   }
-  .screen.active { display: flex; animation: pop .25s ease-out; }
-  @keyframes pop { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: none; } }
+  .screen.active { display: flex; animation: fadein var(--duration-base) var(--ease-standard); }
+  @keyframes fadein { from { opacity: 0; } to { opacity: 1; } }
 
   h1 {
-    margin: 4px 0 20px; text-align: center;
-    font-weight: 600; font-size: clamp(1.7rem, 4.6vw, 3rem); line-height: 1.15; color: var(--ink);
+    margin: 0 0 var(--space-5); text-align: center; max-width: 900px;
+    font-family: var(--font-display); font-weight: 700; font-size: clamp(1.7rem, 4.2vw, 2.6rem);
+    line-height: 1.15; letter-spacing: var(--tracking-tight); color: var(--fg-1);
   }
-  h1 .sub { display: block; font-weight: 500; font-size: 0.72em; color: var(--muted); margin-top: 6px; }
+  h1 .sub { display: block; font-weight: 500; font-size: 0.62em; color: var(--fg-3); margin-top: var(--space-2); letter-spacing: 0; }
 
-  /* Start */
-  #start { justify-content: center; }
-  #start img { width: min(48vw, 300px); max-height: 32vh; object-fit: contain; }
-  #start .title { color: var(--red); font-weight: 700; font-size: clamp(2.4rem, 7vw, 4.6rem); margin: 6px 0 2px; text-align: center; }
-  #start .subtitle { color: var(--muted); font-weight: 500; font-size: clamp(1.4rem, 3.6vw, 2.2rem); margin-bottom: 30px; }
-  .big-btn {
-    font: inherit; font-weight: 600; font-size: clamp(1.3rem, 3vw, 1.8rem);
-    background: var(--salmon); color: #1a1a1a; border: 2px solid var(--border);
-    border-radius: 22px; padding: 26px 48px; min-width: min(80vw, 480px);
-    cursor: pointer; box-shadow: var(--shadow); transition: transform .08s;
-  }
-  .big-btn:active { transform: translateY(3px); box-shadow: none; }
+  /* Start: maroon field, panther bleeding off the left edge, white type set right */
+  #start { background: var(--surface-brand); color: var(--fg-on-brand); justify-content: center; align-items: flex-end; padding: var(--space-7) clamp(24px, 7vw, 96px); overflow: hidden; }
+  /* Panther fills the left side and bleeds off the edge (logo is ~1.39:1); its right edge stops near 46% of the width. */
+  #start .mark { position: absolute; top: 50%; transform: translateY(-50%); height: 82vh; width: auto; left: calc(46vw - 114vh); pointer-events: none; }
+  @media (orientation: portrait) { #start .mark { height: 46vh; left: calc(50vw - 64vh); top: 30%; } #start { justify-content: flex-end; } }
+  #start .copy { position: relative; text-align: right; max-width: 620px; display: flex; flex-direction: column; align-items: flex-end; }
+  #start .eyebrow { color: var(--psd-maroon-100); font-size: clamp(13px, 1.6vw, 16px); }
+  #start .title { font-weight: 700; font-size: clamp(2.6rem, 7vw, 4.6rem); line-height: 1.02; letter-spacing: var(--tracking-tight); margin: var(--space-2) 0 0; }
+  #start .subtitle { font-weight: 300; font-size: clamp(1.6rem, 4vw, 2.6rem); line-height: 1.1; margin: var(--space-1) 0 var(--space-6); }
+  #start .go { background: var(--psd-white); color: var(--psd-maroon); border-color: var(--psd-white); min-width: min(80vw, 340px); padding: 18px 36px; font-size: clamp(1.2rem, 2.6vw, 1.5rem); }
+  #start .go:hover { background: var(--psd-maroon-50); }
+  #start .text-btn { margin-top: var(--space-4); background: none; border: 0; font-weight: 600; font-size: clamp(1rem, 2.2vw, 1.2rem); color: var(--psd-white); text-decoration: underline; text-underline-offset: 4px; cursor: pointer; padding: var(--space-2) 0; }
+  #start .kiosk-pill { display: none; margin-top: var(--space-5); align-items: center; gap: var(--space-2); font-size: 14px; font-weight: 600; color: var(--psd-white); background: rgba(0,0,0,0.28); border: 1px solid rgba(255,255,255,0.45); border-radius: var(--radius-sm); padding: 8px 14px; cursor: pointer; }
+  #start .kiosk-pill.show { display: inline-flex; }
+  @media (max-width: 700px) { #start { align-items: center; } #start .mark { opacity: .25; } #start .copy { text-align: center; align-items: center; } }
+  @media (orientation: portrait) and (min-width: 701px) { #start { align-items: flex-end; padding-bottom: 12vh; } }
+
+  /* Big actions */
+  .big-btn { min-width: min(80vw, 360px); padding: 16px 32px; font-size: clamp(1.15rem, 2.4vw, 1.4rem); }
 
   /* Name entry */
   .field {
-    width: min(90vw, 560px); font: inherit; font-size: clamp(1.4rem, 3.4vw, 2rem); font-weight: 500;
-    text-align: center; padding: 20px 24px; border: 3px solid #cfcfcf; border-radius: 20px;
-    outline: none; color: var(--ink); margin: 6px 0 22px; -webkit-user-select: text; user-select: text;
+    width: min(90vw, 560px); font-size: clamp(1.3rem, 3vw, 1.8rem); font-weight: 500;
+    text-align: center; padding: 16px 20px; border: 2px solid var(--border-2); border-radius: var(--radius-md);
+    outline: none; color: var(--fg-1); background: var(--surface-card); margin: 0 0 var(--space-5); -webkit-user-select: text; user-select: text;
   }
-  .field:focus { border-color: var(--red); }
-  .hint { color: var(--muted); font-size: 1.05rem; margin-top: -8px; margin-bottom: 18px; text-align: center; }
-  .field.area { text-align: left; min-height: 130px; font-size: clamp(1.05rem, 2.4vw, 1.3rem); resize: none; font-weight: 400; line-height: 1.35; margin-bottom: 12px; }
-  .field.small { text-align: left; font-size: clamp(1rem, 2.2vw, 1.15rem); padding: 14px 18px; margin: 0 0 12px; font-weight: 400; }
-  .cards.needs.single .card.selected { background: #f3f3f3; }
-  .cards.needs.periods { grid-template-columns: repeat(4, 1fr); }
-  .cards.needs.periods .card { min-height: clamp(64px, 10vh, 84px); }
-  @media (max-width: 560px) { .cards.needs.periods { grid-template-columns: repeat(3, 1fr); } }
+  .field:focus { border-color: var(--psd-maroon); box-shadow: 0 0 0 3px var(--psd-maroon-100); }
+  .field::placeholder { color: var(--psd-gray); font-size: 0.72em; font-weight: 500; }
+  .hint { color: var(--fg-3); font-size: 1rem; margin: -8px 0 var(--space-4); text-align: center; }
+  .field.area { text-align: left; min-height: 130px; font-size: clamp(1.05rem, 2.2vw, 1.25rem); resize: none; font-weight: 400; line-height: 1.4; margin-bottom: var(--space-3); }
+  .field.small { text-align: left; font-size: clamp(1rem, 2vw, 1.12rem); padding: 12px 16px; margin: 0 0 var(--space-3); font-weight: 400; }
+  .name-msg { min-height: 1.4em; font-size: 1.05rem; color: var(--psd-maroon); font-weight: 600; text-align: center; margin: -12px 0 var(--space-3); }
+  .greet { color: var(--psd-maroon); }
 
-  /* Choice cards */
-  .cards {
-    display: grid; gap: 22px; width: min(96vw, 900px);
-    grid-template-columns: repeat(2, 1fr); margin: auto 0;
-  }
+  /* Choice cards: flat white, gray border, maroon icon; tap = maroon tint */
+  .cards { display: grid; gap: var(--space-4); width: min(96vw, 900px); grid-template-columns: repeat(2, 1fr); margin: auto 0; }
   .cards.three { grid-template-columns: repeat(2, 1fr); }
   .cards.three .card:last-child { grid-column: 1 / -1; width: 60%; justify-self: center; }
   .card {
-    font: inherit; font-weight: 500; font-size: clamp(1.15rem, 2.6vw, 1.7rem); line-height: 1.3;
-    color: #1a1a1a; border: 2px solid var(--border); border-radius: var(--radius);
-    padding: 30px 22px; min-height: clamp(120px, 24vh, 190px);
-    display: flex; align-items: center; justify-content: center; text-align: center;
-    cursor: pointer; box-shadow: var(--shadow); transition: transform .08s, filter .08s;
+    font-family: var(--font-body); font-weight: 600; font-size: clamp(1.1rem, 2.4vw, 1.5rem); line-height: 1.3;
+    color: var(--fg-1); background: var(--surface-card); border: 2px solid var(--border-1); border-radius: var(--radius-md);
+    padding: var(--space-5) var(--space-4); min-height: clamp(120px, 22vh, 180px);
+    display: flex; flex-direction: column; align-items: center; justify-content: center; gap: var(--space-3); text-align: center;
+    cursor: pointer; transition: background var(--duration-fast) var(--ease-standard), border-color var(--duration-fast) var(--ease-standard);
   }
-  .card:active { transform: translateY(3px); box-shadow: none; filter: brightness(0.96); }
-  .card b { font-weight: 700; }
-  .card small { display: block; font-size: 0.78em; font-weight: 400; margin-top: 4px; }
-  /* Basic needs: multi-select */
-  .cards.needs { grid-template-columns: repeat(3, 1fr); gap: 14px; width: min(96vw, 960px); margin: 0 0 16px; }
-  .cards.needs .card { min-height: clamp(84px, 14vh, 118px); padding: 16px 12px; font-size: clamp(1rem, 2.1vw, 1.3rem); position: relative; flex-direction: column; gap: 6px; background: #f3f3f3; border-color: #cfcfcf; }
-  .cards.needs .card .icon { font-size: 2em; line-height: 1; }
-  .cards.needs .card.selected { background: var(--card-green); border-color: var(--border); }
-  .cards.needs .card.selected::after { content: "✓"; position: absolute; top: 8px; right: 12px; font-weight: 700; font-size: 1.2em; }
-  .needs-next { position: sticky; bottom: 0; margin: 4px 0 0; padding: 18px 40px; min-width: min(70vw, 360px); font-size: clamp(1.1rem, 2.4vw, 1.5rem); box-shadow: 0 -6px 16px rgba(255,255,255,0.95), var(--shadow); }
-  #basic { padding-bottom: 48px; }
-  .needs-next:disabled { opacity: 0.45; cursor: default; }
-  #helped { padding-bottom: 48px; }
+  .card .ic { color: var(--psd-maroon); }
+  .card:hover { border-color: var(--psd-maroon); }
+  .card:active { background: var(--surface-tint); border-color: var(--psd-maroon); }
+  .card b { font-weight: 800; color: var(--psd-maroon); }
+  .card small { display: block; font-size: 0.72em; font-weight: 500; color: var(--fg-3); margin-top: 2px; }
+  /* Energy cards keep the Mood Meter meaning */
+  .card.e-fast { background: var(--mood-red-50); border-color: color-mix(in srgb, var(--mood-red) 35%, white); }
+  .card.e-fast .ic { color: var(--mood-red); }
+  .card.e-slow { background: var(--mood-blue-50); border-color: color-mix(in srgb, var(--mood-blue) 35%, white); }
+  .card.e-slow .ic { color: var(--mood-blue); }
+  .card.e-ok { background: var(--mood-green-50); border-color: color-mix(in srgb, var(--mood-green) 35%, white); }
+  .card.e-ok .ic { color: var(--mood-green); }
+  .card.e-fast:hover, .card.e-fast:active { border-color: var(--mood-red); }
+  .card.e-slow:hover, .card.e-slow:active { border-color: var(--mood-blue); }
+  .card.e-ok:hover, .card.e-ok:active { border-color: var(--mood-green); }
 
-  .fb-btn { display: none; position: fixed; right: 14px; bottom: 14px; z-index: 40; align-items: center; gap: 6px; padding: 10px 16px; border-radius: 999px; background: #1f1f1e; color: #fff; font: inherit; font-weight: 600; font-size: 0.9rem; text-decoration: none; box-shadow: 0 6px 18px rgba(0,0,0,0.18); }
-  .fb-btn.show { display: inline-flex; }
-  .fb-btn:hover { background: #000; }
-  .banner.show ~ .fb-btn { bottom: 52px; }
-  /* "Just this color" button under each word grid */
-  .grid-wrap { display: flex; flex-direction: column; gap: 8px; align-items: stretch; }
-  .whole { font: inherit; font-weight: 600; font-size: clamp(0.95rem, 1.8vw, 1.15rem); border: 2px solid rgba(0,0,0,0.25); border-radius: 12px; padding: 12px 10px; cursor: pointer; color: #fff; }
-  .whole.dark { color: #2b1d00; }
-  .whole small { font-weight: 400; opacity: 0.9; margin-left: 6px; }
-  /* Destination block on the confirmation screens */
-  .dest { width: min(92vw, 620px); border-radius: 26px; padding: 22px 26px; margin: 8px 0 14px; color: #1a1a1a; border: 3px solid rgba(0,0,0,0.18); box-shadow: var(--shadow); }
-  .dest .k { font-size: clamp(1.05rem, 2.4vw, 1.4rem); font-weight: 500; }
-  .dest .v { font-size: clamp(2rem, 5.6vw, 3.4rem); font-weight: 700; line-height: 1.05; margin-top: 2px; }
-  .dest .w { font-size: clamp(1rem, 2.2vw, 1.3rem); margin-top: 6px; }
-  .done h1 { margin-top: 0; }
-  /* Confirmation screens start at the top so the color block is always visible first. */
-  .screen.done { justify-content: flex-start; padding-top: 18px; }
-  #visit { justify-content: center; }
-  #confirm { justify-content: center; }
-  #confirm .dest { text-align: center; margin-bottom: 24px; }
-  /* Already checked in / not checked in */
-  #visit { justify-content: center; }
-  #visit p { font-size: clamp(1.15rem, 2.6vw, 1.6rem); text-align: center; margin: 0 0 22px; max-width: 760px; }
-  #visit .cards { margin: 0; }
-  /* iPad sign-in (badge lookup) */
-  .kiosk-pill { display: none; margin-top: 18px; font: inherit; font-size: 0.95rem; color: #7a5a00; background: #fff3cd; border: 1px solid #e7d08a; border-radius: 999px; padding: 8px 14px; cursor: pointer; }
-  .kiosk-pill.show { display: inline-block; }
-  #kiosk { justify-content: center; text-align: center; }
-  #kiosk p { font-size: 1.1rem; max-width: 620px; margin: 0 auto 16px; color: var(--ink); line-height: 1.4; }
-  #kiosk .gsi { display: flex; justify-content: center; min-height: 48px; margin: 8px 0 14px; }
-  #kiosk .row { display: flex; gap: 10px; justify-content: center; flex-wrap: wrap; margin-top: 10px; }
-  #kiosk .row button { font: inherit; font-size: 1rem; padding: 10px 18px; border-radius: 12px; border: 1px solid #cfcfcf; background: #f4f4f4; cursor: pointer; }
-  .name-msg { min-height: 1.4em; font-size: 1.1rem; color: #9a1b20; font-weight: 500; text-align: center; margin: -10px 0 14px; }
-  .greet { color: var(--red); }
-  /* Keep every screen's content clear of the floating feedback button. */
-  body.fb-on .screen { padding-bottom: 76px; }
-  /* Start screen: check-out link */
-  .text-btn { margin-top: 22px; background: none; border: 0; font: inherit; font-weight: 500; font-size: clamp(1rem, 2.2vw, 1.25rem); color: var(--muted); text-decoration: underline; cursor: pointer; padding: 10px 16px; }
+  /* Multi-select grids (basic needs, what helped, incident types) */
+  .cards.needs { grid-template-columns: repeat(3, 1fr); gap: var(--space-3); width: min(96vw, 960px); margin: 0 0 var(--space-4); }
+  .cards.needs .card { min-height: clamp(84px, 13vh, 112px); padding: var(--space-3); font-size: clamp(0.98rem, 2vw, 1.2rem); position: relative; gap: var(--space-2); }
+  .cards.needs .card.selected { background: var(--surface-tint); border-color: var(--psd-maroon); }
+  .cards.needs .card .chk { display: none; position: absolute; top: 8px; right: 8px; width: 24px; height: 24px; border-radius: var(--radius-sm); background: var(--psd-maroon); color: var(--psd-white); align-items: center; justify-content: center; }
+  .cards.needs .card .chk .ic { color: var(--psd-white); }
+  .cards.needs .card.selected .chk { display: flex; }
+  .cards.needs.single .card.selected { background: var(--surface-card); }
+  .cards.needs.periods { grid-template-columns: repeat(4, 1fr); }
+  .cards.needs.periods .card { min-height: clamp(64px, 10vh, 84px); }
+  .needs-next { position: sticky; bottom: 0; margin: var(--space-1) 0 0; box-shadow: 0 -10px 18px rgba(255,255,255,0.95); }
+  #basic, #helped { padding-bottom: var(--space-7); }
 
-  /* Station suggestion */
-  .lead { font-size: clamp(1.05rem, 2.4vw, 1.5rem); font-weight: 500; color: var(--ink); text-align: center; margin: -8px 0 18px; max-width: 820px; }
-  .cards.stations { grid-template-columns: repeat(4, 1fr); gap: 16px; width: min(96vw, 1000px); }
-  .cards.stations .card { min-height: clamp(130px, 24vh, 200px); flex-direction: column; gap: 6px; position: relative; padding-top: 34px; }
-  .cards.stations .card .hint { font-size: 0.72em; font-weight: 400; line-height: 1.25; }
-  .cards.stations .card .tag { position: absolute; top: 10px; left: 50%; transform: translateX(-50%); background: #1a1a1a; color: #fff; font-size: 0.68rem; font-weight: 600; padding: 3px 10px; border-radius: 999px; text-transform: uppercase; letter-spacing: 0.05em; white-space: nowrap; }
-  .cards.stations .card.suggested { outline: 4px solid #1a1a1a; outline-offset: 3px; }
-  .staff-first { display: none; text-align: center; margin: auto 0; }
-  .staff-first.show { display: block; }
-  .staff-first .badge-big { display: inline-block; padding: 22px 36px; border-radius: 20px; background: var(--card-pink); border: 2px solid var(--border); font-weight: 600; font-size: clamp(1.3rem, 3vw, 2rem); margin: 10px 0 12px; box-shadow: var(--shadow); }
-  .staff-first p { font-size: clamp(1.1rem, 2.4vw, 1.5rem); color: var(--ink); margin: 6px 0 22px; }
-  @media (max-width: 700px) { .cards.stations { grid-template-columns: repeat(2, 1fr); } }
-  @media (max-width: 560px) {
-    .cards.needs { grid-template-columns: repeat(2, 1fr); gap: 10px; }
-    .cards, .cards.three { grid-template-columns: 1fr; gap: 14px; }
-    .cards.three .card:last-child { width: 100%; }
-    .card { min-height: 96px; padding: 20px 16px; }
-  }
-
-  /* Word grids */
-  .grids { display: flex; flex-wrap: wrap; gap: 26px; justify-content: center; width: 100%; margin: auto 0; padding-bottom: 8px; }
-  .grid {
-    display: grid; grid-template-columns: repeat(5, 1fr); gap: 4px;
-    width: min(96vw, 520px); padding: 6px; background: #f4f4f4; border-radius: 10px;
-    box-shadow: 0 2px 6px rgba(0,0,0,0.18);
-  }
+  /* Mood Meter word grids (colors carry meaning) */
+  .grids { display: flex; flex-wrap: wrap; gap: var(--space-5); justify-content: center; width: 100%; margin: auto 0; padding-bottom: var(--space-2); }
+  .grid-wrap { display: flex; flex-direction: column; gap: var(--space-2); align-items: stretch; }
+  .grid { display: grid; grid-template-columns: repeat(5, 1fr); gap: 3px; width: min(96vw, 520px); padding: 4px; background: var(--psd-gray-100); border: 1px solid var(--border-1); border-radius: var(--radius-md); }
   .grids.two .grid { width: min(96vw, 470px); }
   .word {
-    font: inherit; font-weight: 600; text-transform: uppercase; letter-spacing: 0.01em;
-    font-size: clamp(0.58rem, 1.35vw, 0.92rem); line-height: 1.05;
-    color: #fff; border: 0; border-radius: 4px; padding: 6px 2px;
+    font-family: var(--font-body); font-weight: 700; text-transform: uppercase; letter-spacing: 0.02em;
+    font-size: clamp(0.58rem, 1.3vw, 0.88rem); line-height: 1.05;
+    color: #fff; border: 0; border-radius: var(--radius-sm); padding: 6px 2px;
     min-height: clamp(52px, 8.5vh, 72px); display: flex; align-items: center; justify-content: center;
     text-align: center; cursor: pointer; word-break: normal; overflow-wrap: normal; hyphens: none;
-    transition: transform .08s, filter .08s;
+    transition: filter var(--duration-fast) var(--ease-standard);
   }
   .word.dark { color: #2b1d00; }
-  .word.long { font-size: clamp(0.5rem, 1.05vw, 0.74rem); letter-spacing: 0; }
-  @media (max-width: 900px) {
-    .word { font-size: clamp(0.65rem, 1.75vw, 0.9rem); }
-    .word.long { font-size: clamp(0.55rem, 1.3vw, 0.75rem); }
-  }
-  .word:active { transform: scale(0.95); filter: brightness(1.12); }
+  .word.long { font-size: clamp(0.5rem, 1.02vw, 0.72rem); letter-spacing: 0; }
+  @media (max-width: 900px) { .word { font-size: clamp(0.65rem, 1.7vw, 0.88rem); } .word.long { font-size: clamp(0.55rem, 1.25vw, 0.74rem); } }
+  .word:active { filter: brightness(1.15); }
+  .whole { font-family: var(--font-body); font-weight: 700; font-size: clamp(0.95rem, 1.8vw, 1.1rem); border: 0; border-radius: var(--radius-sm); padding: 12px 10px; cursor: pointer; color: #fff; }
+  .whole.dark { color: #2b1d00; }
+  .whole small { font-weight: 500; opacity: 0.9; margin-left: 6px; }
 
-  /* Done */
-  .done { justify-content: center; text-align: center; }
-  .done h1 { font-size: clamp(2rem, 5vw, 3.4rem); font-weight: 700; margin-bottom: 10px; }
-  .done p { font-size: clamp(1.25rem, 3vw, 2rem); font-weight: 500; color: var(--ink); max-width: 820px; margin: 10px 0; line-height: 1.35; }
-  .done .name { font-weight: 700; }
-  .done .badge {
-    display: inline-block; margin-top: 18px; padding: 20px 40px; border-radius: 18px; color: #fff;
-    font-weight: 600; font-size: clamp(1.2rem, 2.8vw, 1.7rem); border: 2px solid #4a86e8; box-shadow: var(--shadow);
-  }
-  .done .badge small { display: block; font-weight: 500; font-size: 0.8em; opacity: 0.95; }
-  .done .form-link { display: none; margin-top: 18px; text-decoration: none; color: #fff; border-color: #4a86e8; text-transform: uppercase; font-size: clamp(1.3rem, 3vw, 1.9rem); }
-  .done .form-link.show { display: inline-block; }
+  /* Station suggestion */
+  .lead { font-size: clamp(1.05rem, 2.2vw, 1.35rem); font-weight: 500; color: var(--fg-2); text-align: center; margin: -12px 0 var(--space-5); max-width: 820px; }
+  .cards.stations { grid-template-columns: repeat(4, 1fr); gap: var(--space-3); width: min(96vw, 1000px); }
+  .cards.stations .card { min-height: clamp(130px, 24vh, 200px); border: 0; color: var(--psd-white); position: relative; padding-top: var(--space-6); gap: var(--space-1); }
+  .cards.stations .card.dk { color: #2b1d00; }
+  .cards.stations .card .hint { font-size: 0.68em; font-weight: 500; line-height: 1.3; margin: 0; color: inherit; opacity: .92; }
+  .cards.stations .card .tag { position: absolute; top: 10px; left: 50%; transform: translateX(-50%); background: var(--psd-black); color: var(--psd-white); font-size: 11px; font-weight: 700; padding: 3px 9px; border-radius: var(--radius-sm); text-transform: uppercase; letter-spacing: var(--tracking-caps); white-space: nowrap; }
+  .cards.stations .card.suggested { outline: 4px solid var(--psd-black); outline-offset: 3px; }
+  .staff-first { display: none; text-align: center; margin: auto 0; }
+  .staff-first.show { display: flex; flex-direction: column; align-items: center; }
+  .staff-first .badge-big { display: inline-flex; align-items: center; gap: var(--space-3); padding: var(--space-5) var(--space-6); border-radius: var(--radius-md); background: var(--surface-tint); border: 2px solid var(--psd-maroon); color: var(--psd-maroon); font-weight: 700; font-size: clamp(1.3rem, 3vw, 1.9rem); margin: var(--space-2) 0 var(--space-3); }
+  .staff-first p { font-size: clamp(1.1rem, 2.4vw, 1.4rem); color: var(--fg-2); margin: var(--space-2) 0 var(--space-5); }
+
+  /* Confirmation screens: the color block comes first */
+  .screen.done { justify-content: flex-start; text-align: center; padding-top: var(--space-5); }
+  .dest { width: min(92vw, 620px); border-radius: var(--radius-md); padding: var(--space-5) var(--space-6); margin: 0 0 var(--space-5); color: var(--psd-white); }
+  .dest.dk { color: #2b1d00; }
+  .dest.neutral { background: var(--surface-subtle); color: var(--fg-1); border: 1px solid var(--border-1); }
+  .dest .k { font-size: clamp(1rem, 2.2vw, 1.3rem); font-weight: 500; }
+  .dest .v { font-size: clamp(2rem, 5.4vw, 3.2rem); font-weight: 700; line-height: 1.05; margin-top: 2px; letter-spacing: var(--tracking-tight); }
+  .dest .w { font-size: clamp(1rem, 2.2vw, 1.25rem); margin-top: var(--space-2); font-weight: 500; }
+  .done h1 { font-size: clamp(1.8rem, 4.4vw, 2.8rem); color: var(--psd-maroon); margin-bottom: var(--space-3); }
+  .done p { font-size: clamp(1.15rem, 2.6vw, 1.6rem); font-weight: 500; color: var(--fg-2); max-width: 820px; margin: var(--space-2) 0; line-height: 1.4; }
+  .done .name { font-weight: 700; color: var(--fg-1); }
+  .done .badge { display: inline-flex; flex-direction: column; margin-top: var(--space-4); padding: var(--space-4) var(--space-6); border-radius: var(--radius-md); background: var(--surface-brand); color: var(--fg-on-brand); font-weight: 700; font-size: clamp(1.15rem, 2.6vw, 1.5rem); }
+  .done .badge small { font-weight: 500; font-size: 0.78em; opacity: 0.95; }
+  .done .form-link { display: none; margin-top: var(--space-4); flex-direction: column; text-transform: uppercase; }
+  .done .form-link.show { display: inline-flex; }
   .done .form-link small { display: block; text-transform: none; font-size: 0.72em; font-weight: 500; }
-  .done .status { margin-top: 22px; color: var(--muted); font-size: 1rem; }
-  .done .countdown { margin-top: 6px; color: var(--muted); font-size: 1rem; }
-  .done .finish { margin-top: 18px; min-width: 200px; padding: 16px 34px; font-size: 1.2rem; background: #f1f1f1; }
+  .done .status { margin-top: var(--space-5); color: var(--fg-3); font-size: 0.95rem; }
+  .done .countdown { margin-top: var(--space-1); color: var(--fg-3); font-size: 0.95rem; }
+  .done .finish { margin-top: var(--space-4); min-width: 200px; }
 
-  .ver { position: fixed; left: 8px; bottom: 4px; font-size: 10px; color: #bbb; z-index: 4; pointer-events: none; }
+  #visit, #confirm, #kiosk { justify-content: center; }
+  #visit p { font-size: clamp(1.1rem, 2.4vw, 1.45rem); text-align: center; margin: -8px 0 var(--space-5); max-width: 760px; color: var(--fg-2); }
+  #visit .cards { margin: 0; }
+  #confirm .dest { text-align: center; margin-bottom: var(--space-5); }
+  #kiosk { text-align: center; }
+  #kiosk p { font-size: 1.05rem; max-width: 620px; margin: 0 auto var(--space-4); color: var(--fg-2); line-height: 1.5; }
+  #kiosk .gsi { display: flex; justify-content: center; min-height: 48px; margin: var(--space-2) 0 var(--space-4); }
+  #kiosk .row { display: flex; gap: var(--space-2); justify-content: center; flex-wrap: wrap; margin-top: var(--space-2); }
 
-  /* Banner */
-  .banner {
-    display: none; position: fixed; left: 0; right: 0; bottom: 0; z-index: 5;
-    padding: 8px 14px; padding-bottom: max(8px, env(safe-area-inset-bottom));
-    background: #fff3cd; color: #6b5200; font-size: 0.95rem; text-align: center;
-  }
+  /* Floating trial feedback button: Panther Black, square corners */
+  .fb-btn { display: none; position: fixed; right: var(--space-4); bottom: var(--space-4); z-index: 40; }
+  .fb-btn.show { display: inline-flex; }
+  .banner.show ~ .fb-btn { bottom: 56px; }
+  body.fb-on .screen { padding-bottom: 84px; }
+  body.fb-on[data-screen="start"] .fb-btn { background: rgba(0,0,0,0.35); border-color: rgba(255,255,255,0.45); }
+
+  .ver { position: fixed; left: 8px; bottom: 4px; font-size: 10px; color: var(--psd-gray-300); z-index: 4; pointer-events: none; }
+  body[data-screen="start"] .ver { color: rgba(255,255,255,0.5); }
+
+  /* Status banner: Panther Black utility strip */
+  .banner { display: none; position: fixed; left: 0; right: 0; bottom: 0; z-index: 5; padding: 10px 16px; padding-bottom: max(10px, env(safe-area-inset-bottom)); background: var(--surface-dark); color: var(--fg-on-dark); font-size: 14px; font-weight: 600; text-align: center; }
   .banner.show { display: block; }
+
+  @media (max-width: 700px) { .cards.stations { grid-template-columns: repeat(2, 1fr); } }
+  @media (max-width: 560px) {
+    .cards.needs { grid-template-columns: repeat(2, 1fr); }
+    .cards, .cards.three { grid-template-columns: 1fr; gap: var(--space-3); }
+    .cards.three .card:last-child { width: 100%; }
+    .card { min-height: 96px; padding: var(--space-4); }
+    .cards.needs.periods { grid-template-columns: repeat(3, 1fr); }
+  }
 </style>
 </head>
-<body>
+<body data-screen="start">
 
 <header class="bar">
-  <button id="backBtn" type="button">← Back</button>
+  <div class="psd-lockup"><img src="assets/parchment-logo.png" alt=""><span class="txt"><span class="nm">Panther Pride Center</span><span class="tg">Parchment School District</span></span></div>
   <div class="dots" id="dots" aria-hidden="true"></div>
-  <button id="restartBtn" type="button">✕ Start over</button>
+  <div class="navs">
+    <button class="btn btn-ghost" id="backBtn" type="button"><i data-icon="arrow-left" data-size="18"></i>Back</button>
+    <button class="btn btn-outline" id="restartBtn" type="button"><i data-icon="rotate-ccw" data-size="18"></i>Start Over</button>
+  </div>
 </header>
 
 <main>
 
-  <!-- 1. Start -->
+  <!-- 1. Start: maroon field, panther bleeding off the left edge -->
   <section class="screen" id="start" data-step="0">
-    <img src="assets/panther.png" alt="Panther">
-    <div class="title">Panther Pride Center</div>
-    <div class="subtitle">Student Check-In</div>
-    <button class="big-btn" type="button" data-go="name">Click here to get started!</button>
-    <button class="text-btn" type="button" id="checkoutBtn">Leaving? Tap here to check out</button>
-    <button class="kiosk-pill" type="button" id="kioskPill">🔒 Badge scanning is off. Staff: sign in this iPad</button>
+    <img class="mark" src="assets/parchment-logo.png" alt="">
+    <div class="copy">
+      <div class="eyebrow">Parchment School District</div>
+      <div class="title">Panther Pride Center</div>
+      <div class="subtitle">Student Check-In</div>
+      <button class="btn btn-lg go" type="button" data-go="name">Get Started<i data-icon="arrow-right" data-size="22"></i></button>
+      <button class="text-btn" type="button" id="checkoutBtn">Leaving? Check Out</button>
+      <button class="kiosk-pill" type="button" id="kioskPill"><i data-icon="lock" data-size="16"></i>Badge scanning is off. Staff: sign in this iPad</button>
+    </div>
   </section>
 
   <!-- iPad setup: a staff member signs the iPad in so badge / ID lookup works -->
   <section class="screen" id="kiosk" data-step="0">
-    <h1>iPad setup <span class="sub">For Pride Center staff</span></h1>
+    <h1>iPad Setup<span class="sub">For Pride Center staff</span></h1>
     <p id="kioskMsg"></p>
     <div class="gsi" id="kioskGsi"></div>
-    <div class="row"><button type="button" id="kioskSignOut" hidden>Sign this iPad out</button><button type="button" id="kioskBack">Back to check-in</button></div>
+    <div class="row"><button class="btn btn-outline" type="button" id="kioskSignOut" hidden>Sign This iPad Out</button><button class="btn btn-ghost" type="button" id="kioskBack"><i data-icon="arrow-left" data-size="18"></i>Back to Check-In</button></div>
   </section>
 
   <!-- 2. Name -->
@@ -283,16 +263,16 @@
     <input class="field" id="nameInput" type="text" autocomplete="off" autocorrect="off" autocapitalize="words" spellcheck="false" placeholder="Scan your badge, or type your ID or name" enterkeyhint="next">
     <div class="name-msg" id="nameMsg" aria-live="polite"></div>
     <div class="hint" id="nameHint">Scan your badge, or type your student ID or your first and last name.</div>
-    <button class="big-btn" type="button" id="nameNext">Next</button>
+    <button class="btn btn-primary big-btn" type="button" id="nameNext">Next</button>
   </section>
 
   <!-- 2a. Is this you? (after a badge / ID lookup) -->
   <section class="screen" id="confirm" data-step="1">
     <h1>Is this you?</h1>
-    <div class="dest" id="confirmWho" style="background:#f3f3f3"></div>
+    <div class="dest neutral" id="confirmWho"></div>
     <div class="cards">
-      <button class="card" type="button" id="confirmYes" style="background:var(--card-green)"><span><b>Yes</b>, that's me</span></button>
-      <button class="card" type="button" id="confirmNo" style="background:var(--card-pink)"><span><b>No</b>, that's not me</span></button>
+      <button class="card" type="button" id="confirmYes"><i data-icon="circle-check" data-size="40"></i><span><b>Yes</b>, that's me</span></button>
+      <button class="card" type="button" id="confirmNo"><i data-icon="user-x" data-size="40"></i><span><b>No</b>, that's not me</span></button>
     </div>
   </section>
 
@@ -307,8 +287,8 @@
   <section class="screen" id="referral" data-step="2">
     <h1 id="referralTitle">Why are you here today?</h1>
     <div class="cards">
-      <button class="card" style="background:var(--card-green)" data-answer="referral" data-value="Self Referred"><span>Self Referred<br><small>(I have a need)</small></span></button>
-      <button class="card" style="background:var(--card-pink)"  data-answer="referral" data-value="Staff Referred"><span>Staff Referred<br><small>(A teacher sent me)</small></span></button>
+      <button class="card" data-answer="referral" data-value="Self Referred"><i data-icon="user-round" data-size="40"></i><span>Self Referred<small>(I have a need)</small></span></button>
+      <button class="card" data-answer="referral" data-value="Staff Referred"><i data-icon="school" data-size="40"></i><span>Staff Referred<small>(A teacher sent me)</small></span></button>
     </div>
   </section>
 
@@ -316,9 +296,9 @@
   <section class="screen" id="reason" data-step="3">
     <h1>What do you need today?</h1>
     <div class="cards three">
-      <button class="card" style="background:var(--card-green)"  data-answer="reason" data-value="Drop In: I need a reset"><span>Drop In:<br>I need a <b>reset</b></span></button>
-      <button class="card" style="background:var(--card-coral)"  data-answer="reason" data-value="Scheduled Break"><span>Scheduled Break</span></button>
-      <button class="card" style="background:var(--card-orange)" data-answer="reason" data-value="Drop In: I have a need"><span>I have a <b>need</b>…<br><small>(medical, food, clothing)</small></span></button>
+      <button class="card" data-answer="reason" data-value="Drop In: I need a reset"><i data-icon="refresh-cw" data-size="40"></i><span>Drop In:<br>I need a <b>reset</b></span></button>
+      <button class="card" data-answer="reason" data-value="Scheduled Break"><i data-icon="calendar-clock" data-size="40"></i><span>Scheduled Break</span></button>
+      <button class="card" data-answer="reason" data-value="Drop In: I have a need"><i data-icon="heart-handshake" data-size="40"></i><span>I have a <b>need</b>…<small>(medical, food, clothing)</small></span></button>
     </div>
   </section>
 
@@ -326,9 +306,9 @@
   <section class="screen" id="energy" data-step="4">
     <h1 id="energyTitle">How is your body + brain feeling right now?</h1>
     <div class="cards three">
-      <button class="card" style="background:var(--energy-fast)" data-answer="energy" data-value="Moving Fast"><span>Moving Fast!<br>Lots of energy!</span></button>
-      <button class="card" style="background:var(--energy-slow)" data-answer="energy" data-value="Moving Slow"><span>Moving Slow.<br>Not much energy</span></button>
-      <button class="card" style="background:var(--energy-ok)"   data-answer="energy" data-value="Moving Ok"><span>Moving ok.<br>Just right energy</span></button>
+      <button class="card e-fast" data-answer="energy" data-value="Moving Fast"><i data-icon="zap" data-size="40"></i><span>Moving Fast!<br>Lots of energy!</span></button>
+      <button class="card e-slow" data-answer="energy" data-value="Moving Slow"><i data-icon="battery-low" data-size="40"></i><span>Moving Slow.<br>Not much energy</span></button>
+      <button class="card e-ok" data-answer="energy" data-value="Moving Ok"><i data-icon="circle-check" data-size="40"></i><span>Moving ok.<br>Just right energy</span></button>
     </div>
   </section>
 
@@ -342,10 +322,10 @@
   <section class="screen" id="happened" data-step="6">
     <h1>What happened to make you feel this way?<span class="sub">Did something happen…</span></h1>
     <div class="cards">
-      <button class="card" style="background:var(--card-green)"  data-answer="happened" data-value="At Home"><span>At Home</span></button>
-      <button class="card" style="background:var(--card-blue)"   data-answer="happened" data-value="With my Teacher"><span>With my Teacher</span></button>
-      <button class="card" style="background:var(--card-orange)" data-answer="happened" data-value="With a friend"><span>With a friend</span></button>
-      <button class="card" style="background:var(--card-purple)" data-answer="happened" data-value="Just with myself"><span>Just with myself</span></button>
+      <button class="card" data-answer="happened" data-value="At Home"><i data-icon="house" data-size="40"></i><span>At Home</span></button>
+      <button class="card" data-answer="happened" data-value="With my Teacher"><i data-icon="school" data-size="40"></i><span>With my Teacher</span></button>
+      <button class="card" data-answer="happened" data-value="With a friend"><i data-icon="users" data-size="40"></i><span>With a friend</span></button>
+      <button class="card" data-answer="happened" data-value="Just with myself"><i data-icon="user" data-size="40"></i><span>Just with myself</span></button>
     </div>
   </section>
 
@@ -353,8 +333,8 @@
   <section class="screen" id="need" data-step="7">
     <h1>What is your need today…</h1>
     <div class="cards">
-      <button class="card" style="background:var(--need-incident)" data-answer="need" data-value="Incident Report"><span>I need to report something with an Incident Report</span></button>
-      <button class="card" style="background:var(--need-basic)"    data-answer="need" data-value="Basic Need"><span>I have a basic need</span></button>
+      <button class="card" data-answer="need" data-value="Incident Report"><i data-icon="shield-alert" data-size="40"></i><span>I need to report something with an Incident Report</span></button>
+      <button class="card" data-answer="need" data-value="Basic Need"><i data-icon="hand-helping" data-size="40"></i><span>I have a basic need</span></button>
     </div>
   </section>
 
@@ -362,15 +342,15 @@
   <section class="screen" id="basic" data-step="8">
     <h1>What do you need?<span class="sub">Tap everything that fits.</span></h1>
     <div class="cards needs" id="needsGrid"></div>
-    <button class="big-btn needs-next" type="button" id="needsNext" disabled>That's everything</button>
+    <button class="btn btn-primary big-btn needs-next" type="button" id="needsNext" disabled>That's Everything</button>
   </section>
 
   <!-- 8b. Incident report (after "I need to report something") -->
   <section class="screen" id="inc1" data-step="8">
     <h1>Are you safe right now?</h1>
     <div class="cards">
-      <button class="card" style="background:var(--card-green)"    data-answer="incSafe" data-value="Yes"><span>Yes, I'm safe</span></button>
-      <button class="card" style="background:var(--need-incident)" data-answer="incSafe" data-value="No"><span>No, I don't feel safe</span></button>
+      <button class="card" data-answer="incSafe" data-value="Yes"><i data-icon="shield-check" data-size="40"></i><span>Yes, I'm safe</span></button>
+      <button class="card" data-answer="incSafe" data-value="No"><i data-icon="triangle-alert" data-size="40"></i><span>No, I don't feel safe</span></button>
     </div>
   </section>
   <section class="screen" id="inc1b" data-step="8">
@@ -380,7 +360,7 @@
   <section class="screen" id="inc2" data-step="8">
     <h1>What happened?<span class="sub">Tap everything that fits.</span></h1>
     <div class="cards needs" id="incTypeGrid"></div>
-    <button class="big-btn needs-next" type="button" id="incTypeNext" disabled>Next</button>
+    <button class="btn btn-primary big-btn needs-next" type="button" id="incTypeNext" disabled>Next</button>
   </section>
   <section class="screen" id="inc3" data-step="8">
     <h1>Where did it happen?</h1>
@@ -396,13 +376,13 @@
     <input class="field small" id="incWho" type="text" autocomplete="off" placeholder="Who was involved? (optional)">
     <input class="field small" id="incWitness" type="text" autocomplete="off" placeholder="Did anyone else see it? (optional)">
     <div class="hint">If typing is hard right now, you can skip this and tell a staff member instead.</div>
-    <button class="big-btn" type="button" id="incStoryNext">Next</button>
+    <button class="btn btn-primary big-btn" type="button" id="incStoryNext">Next</button>
   </section>
   <section class="screen" id="inc6" data-step="8">
     <h1>Do you want to talk to someone about it today?</h1>
     <div class="cards">
-      <button class="card" style="background:var(--card-green)" data-answer="incTalk" data-value="Yes"><span>Yes, please</span></button>
-      <button class="card" style="background:var(--card-blue)"  data-answer="incTalk" data-value="Not right now"><span>Not right now</span></button>
+      <button class="card" data-answer="incTalk" data-value="Yes"><i data-icon="message-circle" data-size="40"></i><span>Yes, please</span></button>
+      <button class="card" data-answer="incTalk" data-value="Not right now"><i data-icon="clock" data-size="40"></i><span>Not right now</span></button>
     </div>
   </section>
 
@@ -412,9 +392,9 @@
     <p class="lead" id="stationLead"></p>
     <div class="cards stations" id="stationGrid"></div>
     <div class="staff-first" id="staffFirst">
-      <div class="badge-big">A staff member is coming to you</div>
+      <div class="badge-big"><i data-icon="shield-alert" data-size="32"></i>A staff member is coming to you</div>
       <p>Stay right here. Someone will be with you in a moment.</p>
-      <button class="big-btn" type="button" id="staffFirstNext">OK</button>
+      <button class="btn btn-primary big-btn" type="button" id="staffFirstNext">OK</button>
     </div>
   </section>
 
@@ -422,43 +402,44 @@
   <section class="screen" id="helped" data-step="9">
     <h1>What helped today?<span class="sub">Tap everything that helped.</span></h1>
     <div class="cards needs" id="helpedGrid"></div>
-    <button class="big-btn needs-next" type="button" id="helpedNext" disabled>That's everything</button>
+    <button class="btn btn-primary big-btn needs-next" type="button" id="helpedNext" disabled>That's Everything</button>
   </section>
 
   <!-- 10b. Check-out done -->
   <section class="screen done" id="checkoutDone" data-step="10">
     <div class="dest" id="coDest" hidden></div>
-    <h1 id="coTitle" style="color:var(--done-basic)">You're checked out!</h1>
+    <h1 id="coTitle">You're checked out.</h1>
     <p id="coMsg"></p>
     <div class="status" id="coStatus"></div>
     <div class="countdown" id="coCountdown"></div>
-    <button class="big-btn finish" type="button" id="coFinishBtn">Done</button>
+    <button class="btn btn-outline btn-lg finish" type="button" id="coFinishBtn">Done</button>
   </section>
 
   <!-- 10. Done -->
   <section class="screen done" id="done" data-step="10">
     <div class="dest" id="doneDest" hidden></div>
-    <h1 id="doneTitle">Thanks for answering those questions!</h1>
+    <h1 id="doneTitle">Thanks for answering those questions.</h1>
     <p>That's a good start. Let's find a way to get you feeling ok again.</p>
     <p id="doneNext">The next step is to make sure we get you ALL the way signed in.</p>
     <p id="doneMsg"></p>
     <div class="badge" id="doneBadge"></div>
-    <a class="big-btn form-link" id="formLink" target="_blank" rel="noopener"></a>
+    <a class="btn btn-primary btn-lg form-link" id="formLink" target="_blank" rel="noopener"></a>
     <div class="status" id="saveStatus"></div>
     <div class="countdown" id="countdown"></div>
-    <button class="big-btn finish" type="button" id="finishBtn">Done</button>
+    <button class="btn btn-outline btn-lg finish" type="button" id="finishBtn">Done</button>
   </section>
 
 </main>
 
 <div class="banner" id="banner"></div>
-<a class="fb-btn" id="feedbackLink" href="feedback.html?from=kiosk">💬 Provide feedback during trial</a>
+<a class="btn btn-dark fb-btn" id="feedbackLink" href="feedback.html?from=kiosk"><i data-icon="message-square-text" data-size="18"></i>Provide Feedback During Trial</a>
 <div class="ver" id="ver"></div>
 
+<script src="icons.js"></script>
 <script src="config.js"></script>
 <script>
 (function () {
-  const APP_VERSION = "2026.09.30i";
+  const APP_VERSION = "2026.10.02-design";
   const CFG = Object.assign({
     SCRIPT_URL: "", KIOSK_TOKEN: "", KIOSK_NAME: "Kiosk", KIOSK_DOMAIN: "",
     RESET_SECONDS: 8, IDLE_SECONDS: 120,
@@ -546,6 +527,7 @@
     if (push && current !== id) history.push(current);
     current = id;
     screens.forEach(s => s.classList.toggle("active", s.id === id));
+    document.body.dataset.screen = id;
     const step = Number(document.getElementById(id).dataset.step);
     renderDots(step);
     const mid = !END_SCREENS.includes(id);
@@ -612,7 +594,7 @@
   async function submitName(raw) {
     if (busy) return;
     const v = String(typeof raw === "string" ? raw : $("#nameInput").value).trim();
-    if (!v) { $("#nameInput").focus(); $("#nameInput").style.borderColor = "var(--red)"; return; }
+    if (!v) { $("#nameInput").focus(); $("#nameInput").style.borderColor = "var(--psd-maroon)"; return; }
     $("#nameMsg").textContent = "";
     if (looksLikeId(v)) {
       answers.studentId = cleanId(v);
@@ -680,21 +662,21 @@
   const hhmm = ts => new Date(ts).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" });
   function askVisit(kind, open) {
     const firstName = firstOf();
-    const card = (bg, label, fn) => { const b = document.createElement("button"); b.type = "button"; b.className = "card"; b.style.background = bg; b.innerHTML = `<span>${label}</span>`; b.addEventListener("click", fn); return b; };
+    const card = (icon, label, fn) => { const b = document.createElement("button"); b.type = "button"; b.className = "card"; b.innerHTML = `${window.PPC_ICON(icon, 40)}<span>${label}</span>`; b.addEventListener("click", fn); return b; };
     const cards = $("#visitCards"); cards.innerHTML = "";
     if (kind === "already") {
       $("#visitTitle").textContent = `Welcome back, ${firstName}!`;
       $("#visitMsg").innerHTML = `You're already checked in from ${hhmm(open.timestamp)}${open.station && open.station !== "Staff first" ? `, at the <b>${escapeHtml(open.station)} station</b>` : ""}.`;
       cards.append(
-        card("var(--card-green)", "I'm leaving.<br><b>Check me out</b>", () => { mode = "checkout"; answers.openVisit = open; show("energy"); }),
-        card("var(--card-pink)", "I'm starting a<br><b>new visit</b>", () => { mode = "checkin"; show("referral"); })
+        card("log-out", "I'm leaving.<br><b>Check me out</b>", () => { mode = "checkout"; answers.openVisit = open; show("energy"); }),
+        card("log-in", "I'm starting a<br><b>new visit</b>", () => { mode = "checkin"; show("referral"); })
       );
     } else {
       $("#visitTitle").textContent = `Hi, ${firstName}!`;
       $("#visitMsg").textContent = "We don't see a check-in for you today on this iPad.";
       cards.append(
-        card("var(--card-green)", "I'm arriving.<br><b>Check me in</b>", () => { mode = "checkin"; show("referral"); }),
-        card("var(--card-blue)", "I'm leaving.<br><b>Check me out anyway</b>", () => { mode = "checkout"; show("energy"); })
+        card("log-in", "I'm arriving.<br><b>Check me in</b>", () => { mode = "checkin"; show("referral"); }),
+        card("log-out", "I'm leaving.<br><b>Check me out anyway</b>", () => { mode = "checkout"; show("energy"); })
       );
     }
     show("visit");
@@ -744,7 +726,7 @@
       b.type = "button";
       b.className = "card";
       b.setAttribute("aria-pressed", "false");
-      b.innerHTML = `${icon ? `<span class="icon">${icon}</span>` : ""}<span>${escapeHtml(label)}</span>`;
+      b.innerHTML = `<span class="chk">${window.PPC_ICON("check", 16)}</span>${iconHtml(icon)}<span>${escapeHtml(label)}</span>`;
       b.addEventListener("click", () => {
         const on = b.classList.toggle("selected");
         b.setAttribute("aria-pressed", String(on));
@@ -776,7 +758,7 @@
       const b = document.createElement("button");
       b.type = "button";
       b.className = "card";
-      b.innerHTML = `${icon ? `<span class="icon">${icon}</span>` : ""}<span>${escapeHtml(label)}</span>`;
+      b.innerHTML = `${iconHtml(icon)}<span>${escapeHtml(label)}</span>`;
       b.addEventListener("click", () => { answers[key] = label; next(key); });
       grid.appendChild(b);
     });
@@ -809,7 +791,9 @@
   }
 
   // ---------- Station suggestion ----------
-  const STATION_COLORS = { Red: "var(--energy-fast)", Yellow: "#f6c453", Blue: "var(--energy-slow)", Green: "var(--energy-ok)" };
+  // Mood Meter colors (ds.css). Yellow takes dark text for contrast.
+  const STATION_COLORS = { Red: "var(--mood-red)", Yellow: "var(--mood-yellow)", Blue: "var(--mood-blue)", Green: "var(--mood-green)" };
+  const iconHtml = icon => icon ? (/^[a-z0-9-]+$/.test(icon) ? window.PPC_ICON(icon, 34) : `<span class="icon">${escapeHtml(icon)}</span>`) : "";
 
   function goStation() {
     if (!answers.moodGroup) return next("station");
@@ -829,7 +813,7 @@
     (CFG.STATIONS || []).forEach(st => {
       const b = document.createElement("button");
       b.type = "button";
-      b.className = "card" + (st.color === suggested ? " suggested" : "");
+      b.className = "card" + (st.color === suggested ? " suggested" : "") + (st.color === "Yellow" ? " dk" : "");
       b.style.background = STATION_COLORS[st.color] || "#eee";
       b.innerHTML = `${st.color === suggested ? `<span class="tag">Suggested for you</span>` : ""}<span>${escapeHtml(st.label)}</span>${st.hint ? `<span class="hint">${escapeHtml(st.hint)}</span>` : ""}`;
       b.addEventListener("click", () => { answers.station = st.color; next("station"); });
@@ -889,26 +873,29 @@
   function finish(outcome) {
     answers.outcome = outcome;
     const o = OUTCOMES[outcome] || OUTCOMES["Check In"];
-    $("#doneTitle").style.color = o.color;
+
     $("#doneMsg").innerHTML = `<span class="name">${escapeHtml(answers.name)}</span>, ${o.msg}`;
     const badge = $("#doneBadge");
-    badge.style.background = o.color; badge.style.borderColor = o.color;
+
     const basicNeeds = (answers.basicNeeds || []).join(", ");
-    badge.innerHTML = `✓ ${o.label}<small>${escapeHtml(outcome === "Basic Need" ? basicNeeds : (answers.moodWord || ""))}</small>`;
+    badge.innerHTML = `<span>${window.PPC_ICON("check", 22)} ${o.label}</span><small>${escapeHtml(outcome === "Basic Need" ? basicNeeds : (answers.moodWord || ""))}</small>`;
     const link = $("#formLink");
     const formUrl = CFG[o.form] || "";
     link.classList.toggle("show", !!formUrl);
     $("#doneNext").hidden = !formUrl;
     if (formUrl) {
       link.href = formUrl;
-      link.style.background = o.color;
+
       link.innerHTML = `Click here<small>${escapeHtml(o.formLabel)}</small>`;
     }
     const st = answers.station || "";
     const dest = $("#doneDest");
     if (st) {
       const staff = st === "Staff first";
-      dest.style.background = staff ? "#d9d2ef" : (STATION_COLORS[st] || "#eee");
+      dest.style.background = staff ? "var(--surface-tint)" : (STATION_COLORS[st] || "var(--surface-subtle)");
+      dest.classList.toggle("dk", st === "Yellow");
+      dest.style.color = staff ? "var(--psd-maroon)" : "";
+      dest.style.border = staff ? "2px solid var(--psd-maroon)" : "";
       dest.innerHTML = staff
         ? `<div class="k">Stay right here</div><div class="v">A staff member is coming to you</div>`
         : `<div class="k">Go to the</div><div class="v">${escapeHtml(st)} station</div>${answers.moodWord ? `<div class="w">You're feeling ${escapeHtml(answers.moodWord.toLowerCase())}</div>` : ""}`;
@@ -969,7 +956,8 @@
     else if (outGroup && hard(outGroup)) msg += " If you'd like to talk to someone first, just let a staff member know.";
     $("#coMsg").innerHTML = msg;
     const dest = $("#coDest");
-    dest.style.background = STATION_COLORS[outGroup] || "#e6e6e6";
+    dest.style.background = STATION_COLORS[outGroup] || "var(--surface-subtle)";
+    dest.classList.toggle("dk", outGroup === "Yellow" || !outGroup);
     const word = answers.moodWord ? answers.moodWord.toLowerCase() : "";
     dest.innerHTML = word
       ? `<div class="k">Right now you're feeling</div><div class="v">${escapeHtml(word)}</div>`

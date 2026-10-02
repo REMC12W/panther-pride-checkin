@@ -1,0 +1,98 @@
+/* Parchment Panthers Design System — tokens and shared pieces for the Pride Center app.
+   Source: "Parchment Panthers Design System" (tokens/colors, typography, spacing, effects, base).
+   Raleway everywhere; Panther Maroon is the brand field; near-square corners; flat surfaces. */
+@import url('https://fonts.googleapis.com/css2?family=Raleway:ital,wght@0,300;0,400;0,500;0,600;0,700;0,800;1,400&display=swap');
+
+:root {
+  /* Brand base */
+  --psd-maroon: #842D46;
+  --psd-maroon-700: #6B2438;
+  --psd-maroon-800: #541C2C;
+  --psd-maroon-100: #F3E7EB;
+  --psd-maroon-50: #FAF4F6;
+  --psd-black: #231F20;
+  --psd-gray: #6D6E70;
+  --psd-gray-300: #BCBDBF;
+  --psd-gray-200: #DCDDDE;
+  --psd-gray-100: #EFEFF0;
+  --psd-gray-50: #F7F7F7;
+  --psd-white: #FFFFFF;
+  /* Semantic aliases */
+  --fg-1: var(--psd-black);
+  --fg-2: #4A4647;
+  --fg-3: var(--psd-gray);
+  --fg-on-brand: var(--psd-white);
+  --fg-on-dark: var(--psd-white);
+  --fg-on-dark-2: #CFCFD1;
+  --text-link: var(--psd-maroon);
+  --text-link-hover: var(--psd-maroon-700);
+  --surface-page: var(--psd-white);
+  --surface-subtle: var(--psd-gray-50);
+  --surface-card: var(--psd-white);
+  --surface-brand: var(--psd-maroon);
+  --surface-brand-hover: var(--psd-maroon-700);
+  --surface-dark: var(--psd-black);
+  --surface-tint: var(--psd-maroon-50);
+  --border-1: var(--psd-gray-200);
+  --border-2: var(--psd-gray-300);
+  --border-strong: var(--psd-black);
+  --focus-ring: var(--psd-maroon);
+  /* Type */
+  --font-display: 'Raleway', system-ui, sans-serif;
+  --font-body: 'Raleway', system-ui, sans-serif;
+  --text-xs: 12px; --text-sm: 14px; --text-base: 16px; --text-md: 18px; --text-lg: 22px;
+  --text-xl: 28px; --text-2xl: 36px; --text-3xl: 48px; --text-4xl: 64px;
+  --leading-tight: 1.1; --leading-snug: 1.3; --leading-body: 1.6;
+  --tracking-caps: 0.06em; --tracking-tight: -0.01em;
+  /* Space */
+  --space-1: 4px; --space-2: 8px; --space-3: 12px; --space-4: 16px; --space-5: 24px;
+  --space-6: 32px; --space-7: 48px; --space-8: 64px; --space-9: 96px;
+  --container-max: 1200px; --gutter: 24px;
+  /* Effects */
+  --radius-0: 0px; --radius-sm: 3px; --radius-md: 6px; --radius-pill: 999px;
+  --shadow-sm: 0 1px 2px rgba(35,31,32,.10);
+  --shadow-md: 0 4px 14px rgba(35,31,32,.14);
+  --shadow-lg: 0 12px 32px rgba(35,31,32,.20);
+  --ease-standard: cubic-bezier(.2,0,0,1);
+  --duration-fast: 120ms; --duration-base: 200ms; --duration-slow: 400ms;
+
+  /* App exception: the RULER Mood Meter colors carry meaning for students and staff,
+     so they stay on the feeling screens, stations and mood charts. Order Red, Yellow,
+     Blue, Green was checked for color-blind separation. */
+  --mood-red: #c1272d; --mood-yellow: #eda232; --mood-blue: #2b5090; --mood-green: #4c9a47;
+  --mood-red-50: #f8e5e6; --mood-yellow-50: #fcf1dc; --mood-blue-50: #e4eaf4; --mood-green-50: #e7f1e5;
+  /* Status (always with an icon and a label) */
+  --st-critical: #b42323; --st-warning: #9a6400; --st-good: #2f7a2f; --st-info: var(--psd-maroon);
+}
+
+* { box-sizing: border-box; }
+body { margin: 0; font-family: var(--font-body); color: var(--fg-1); background: var(--surface-page); line-height: var(--leading-body); -webkit-font-smoothing: antialiased; }
+a { color: var(--text-link); }
+a:hover { color: var(--text-link-hover); }
+:focus-visible { outline: 2px solid var(--focus-ring); outline-offset: 2px; }
+button, input, select, textarea { font: inherit; color: inherit; }
+.ic { display: inline-block; flex: none; vertical-align: middle; }
+
+/* District lockup: panther mark + name + tagline, maroon rule underneath */
+.psd-header { background: var(--surface-page); border-bottom: 4px solid var(--psd-maroon); }
+.psd-lockup { display: flex; align-items: center; gap: 14px; text-decoration: none; min-width: 0; }
+.psd-lockup img { height: 56px; width: auto; }
+.psd-lockup .nm { display: block; font: 700 22px/1.1 var(--font-display); color: var(--fg-1); }
+.psd-lockup .tg { display: block; font: 500 15px/1.4 var(--font-display); color: var(--psd-maroon); }
+
+/* Buttons: Raleway Bold, 3px corners; hover darkens, no scale */
+.btn { display: inline-flex; align-items: center; justify-content: center; gap: 8px; font-family: var(--font-body); font-weight: 700; line-height: 1.2; border-radius: var(--radius-sm); cursor: pointer; text-decoration: none; border: 1px solid transparent; padding: 10px 20px; font-size: 16px; transition: background var(--duration-fast) var(--ease-standard), border-color var(--duration-fast) var(--ease-standard); }
+.btn-primary { background: var(--surface-brand); color: var(--fg-on-brand); border-color: var(--surface-brand); }
+.btn-primary:hover { background: var(--surface-brand-hover); border-color: var(--surface-brand-hover); color: var(--fg-on-brand); }
+.btn-dark { background: var(--surface-dark); color: var(--fg-on-dark); border-color: var(--surface-dark); }
+.btn-dark:hover { background: #000; color: var(--fg-on-dark); }
+.btn-outline { background: transparent; color: var(--psd-maroon); border-color: var(--psd-maroon); }
+.btn-outline:hover { background: var(--surface-tint); color: var(--psd-maroon); }
+.btn-ghost { background: transparent; color: var(--fg-1); }
+.btn-ghost:hover { background: var(--psd-gray-100); }
+.btn-sm { padding: 6px 14px; font-size: 14px; }
+.btn-lg { padding: 14px 28px; font-size: 18px; }
+.btn:disabled { opacity: .45; cursor: not-allowed; }
+
+/* Section label: small caps style used across district pages */
+.eyebrow { font-size: 13px; font-weight: 700; letter-spacing: var(--tracking-caps); text-transform: uppercase; color: var(--psd-maroon); }
