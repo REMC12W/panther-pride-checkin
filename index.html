@@ -152,6 +152,7 @@
   .cards.needs .card .chk .ic { color: var(--psd-white); }
   .cards.needs .card.selected .chk { display: flex; }
   .cards.needs.single .card.selected { background: var(--surface-card); }
+  .cards.needs.single { margin: auto 0; } /* one-tap grids sit in the middle of the screen like the other questions */
   .cards.needs.periods { grid-template-columns: repeat(4, 1fr); }
   .cards.needs.periods .card { min-height: clamp(64px, 10vh, 84px); }
   /* Multi-select screens: the Next button sits in a solid white band pinned to the bottom,
@@ -260,6 +261,43 @@
     .cards.tail { grid-template-columns: repeat(2, 1fr); }
     .card { min-height: 96px; padding: var(--space-4); }
     .cards.needs.periods { grid-template-columns: repeat(3, 1fr); }
+  }
+
+  /* ---------- Every question fits on one screen, no scrolling ----------
+     iPads in Safari leave roughly 670-750px of height in landscape and 950-1100px in portrait.
+     Checked with a script that walks every screen at six iPad sizes. */
+  @media (min-width: 900px) and (orientation: landscape) {
+    /* Wide and short: the long grids go 4 across (or 5 for places) so they need fewer rows. */
+    .cards.needs { grid-template-columns: repeat(4, 1fr); width: min(96vw, 1040px); }
+    .cards.needs.single:not(.periods) { grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); }
+  }
+  @media (max-height: 820px) {
+    .bar { padding-top: max(6px, env(safe-area-inset-top)); padding-bottom: 6px; }
+    .bar .psd-lockup img { height: 36px; }
+    .screen { padding: var(--space-3) var(--space-5) var(--space-4); }
+    h1 { margin-bottom: var(--space-3); font-size: clamp(1.6rem, 3.6vw, 2.3rem); }
+    h1 .sub { margin-top: 4px; }
+    .cards { gap: var(--space-3); }
+    .card { min-height: clamp(104px, 19vh, 160px); padding: var(--space-4); gap: var(--space-2); }
+    .cards.needs .card { min-height: clamp(72px, 12vh, 100px); }
+    .next-bar { padding: var(--space-2) var(--space-5) var(--space-3); }
+    .dock-row { padding-bottom: var(--space-2); }
+    .dock .fb-btn { padding: 8px 14px; font-size: 14px; }
+    .lead { margin-bottom: var(--space-3); }
+    .screen.done { padding-top: var(--space-3); }
+    .dest { padding: var(--space-4) var(--space-5); margin-bottom: var(--space-3); }
+    .done h1 { margin-bottom: var(--space-2); }
+    .done p { margin: 4px 0; font-size: clamp(1.05rem, 2.2vw, 1.35rem); }
+    .done .status { margin-top: var(--space-3); }
+    .done .finish { margin-top: var(--space-3); }
+    .staff-first .badge-big { padding: var(--space-4) var(--space-5); }
+    .staff-first p { margin-bottom: var(--space-3); }
+  }
+  @media (orientation: portrait) and (min-width: 600px) {
+    /* "Moving fast" stacks the red and yellow grids; shorter tiles keep both on screen (44px is Apple's minimum tap size). */
+    .word { min-height: 44px; padding: 4px 2px; }
+    .grids { gap: var(--space-3); }
+    .whole { padding: 9px 10px; }
   }
 </style>
 </head>
@@ -484,7 +522,7 @@
 <script src="config.js"></script>
 <script>
 (function () {
-  const APP_VERSION = "2026.10.02-design.3";
+  const APP_VERSION = "2026.10.02-design.4";
   const CFG = Object.assign({
     SCRIPT_URL: "", KIOSK_TOKEN: "", KIOSK_NAME: "Kiosk", KIOSK_DOMAIN: "",
     RESET_SECONDS: 8, IDLE_SECONDS: 120,
@@ -1066,7 +1104,7 @@
     status.textContent = "Saving…";
     try {
       await postToSheet(record);
-      status.textContent = "Saved ✓";
+      status.innerHTML = window.PPC_ICON("check", 16) + " Saved";
     } catch (err) {
       const q = readJSON(QUEUE_KEY); q.push(record); writeJSON(QUEUE_KEY, q);
       status.textContent = "Saved on this iPad. It will sync when Wi-Fi is back.";
