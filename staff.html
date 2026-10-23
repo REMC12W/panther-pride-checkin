@@ -580,7 +580,7 @@
       $("#who").innerHTML = `Signed in as ${esc(d.email)} <button type="button" id="signout">Sign out</button>`;
       $("#signout").addEventListener("click", () => signOut());
       if (d.sheetUrl) { $("#sheetLink").href = d.sheetUrl; $("#sheetLink").classList.remove("hidden"); }
-      $("#status").textContent = `Updated ${new Date().toLocaleTimeString([], { hour: "numeric", minute: "2-digit" })} · refreshes every minute`;
+      $("#status").textContent = `Updated ${new Date().toLocaleTimeString([], { hour: "numeric", minute: "2-digit" })} · tap Refresh to update`;
       renderAll();
     } catch (err) {
       $("#status").className = "status-line err";
@@ -1161,7 +1161,7 @@
   $("#search").addEventListener("input", () => renderLog(data.checkins.filter(r => inWindow(r.timestamp, win()))));
   $("#refresh").addEventListener("click", load);
   let rt; addEventListener("resize", () => { clearTimeout(rt); rt = setTimeout(() => { if (!$("#dash").classList.contains("hidden")) { const r = data.checkins.filter(x => inWindow(x.timestamp, win())); renderDaily(r); renderHourly(r); } }, 150); });
-  setInterval(() => { if (!$("#dash").classList.contains("hidden")) load(); }, 60000);
+  // Auto-refresh is off for now. The Refresh button reloads the data.
   start();
 })();
 </script>

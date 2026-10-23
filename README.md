@@ -133,7 +133,7 @@ sequenceDiagram
   U->>D: Opens staff.html
   D->>G: Loads the sign-in button with GOOGLE_CLIENT_ID, hd = kresa.org
   G-->>D: ID token, kept in sessionStorage for the tab
-  D->>A: POST type dashboard, idToken, days (on load, when the day count changes, every minute)
+  D->>A: POST type dashboard, idToken, days (on load, when the day count changes, on Refresh)
   A->>V: GET tokeninfo?id_token=...
   V-->>A: aud, iss, exp, email_verified, email, hd
   A->>A: aud must equal GOOGLE_CLIENT_ID, email must be on ALLOWED_DOMAIN or in ADMIN_EMAILS
