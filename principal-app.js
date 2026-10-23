@@ -1,7 +1,7 @@
 /* Principal dashboard: boards, tiles, editor, layout, saving, exports. */
 (function () {
   const D = window.PPD, C = window.PPC_CHARTS;
-  const CFG = Object.assign({ SCRIPT_URL: "", GOOGLE_CLIENT_ID: "", ALLOWED_DOMAIN: "", PRINCIPAL_DEMO: true }, window.PPC_CONFIG || {});
+  const CFG = Object.assign({ SCRIPT_URL: "", GOOGLE_CLIENT_ID: "", ALLOWED_DOMAIN: "", PRINCIPAL_DEMO: true, PRINCIPAL_EMAILS: [] }, window.PPC_CONFIG || {});
   const DEMO = !!CFG.PRINCIPAL_DEMO || !CFG.SCRIPT_URL;
   const $ = s => document.querySelector(s);
   const esc = C.esc;
@@ -87,18 +87,23 @@
     const res = await fetch(CFG.SCRIPT_URL, { method: "POST", headers: { "Content-Type": "text/plain;charset=utf-8" }, body: JSON.stringify(Object.assign({ idToken }, body)), redirect: "follow" });
     return res.json();
   }
+  // Every request to the script is answered with an error naming the account when it isn't on the list.
+  const OLD_SCRIPT = /Bad token|Unknown request/;
   async function loadData() {
     setStatus("Loading…");
+    $("#signOutBtn").classList.remove("hidden");
     if (DEMO) {
+      // Demo data is made up, but the page is still limited to the principal: the script checks the sign-in.
+      const a = await post({ type: "principalAuth" });
+      if (!a.ok) throw new Error(OLD_SCRIPT.test(a.error || "") ? "The script in the Sheet needs the new Code.gs deployed before this page can check your sign-in." : a.error);
       tables = D.normalize(D.demoData());
-      $("#who").textContent = "Demo data · " + tables.visits.length + " visits, " + tables.incidents.length + " incident reports this school year";
+      $("#who").textContent = `Signed in as ${a.email} · Demo data · ${tables.visits.length} visits, ${tables.incidents.length} incident reports this school year`;
       $("#demoNote").classList.remove("hidden");
     } else {
       const d = await D.liveData(CFG.SCRIPT_URL, idToken, 365);
       tables = D.normalize(d);
       $("#who").textContent = `Signed in as ${d.email} · ${tables.visits.length} visits, ${tables.incidents.length} incident reports in the last year`;
       if (d.sheetUrl) { $("#sheetLink").href = d.sheetUrl; $("#sheetLink").classList.remove("hidden"); }
-      $("#signOutBtn").classList.remove("hidden");
       const remote = await post({ type: "boardLoad" }).catch(() => null);
       if (remote && remote.ok && Array.isArray(remote.boards) && remote.boards.length) { state.boards = remote.boards; state.active = remote.boards[0].id; }
     }
@@ -115,20 +120,20 @@
     if (!state.boards.length) state.boards = starterBoards();
     state.active = state.boards.some(b => b.id === state.active) ? state.active : state.boards[0].id;
     importShared();
-    if (DEMO) { $("#app").classList.remove("hidden"); loadData(); return; }
-    if (!CFG.GOOGLE_CLIENT_ID) { $("#gate").classList.remove("hidden"); $("#gateMsg").textContent = "Sign-in isn't set up: add GOOGLE_CLIENT_ID to config.js."; return; }
+    $("#gateText").textContent = `This page is limited to ${(CFG.PRINCIPAL_EMAILS || []).join(", ") || "the principal"}. Sign in with that Google account.`;
+    if (!CFG.GOOGLE_CLIENT_ID || !CFG.SCRIPT_URL) { $("#gate").classList.remove("hidden"); $("#gateMsg").textContent = "Sign-in isn't set up: add GOOGLE_CLIENT_ID and SCRIPT_URL to config.js."; return; }
     if (idToken) { $("#app").classList.remove("hidden"); loadData().catch(err => signOut(err.message || String(err))); return; }
     $("#gate").classList.remove("hidden");
     const pending = sessionStorage.getItem("ppc_signin_msg"); if (pending) { $("#gateMsg").textContent = pending; sessionStorage.removeItem("ppc_signin_msg"); }
     const s = document.createElement("script"); s.src = "https://accounts.google.com/gsi/client"; s.async = true;
     s.onload = () => {
-      google.accounts.id.initialize({ client_id: CFG.GOOGLE_CLIENT_ID, hd: CFG.ALLOWED_DOMAIN || undefined, auto_select: false, ux_mode: "popup", callback: resp => {
+      google.accounts.id.initialize({ client_id: CFG.GOOGLE_CLIENT_ID, auto_select: false, ux_mode: "popup", callback: resp => {
         idToken = resp.credential; sessionStorage.setItem("ppc_id_token", idToken);
         $("#gate").classList.add("hidden"); $("#app").classList.remove("hidden"); loadData().catch(err => signOut(err.message || String(err)));
       } });
       google.accounts.id.renderButton($("#gsiBtn"), { theme: "outline", size: "large", text: "signin_with", shape: "pill", width: 280 });
     };
-    s.onerror = () => { $("#gateMsg").textContent = "Couldn't load Google sign-in. Check the network and try again."; };
+    s.onerror = () => { const m = $("#gateMsg"); m.textContent = (m.textContent ? m.textContent + " " : "") + "Couldn't load Google sign-in. Check the network and try again."; };
     document.head.appendChild(s);
   }
   function signOut(msg) { idToken = ""; sessionStorage.removeItem("ppc_id_token"); if (msg) sessionStorage.setItem("ppc_signin_msg", msg); location.reload(); }

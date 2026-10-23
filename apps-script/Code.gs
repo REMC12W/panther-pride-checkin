@@ -40,6 +40,10 @@ const ROSTER_SHEET_GID = 1679508098;
 // check-in data). Put that spreadsheet's ID here; leave empty to use the tab above.
 const ROSTER_SPREADSHEET_ID = '';
 
+// Who may open the principal dashboard (principal.html). Only these exact accounts, checked on
+// every request. They must also pass the dashboard sign-in above (ALLOWED_DOMAIN or ADMIN_EMAILS).
+const PRINCIPAL_EMAILS = ['jeremy.andrick@parchmentschools.org', 'ben.tomlinson@kresa.org'];
+
 // Must match KIOSK_TOKEN in the app's config.js. Check-ins without it are rejected.
 // Leave empty to accept any POST (not recommended once the app is live).
 const KIOSK_TOKEN = '7b4a5c379eb19ea01f851fea';
@@ -65,6 +69,8 @@ function doPost(e) {
   try {
     const data = JSON.parse(e.postData.contents);
     if (data.type === 'dashboard') return json_(dashboard_(data));
+    if (data.type === 'principalAuth') return json_({ ok: true, email: principal_(data) });
+    if (data.type === 'principalData') return json_(principalData_(data));
     if (data.type === 'boardLoad') return json_(boardLoad_(data));
     if (data.type === 'boardSave') return json_(boardSave_(data));
     if (data.type === 'review') return json_(review_(data));
@@ -335,7 +341,9 @@ function verifyIdToken_(idToken, forKiosk) {
   if (String(info.email_verified) !== 'true') throw new Error('This Google account is not verified.');
   const email = String(info.email || '').toLowerCase();
   if (forKiosk) {
-    if (!kioskAllowed_(email, info.hd)) throw new Error(email + ' can\'t sign in this iPad. Use a @' + KIOSK_DOMAIN + ' staff account.');
+    // Must be a real Workspace account on KIOSK_DOMAIN: Google sets hd only for those. A personal
+    // Google account that merely uses an @parchmentschools.org address has no hd and is refused.
+    if (!info.hd || !kioskAllowed_(email, info.hd)) throw new Error(email + ' can\'t sign in this iPad. Use a @' + KIOSK_DOMAIN + ' staff account.');
     return email;
   }
   if (!isAdmin_(email, info.hd)) throw new Error(email + ' can\'t open the dashboard. Use a @' + ALLOWED_DOMAIN + ' staff account.');
@@ -374,7 +382,19 @@ function checkinRows_(days) {
   return rows;
 }
 
-// ---- Principal dashboard: saved boards, one row per signed-in person -----------
+// ---- Principal dashboard: allowlist, data, saved boards -----------------------
+
+/** Verifies the sign-in and checks PRINCIPAL_EMAILS. Returns the email. */
+function principal_(data) {
+  const email = verifyIdToken_(String(data.idToken || ''));
+  if (PRINCIPAL_EMAILS.map(x => String(x).toLowerCase()).indexOf(email) === -1) throw new Error(email + " can't open the principal dashboard. It is limited to: " + PRINCIPAL_EMAILS.join(', ') + '.');
+  return email;
+}
+/** principal.html POSTs { type: 'principalData', idToken, days }: the same data as the staff dashboard, for allowed accounts only. */
+function principalData_(data) {
+  principal_(data);
+  return dashboard_(data);
+}
 
 const BOARDS_NAME = 'Dashboards';
 function boardsSheet_() {
@@ -396,7 +416,7 @@ function boardRow_(sheet, email) {
 }
 /** principal.html POSTs { type: 'boardLoad', idToken } and gets back that person's boards. */
 function boardLoad_(data) {
-  const email = verifyIdToken_(String(data.idToken || ''));
+  const email = principal_(data);
   const sheet = boardsSheet_();
   const row = boardRow_(sheet, email);
   if (!row) return { ok: true, boards: [] };
@@ -406,7 +426,7 @@ function boardLoad_(data) {
 }
 /** principal.html POSTs { type: 'boardSave', idToken, boards }. */
 function boardSave_(data) {
-  const email = verifyIdToken_(String(data.idToken || ''));
+  const email = principal_(data);
   const json = JSON.stringify(Array.isArray(data.boards) ? data.boards : []);
   if (json.length > 400000) throw new Error('These boards are too large to save. Delete some tiles or boards.');
   const sheet = boardsSheet_();

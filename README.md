@@ -158,7 +158,7 @@ The sheet already exists: [Pride Center Check-Ins](https://docs.google.com/sprea
 
 1. In the Sheet, go to **Extensions → Apps Script**.
 2. Delete the sample code in `Code.gs` and paste in everything from `apps-script/Code.gs`.
-3. Dashboard access is `ALLOWED_DOMAIN` (any @parchmentschools.org Workspace account) plus the people in `ADMIN_EMAILS` (currently ben.tomlinson@kresa.org). Everyone else is refused. To lock it to named people only, list them in `ADMIN_EMAILS` and set `ALLOWED_DOMAIN` to `''`.
+3. Dashboard access is `ALLOWED_DOMAIN` (any @parchmentschools.org Workspace account) plus the people in `ADMIN_EMAILS` (currently the principal, jeremy.andrick@parchmentschools.org, plus ben.tomlinson@kresa.org for setup). Everyone else is refused. To lock it to named people only, list them in `ADMIN_EMAILS` and set `ALLOWED_DOMAIN` to `''`.
 4. `KIOSK_TOKEN` must match `config.js`. They already match in this repo.
 5. Click **Save**.
 
@@ -266,7 +266,9 @@ If the iPad isn't signed in or can't reach the script, there is no name list: th
 
 **Exports.** Every tile's menu has **Download numbers** (CSV of exactly what the chart shows) and **Copy as image** (paste into a slide or email).
 
-**Data and privacy.** With `PRINCIPAL_DEMO: true` in `config.js` (the default), the page shows made-up students for a whole school year and never touches the Sheet; boards save in the browser. With `PRINCIPAL_DEMO: false`, the page asks for the same Google sign-in as the staff page, loads the last year from the Sheet through the script, and saves each person's boards to a **Dashboards** tab in the Sheet (one row per signed-in email), so boards follow them to any device. Switching to live needs the current `Code.gs` deployed (it adds the `boardLoad` and `boardSave` routes and the grade on each check-in).
+**Who can open it.** Only the accounts in `PRINCIPAL_EMAILS` in `Code.gs` (currently the principal, jeremy.andrick@parchmentschools.org, plus ben.tomlinson@kresa.org for setup). The page asks for Google sign-in even in demo mode, and the script checks the account on every request, so the list can't be bypassed from the browser. The copy in `config.js` only labels the sign-in page.
+
+**Data and privacy.** With `PRINCIPAL_DEMO: true` in `config.js` (the default), the page shows made-up students for a whole school year and never reads the Sheet; boards save in the browser. With `PRINCIPAL_DEMO: false`, the page asks for the same Google sign-in as the staff page, loads the last year from the Sheet through the script, and saves each person's boards to a **Dashboards** tab in the Sheet (one row per signed-in email), so boards follow them to any device. Switching to live needs the current `Code.gs` deployed (it adds the `boardLoad` and `boardSave` routes and the grade on each check-in).
 
 ## Trial feedback portal
 

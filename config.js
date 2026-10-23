@@ -132,4 +132,7 @@ window.PPC_CONFIG = {
   // Principal dashboard (principal.html). true = made-up demo students, nothing from the Sheet.
   // Set to false to use the live Sheet (needs the Google sign-in above and the current Code.gs).
   PRINCIPAL_DEMO: true,
+  // Who may open the principal dashboard. The script enforces PRINCIPAL_EMAILS in Code.gs;
+  // this copy only labels the sign-in page. Sign-in is required even in demo mode.
+  PRINCIPAL_EMAILS: ["jeremy.andrick@parchmentschools.org", "ben.tomlinson@kresa.org"],
 };
