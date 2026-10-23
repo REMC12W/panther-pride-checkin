@@ -40,6 +40,14 @@ const ROSTER_SHEET_GID = 1679508098;
 // check-in data). Put that spreadsheet's ID here; leave empty to use the tab above.
 const ROSTER_SPREADSHEET_ID = '';
 
+// Principal dashboard owners. They can always open both dashboards and manage the Access list.
+const PRINCIPAL_EMAILS = ['jeremy.andrick@parchmentschools.org', 'ben.tomlinson@kresa.org'];
+// Everyone else is on the Access tab, managed from principal.html ("People & access").
+// Until the principal saves that list for the first time (the tab doesn't exist yet), the staff
+// dashboard keeps the old rule: any ALLOWED_DOMAIN Workspace account. After that, only listed people.
+const ACCESS_NAME = 'Access';
+const ACCESS_HEADERS = ['Email', 'Staff dashboard', 'Principal dashboard', 'Updated by', 'Updated'];
+
 // Must match KIOSK_TOKEN in the app's config.js. Check-ins without it are rejected.
 // Leave empty to accept any POST (not recommended once the app is live).
 const KIOSK_TOKEN = '7b4a5c379eb19ea01f851fea';
@@ -64,7 +72,14 @@ const COL_CHECKOUT_TIME = 17;
 function doPost(e) {
   try {
     const data = JSON.parse(e.postData.contents);
+    if (data.type === 'whoami') return json_(whoami_(data));
     if (data.type === 'dashboard') return json_(dashboard_(data));
+    if (data.type === 'principalAuth') return json_({ ok: true, email: principal_(data), owner: isOwner_(principal_(data)) });
+    if (data.type === 'accessList') return json_(accessList_(data));
+    if (data.type === 'accessSave') return json_(accessSave_(data));
+    if (data.type === 'principalData') return json_(principalData_(data));
+    if (data.type === 'boardLoad') return json_(boardLoad_(data));
+    if (data.type === 'boardSave') return json_(boardSave_(data));
     if (data.type === 'review') return json_(review_(data));
     if (data.type === 'staffCheckout') return json_(staffCheckout_(data));
     if (data.type === 'confirmVisit') return json_(confirmVisit_(data));
@@ -321,6 +336,30 @@ function review_(data) {
  * Verifies a Google ID token from "Sign in with Google" and returns the email.
  * Throws with a message staff.html shows on the sign-in page.
  */
+/** Checks a Google ID token is genuine, for this app, current, and verified. Returns { email, hd }. No role check. */
+function tokenInfo_(idToken) {
+  if (!GOOGLE_CLIENT_ID) throw new Error('Sign-in is not set up: GOOGLE_CLIENT_ID is empty in Code.gs.');
+  if (!idToken) throw new Error('Please sign in.');
+  const res = UrlFetchApp.fetch('https://oauth2.googleapis.com/tokeninfo?id_token=' + encodeURIComponent(idToken), { muteHttpExceptions: true });
+  if (res.getResponseCode() !== 200) throw new Error('Your sign-in expired. Please sign in again.');
+  const info = JSON.parse(res.getContentText());
+  if (info.aud !== GOOGLE_CLIENT_ID) throw new Error('Sign-in token was issued for a different app.');
+  if (info.iss !== 'https://accounts.google.com' && info.iss !== 'accounts.google.com') throw new Error('Sign-in token is not from Google.');
+  if (Number(info.exp) * 1000 < Date.now()) throw new Error('Your sign-in expired. Please sign in again.');
+  if (String(info.email_verified) !== 'true') throw new Error('This Google account is not verified.');
+  return { email: String(info.email || '').toLowerCase(), hd: info.hd };
+}
+
+/** login.html POSTs { type: 'whoami', idToken }: which pages this person may open. Never throws for a valid sign-in. */
+function whoami_(data) {
+  const t = tokenInfo_(String(data.idToken || ''));
+  const staff = isAdmin_(t.email, t.hd);
+  const access = accessMap_() || {};
+  const principal = staff && (isOwner_(t.email) || !!(access[t.email] && access[t.email].principal));
+  const kiosk = !!t.hd && kioskAllowed_(t.email, t.hd);
+  return { ok: true, email: t.email, staff, principal, kiosk, listStarted: !!accessMap_() };
+}
+
 function verifyIdToken_(idToken, forKiosk) {
   if (!GOOGLE_CLIENT_ID) throw new Error('Sign-in is not set up: GOOGLE_CLIENT_ID is empty in Code.gs.');
   if (!idToken) throw new Error('Please sign in.');
@@ -333,10 +372,12 @@ function verifyIdToken_(idToken, forKiosk) {
   if (String(info.email_verified) !== 'true') throw new Error('This Google account is not verified.');
   const email = String(info.email || '').toLowerCase();
   if (forKiosk) {
-    if (!kioskAllowed_(email, info.hd)) throw new Error(email + ' can\'t sign in this iPad. Use a @' + KIOSK_DOMAIN + ' staff account.');
+    // Must be a real Workspace account on KIOSK_DOMAIN: Google sets hd only for those. A personal
+    // Google account that merely uses an @parchmentschools.org address has no hd and is refused.
+    if (!info.hd || !kioskAllowed_(email, info.hd)) throw new Error(email + ' can\'t sign in this iPad. Use a @' + KIOSK_DOMAIN + ' staff account.');
     return email;
   }
-  if (!isAdmin_(email, info.hd)) throw new Error(email + ' can\'t open the dashboard. Use a @' + ALLOWED_DOMAIN + ' staff account.');
+  if (!isAdmin_(email, info.hd)) throw new Error(email + (accessMap_() ? ' can\'t open the dashboard. Ask the principal to add you under People & access.' : ' can\'t open the dashboard. Use a @' + ALLOWED_DOMAIN + ' staff account.'));
   return email;
 }
 
@@ -344,6 +385,14 @@ function isAdmin_(email, hd) {
   email = String(email || '').toLowerCase();
   if (!email) return false;
   if (ADMIN_EMAILS.map(x => String(x).toLowerCase()).indexOf(email) !== -1) return true;
+  if (isOwner_(email)) return true;
+  const access = accessMap_();
+  if (access) {
+    // The principal's list decides. Listed people must sign in with a Workspace account on their own
+    // email's domain (Google sets hd), so a personal Google account using that address is refused.
+    const workspace = !!hd && email.endsWith('@' + String(hd).toLowerCase());
+    return workspace && !!(access[email] && (access[email].staff || access[email].principal));
+  }
   const domain = String(ALLOWED_DOMAIN || '').toLowerCase();
   // Domain accounts must be real Workspace accounts on that domain (hd claim), not just a matching address.
   return !!domain && email.endsWith('@' + domain) && String(hd || '').toLowerCase() === domain;
@@ -353,6 +402,7 @@ function isAdmin_(email, hd) {
 function checkinRows_(days) {
   const cutoff = new Date(Date.now() - days * 86400000);
   const values = getSheet_().getDataRange().getValues();
+  let roster = {}; try { roster = rosterMap_(); } catch (err) {} // grade per student, for the principal dashboard
   const rows = [];
   for (let i = 1; i < values.length; i++) {
     const r = values[i];
@@ -364,10 +414,116 @@ function checkinRows_(days) {
       stationSuggested: r[14], station: r[15],
       checkoutTime: r[16] instanceof Date ? r[16].toISOString() : '',
       minutes: r[17] === '' ? '' : Number(r[17]),
-      outEnergy: r[18], outMoodGroup: r[19], outMoodWord: r[20], helped: r[21], checkedOutBy: r[22] || '', studentId: String(r[23] || ''), confirmed: String(r[24] || '')
+      outEnergy: r[18], outMoodGroup: r[19], outMoodWord: r[20], helped: r[21], checkedOutBy: r[22] || '', studentId: String(r[23] || ''), confirmed: String(r[24] || ''),
+      grade: roster[String(r[23] || '')] ? gradeLabel_(roster[String(r[23] || '')].grade) : ''
     });
   }
   return rows;
+}
+
+// ---- Principal dashboard: allowlist, data, saved boards -----------------------
+
+function isOwner_(email) { return PRINCIPAL_EMAILS.map(x => String(x).toLowerCase()).indexOf(String(email || '').toLowerCase()) !== -1; }
+
+/** Verifies the sign-in and checks principal access (owners, or Principal dashboard on the Access tab). Returns the email. */
+function principal_(data) {
+  const email = verifyIdToken_(String(data.idToken || ''));
+  const access = accessMap_() || {};
+  if (!isOwner_(email) && !(access[email] && access[email].principal)) throw new Error(email + " can't open the principal dashboard. Ask the principal to add you under People & access.");
+  return email;
+}
+
+/** The Access tab as { email: { staff, principal } }, or null if the principal hasn't saved a list yet. */
+function accessMap_() {
+  const sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName(ACCESS_NAME);
+  if (!sheet) return null;
+  const map = {};
+  const yes = v => v === true || /^(yes|true|x|✓)$/i.test(String(v).trim());
+  sheet.getDataRange().getValues().slice(1).forEach(r => {
+    const e = String(r[0] || '').trim().toLowerCase();
+    if (e) map[e] = { staff: yes(r[1]), principal: yes(r[2]), by: String(r[3] || ''), at: r[4] instanceof Date ? r[4].toISOString() : String(r[4] || '') };
+  });
+  return map;
+}
+/** principal.html POSTs { type: 'accessList', idToken }. */
+function accessList_(data) {
+  principal_(data);
+  const map = accessMap_();
+  return { ok: true, started: !!map, owners: PRINCIPAL_EMAILS, admins: ADMIN_EMAILS, domain: ALLOWED_DOMAIN,
+    people: Object.keys(map || {}).sort().map(e => Object.assign({ email: e }, map[e])) };
+}
+/** principal.html POSTs { type: 'accessSave', idToken, people: [{ email, staff, principal }] }. Replaces the list. */
+function accessSave_(data) {
+  const who = principal_(data);
+  const seen = {}, rows = [];
+  (Array.isArray(data.people) ? data.people : []).forEach(p => {
+    const e = String(p && p.email || '').trim().toLowerCase();
+    if (!e || seen[e]) return;
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(e)) throw new Error('"' + e + '" is not an email address.');
+    if (!p.staff && !p.principal) return; // no access at all = not on the list
+    seen[e] = true;
+    rows.push([e, p.staff ? 'Yes' : '', p.principal ? 'Yes' : '', who, new Date()]);
+  });
+  if (rows.length > 500) throw new Error('The list is limited to 500 people.');
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  let sheet = ss.getSheetByName(ACCESS_NAME);
+  if (!sheet) {
+    sheet = ss.insertSheet(ACCESS_NAME);
+    sheet.getRange(1, 1, 1, ACCESS_HEADERS.length).setValues([ACCESS_HEADERS]).setFontWeight('bold').setBackground('#d61f26').setFontColor('#ffffff');
+    sheet.setFrozenRows(1); sheet.setColumnWidth(1, 280);
+  }
+  if (sheet.getLastRow() > 1) sheet.getRange(2, 1, sheet.getLastRow() - 1, ACCESS_HEADERS.length).clearContent();
+  if (rows.length) sheet.getRange(2, 1, rows.length, ACCESS_HEADERS.length).setValues(rows);
+  return { ok: true, saved: rows.length };
+}
+/** principal.html POSTs { type: 'principalData', idToken, days }: the same data as the staff dashboard, for allowed accounts only. */
+function principalData_(data) {
+  principal_(data);
+  return dashboard_(data);
+}
+
+const BOARDS_NAME = 'Dashboards';
+function boardsSheet_() {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  let sheet = ss.getSheetByName(BOARDS_NAME);
+  if (!sheet) {
+    sheet = ss.insertSheet(BOARDS_NAME);
+    sheet.appendRow(['Email', 'Updated', 'Boards (JSON, do not edit)']);
+    sheet.getRange(1, 1, 1, 3).setFontWeight('bold').setBackground('#d61f26').setFontColor('#ffffff');
+    sheet.setFrozenRows(1);
+    sheet.setColumnWidth(3, 500);
+  }
+  return sheet;
+}
+function boardRow_(sheet, email) {
+  const vals = sheet.getRange(1, 1, Math.max(1, sheet.getLastRow()), 1).getValues();
+  for (let i = 1; i < vals.length; i++) if (String(vals[i][0]).toLowerCase() === email) return i + 1;
+  return 0;
+}
+/** principal.html POSTs { type: 'boardLoad', idToken } and gets back that person's boards. */
+function boardLoad_(data) {
+  const email = principal_(data);
+  const sheet = boardsSheet_();
+  const row = boardRow_(sheet, email);
+  if (!row) return { ok: true, boards: [] };
+  // Long layouts are split across cells C, D, E… (a cell holds 50,000 characters).
+  const cells = sheet.getRange(row, 3, 1, Math.max(1, sheet.getLastColumn() - 2)).getValues()[0];
+  try { return { ok: true, boards: JSON.parse(cells.join('')) || [] }; } catch (err) { return { ok: true, boards: [] }; }
+}
+/** principal.html POSTs { type: 'boardSave', idToken, boards }. */
+function boardSave_(data) {
+  const email = principal_(data);
+  const json = JSON.stringify(Array.isArray(data.boards) ? data.boards : []);
+  if (json.length > 400000) throw new Error('These boards are too large to save. Delete some tiles or boards.');
+  const sheet = boardsSheet_();
+  let row = boardRow_(sheet, email);
+  if (!row) { sheet.appendRow([email, new Date(), '']); row = sheet.getLastRow(); }
+  const parts = json.match(/[\s\S]{1,45000}/g) || [''];
+  const width = Math.max(parts.length, sheet.getLastColumn() - 2, 1);
+  const vals = parts.concat(new Array(width - parts.length).fill(''));
+  sheet.getRange(row, 2).setValue(new Date());
+  sheet.getRange(row, 3, 1, width).setValues([vals]);
+  return { ok: true, saved: new Date().toISOString() };
 }
 
 /** Opening the script URL in a browser: a plain page, no data. */

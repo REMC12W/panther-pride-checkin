@@ -1,0 +1,1 @@
+Vega, Vega-Lite and Vega-Embed are BSD-3-Clause licensed, (c) University of Washington Interactive Data Lab. https://github.com/vega

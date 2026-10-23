@@ -552,6 +552,8 @@
       return;
     }
     if (idToken) { openDash(); load(); return; }
+    // One sign-in page for everyone: it sends people back here if they have staff access.
+    if (CFG.SCRIPT_URL) { location.replace("login.html?next=staff"); return; }
     const s = document.createElement("script");
     s.src = "https://accounts.google.com/gsi/client"; s.async = true;
     s.onload = () => {
@@ -575,7 +577,7 @@
   function signOut(msg) {
     idToken = ""; sessionStorage.removeItem("ppc_id_token");
     if (msg) sessionStorage.setItem("ppc_signin_msg", msg);
-    location.reload();
+    location.replace(CFG.SCRIPT_URL ? "login.html?next=staff" : location.href);
   }
   function openDash() {
     $("#gate").classList.add("hidden");

@@ -128,4 +128,11 @@ window.PPC_CONFIG = {
 
   // How many days of check-ins the staff dashboard loads.
   DASHBOARD_DAYS: 14,
+
+  // Principal dashboard (principal.html). true = made-up demo students, nothing from the Sheet.
+  // Set to false to use the live Sheet (needs the Google sign-in above and the current Code.gs).
+  PRINCIPAL_DEMO: false,
+  // Principal dashboard owners (PRINCIPAL_EMAILS in Code.gs). Others are added by the principal
+  // under "People & access". The script enforces both; this copy only labels the sign-in page.
+  PRINCIPAL_EMAILS: ["jeremy.andrick@parchmentschools.org", "ben.tomlinson@kresa.org"],
 };
