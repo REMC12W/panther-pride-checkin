@@ -395,6 +395,55 @@
     history.replaceState(null, "", location.pathname);
   }
 
+  // ---------- People & access ----------
+  // The list lives on the Access tab in the Sheet; the script enforces it on every request.
+  let acc = null;
+  async function openAccess() {
+    $("#accErr").textContent = ""; $("#accRows").innerHTML = `<tr><td colspan="4" class="empty">Loading…</td></tr>`; $("#accessDlg").showModal();
+    try {
+      const d = await post({ type: "accessList" });
+      if (!d.ok) throw new Error(/Bad token|Unknown request/.test(d.error || "") ? "The script in the Sheet needs the new Code.gs deployed first." : d.error);
+      acc = d; renderAccess();
+    } catch (err) { $("#accRows").innerHTML = ""; $("#accErr").textContent = "Couldn't load the list: " + (err.message || err); }
+  }
+  function renderAccess() {
+    const owners = (acc.owners || []).map(e => e.toLowerCase());
+    $("#accIntro").innerHTML = (acc.started
+      ? `Only the people below can open the staff dashboard or this page. Changes apply on their next page load.`
+      : `<b>Right now any @${esc(acc.domain || "district")} staff account can open the staff dashboard.</b> Saving this list limits it to the people below.`)
+      + ` Each person signs in with their school Google account.`;
+    const fixed = owners.map(e => `<tr><td>${esc(e)}</td><td class="c">✓</td><td class="c">✓</td><td class="fixed">Owner</td></tr>`).join("");
+    $("#accRows").innerHTML = fixed + acc.people.filter(p => !owners.includes(p.email)).map((p, i) => `<tr data-i="${i}"><td>${esc(p.email)}</td>
+      <td class="c"><input type="checkbox" data-k="staff" ${p.staff ? "checked" : ""} aria-label="Staff dashboard for ${esc(p.email)}"></td>
+      <td class="c"><input type="checkbox" data-k="principal" ${p.principal ? "checked" : ""} aria-label="Principal dashboard for ${esc(p.email)}"></td>
+      <td><button type="button" class="btn sm" data-rm="${i}">Remove</button></td></tr>`).join("");
+    const list = acc.people.filter(p => !owners.includes(p.email));
+    $("#accRows").querySelectorAll("input[data-k]").forEach(cb => cb.addEventListener("change", () => { list[Number(cb.closest("tr").dataset.i)][cb.dataset.k] = cb.checked; }));
+    $("#accRows").querySelectorAll("[data-rm]").forEach(b => b.addEventListener("click", () => { const p = list[Number(b.dataset.rm)]; acc.people = acc.people.filter(x => x !== p); renderAccess(); }));
+  }
+  $("#accessBtn").addEventListener("click", openAccess);
+  $("#accClose").addEventListener("click", () => $("#accessDlg").close());
+  const addPerson = () => {
+    const e = $("#accEmail").value.trim().toLowerCase();
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(e)) { $("#accErr").textContent = "Type a full email address."; return; }
+    if (acc.people.some(p => p.email === e) || (acc.owners || []).map(x => x.toLowerCase()).includes(e)) { $("#accErr").textContent = e + " is already on the list."; return; }
+    acc.people.push({ email: e, staff: true, principal: false }); $("#accEmail").value = ""; $("#accErr").textContent = ""; renderAccess();
+  };
+  $("#accAdd").addEventListener("click", addPerson);
+  $("#accEmail").addEventListener("keydown", e => { if (e.key === "Enter") { e.preventDefault(); addPerson(); } });
+  $("#accSave").addEventListener("click", async () => {
+    const owners = (acc.owners || []).map(e => e.toLowerCase());
+    const people = acc.people.filter(p => !owners.includes(p.email));
+    if (!acc.started && !confirm(`After saving, only the ${people.filter(p => p.staff || p.principal).length + owners.length} people on this list can open the staff dashboard. Pride Center staff who aren't listed will be locked out. Save?`)) return;
+    $("#accSave").disabled = true; $("#accSave").textContent = "Saving…";
+    try {
+      const d = await post({ type: "accessSave", people });
+      if (!d.ok) throw new Error(d.error);
+      $("#accessDlg").close(); toast(`Access list saved: ${d.saved} ${d.saved === 1 ? "person" : "people"} plus the owners.`);
+    } catch (err) { $("#accErr").textContent = "Couldn't save: " + (err.message || err); }
+    finally { $("#accSave").disabled = false; $("#accSave").textContent = "Save list"; }
+  });
+
   // ---------- Exports ----------
   function download(name, text, type) { const a = document.createElement("a"); a.href = URL.createObjectURL(new Blob([text], { type })); a.download = name; a.click(); setTimeout(() => URL.revokeObjectURL(a.href), 1000); }
   async function copyImage(t) {

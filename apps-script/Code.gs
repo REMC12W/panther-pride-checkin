@@ -40,9 +40,13 @@ const ROSTER_SHEET_GID = 1679508098;
 // check-in data). Put that spreadsheet's ID here; leave empty to use the tab above.
 const ROSTER_SPREADSHEET_ID = '';
 
-// Who may open the principal dashboard (principal.html). Only these exact accounts, checked on
-// every request. They must also pass the dashboard sign-in above (ALLOWED_DOMAIN or ADMIN_EMAILS).
+// Principal dashboard owners. They can always open both dashboards and manage the Access list.
 const PRINCIPAL_EMAILS = ['jeremy.andrick@parchmentschools.org', 'ben.tomlinson@kresa.org'];
+// Everyone else is on the Access tab, managed from principal.html ("People & access").
+// Until the principal saves that list for the first time (the tab doesn't exist yet), the staff
+// dashboard keeps the old rule: any ALLOWED_DOMAIN Workspace account. After that, only listed people.
+const ACCESS_NAME = 'Access';
+const ACCESS_HEADERS = ['Email', 'Staff dashboard', 'Principal dashboard', 'Updated by', 'Updated'];
 
 // Must match KIOSK_TOKEN in the app's config.js. Check-ins without it are rejected.
 // Leave empty to accept any POST (not recommended once the app is live).
@@ -69,7 +73,9 @@ function doPost(e) {
   try {
     const data = JSON.parse(e.postData.contents);
     if (data.type === 'dashboard') return json_(dashboard_(data));
-    if (data.type === 'principalAuth') return json_({ ok: true, email: principal_(data) });
+    if (data.type === 'principalAuth') return json_({ ok: true, email: principal_(data), owner: isOwner_(principal_(data)) });
+    if (data.type === 'accessList') return json_(accessList_(data));
+    if (data.type === 'accessSave') return json_(accessSave_(data));
     if (data.type === 'principalData') return json_(principalData_(data));
     if (data.type === 'boardLoad') return json_(boardLoad_(data));
     if (data.type === 'boardSave') return json_(boardSave_(data));
@@ -346,7 +352,7 @@ function verifyIdToken_(idToken, forKiosk) {
     if (!info.hd || !kioskAllowed_(email, info.hd)) throw new Error(email + ' can\'t sign in this iPad. Use a @' + KIOSK_DOMAIN + ' staff account.');
     return email;
   }
-  if (!isAdmin_(email, info.hd)) throw new Error(email + ' can\'t open the dashboard. Use a @' + ALLOWED_DOMAIN + ' staff account.');
+  if (!isAdmin_(email, info.hd)) throw new Error(email + (accessMap_() ? ' can\'t open the dashboard. Ask the principal to add you under People & access.' : ' can\'t open the dashboard. Use a @' + ALLOWED_DOMAIN + ' staff account.'));
   return email;
 }
 
@@ -354,6 +360,14 @@ function isAdmin_(email, hd) {
   email = String(email || '').toLowerCase();
   if (!email) return false;
   if (ADMIN_EMAILS.map(x => String(x).toLowerCase()).indexOf(email) !== -1) return true;
+  if (isOwner_(email)) return true;
+  const access = accessMap_();
+  if (access) {
+    // The principal's list decides. Listed people must sign in with a Workspace account on their own
+    // email's domain (Google sets hd), so a personal Google account using that address is refused.
+    const workspace = !!hd && email.endsWith('@' + String(hd).toLowerCase());
+    return workspace && !!(access[email] && (access[email].staff || access[email].principal));
+  }
   const domain = String(ALLOWED_DOMAIN || '').toLowerCase();
   // Domain accounts must be real Workspace accounts on that domain (hd claim), not just a matching address.
   return !!domain && email.endsWith('@' + domain) && String(hd || '').toLowerCase() === domain;
@@ -384,11 +398,58 @@ function checkinRows_(days) {
 
 // ---- Principal dashboard: allowlist, data, saved boards -----------------------
 
-/** Verifies the sign-in and checks PRINCIPAL_EMAILS. Returns the email. */
+function isOwner_(email) { return PRINCIPAL_EMAILS.map(x => String(x).toLowerCase()).indexOf(String(email || '').toLowerCase()) !== -1; }
+
+/** Verifies the sign-in and checks principal access (owners, or Principal dashboard on the Access tab). Returns the email. */
 function principal_(data) {
   const email = verifyIdToken_(String(data.idToken || ''));
-  if (PRINCIPAL_EMAILS.map(x => String(x).toLowerCase()).indexOf(email) === -1) throw new Error(email + " can't open the principal dashboard. It is limited to: " + PRINCIPAL_EMAILS.join(', ') + '.');
+  const access = accessMap_() || {};
+  if (!isOwner_(email) && !(access[email] && access[email].principal)) throw new Error(email + " can't open the principal dashboard. Ask the principal to add you under People & access.");
   return email;
+}
+
+/** The Access tab as { email: { staff, principal } }, or null if the principal hasn't saved a list yet. */
+function accessMap_() {
+  const sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName(ACCESS_NAME);
+  if (!sheet) return null;
+  const map = {};
+  const yes = v => v === true || /^(yes|true|x|✓)$/i.test(String(v).trim());
+  sheet.getDataRange().getValues().slice(1).forEach(r => {
+    const e = String(r[0] || '').trim().toLowerCase();
+    if (e) map[e] = { staff: yes(r[1]), principal: yes(r[2]), by: String(r[3] || ''), at: r[4] instanceof Date ? r[4].toISOString() : String(r[4] || '') };
+  });
+  return map;
+}
+/** principal.html POSTs { type: 'accessList', idToken }. */
+function accessList_(data) {
+  principal_(data);
+  const map = accessMap_();
+  return { ok: true, started: !!map, owners: PRINCIPAL_EMAILS, admins: ADMIN_EMAILS, domain: ALLOWED_DOMAIN,
+    people: Object.keys(map || {}).sort().map(e => Object.assign({ email: e }, map[e])) };
+}
+/** principal.html POSTs { type: 'accessSave', idToken, people: [{ email, staff, principal }] }. Replaces the list. */
+function accessSave_(data) {
+  const who = principal_(data);
+  const seen = {}, rows = [];
+  (Array.isArray(data.people) ? data.people : []).forEach(p => {
+    const e = String(p && p.email || '').trim().toLowerCase();
+    if (!e || seen[e]) return;
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(e)) throw new Error('"' + e + '" is not an email address.');
+    if (!p.staff && !p.principal) return; // no access at all = not on the list
+    seen[e] = true;
+    rows.push([e, p.staff ? 'Yes' : '', p.principal ? 'Yes' : '', who, new Date()]);
+  });
+  if (rows.length > 500) throw new Error('The list is limited to 500 people.');
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  let sheet = ss.getSheetByName(ACCESS_NAME);
+  if (!sheet) {
+    sheet = ss.insertSheet(ACCESS_NAME);
+    sheet.getRange(1, 1, 1, ACCESS_HEADERS.length).setValues([ACCESS_HEADERS]).setFontWeight('bold').setBackground('#d61f26').setFontColor('#ffffff');
+    sheet.setFrozenRows(1); sheet.setColumnWidth(1, 280);
+  }
+  if (sheet.getLastRow() > 1) sheet.getRange(2, 1, sheet.getLastRow() - 1, ACCESS_HEADERS.length).clearContent();
+  if (rows.length) sheet.getRange(2, 1, rows.length, ACCESS_HEADERS.length).setValues(rows);
+  return { ok: true, saved: rows.length };
 }
 /** principal.html POSTs { type: 'principalData', idToken, days }: the same data as the staff dashboard, for allowed accounts only. */
 function principalData_(data) {
