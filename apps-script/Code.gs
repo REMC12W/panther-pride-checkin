@@ -65,6 +65,8 @@ function doPost(e) {
   try {
     const data = JSON.parse(e.postData.contents);
     if (data.type === 'dashboard') return json_(dashboard_(data));
+    if (data.type === 'boardLoad') return json_(boardLoad_(data));
+    if (data.type === 'boardSave') return json_(boardSave_(data));
     if (data.type === 'review') return json_(review_(data));
     if (data.type === 'staffCheckout') return json_(staffCheckout_(data));
     if (data.type === 'confirmVisit') return json_(confirmVisit_(data));
@@ -353,6 +355,7 @@ function isAdmin_(email, hd) {
 function checkinRows_(days) {
   const cutoff = new Date(Date.now() - days * 86400000);
   const values = getSheet_().getDataRange().getValues();
+  let roster = {}; try { roster = rosterMap_(); } catch (err) {} // grade per student, for the principal dashboard
   const rows = [];
   for (let i = 1; i < values.length; i++) {
     const r = values[i];
@@ -364,10 +367,57 @@ function checkinRows_(days) {
       stationSuggested: r[14], station: r[15],
       checkoutTime: r[16] instanceof Date ? r[16].toISOString() : '',
       minutes: r[17] === '' ? '' : Number(r[17]),
-      outEnergy: r[18], outMoodGroup: r[19], outMoodWord: r[20], helped: r[21], checkedOutBy: r[22] || '', studentId: String(r[23] || ''), confirmed: String(r[24] || '')
+      outEnergy: r[18], outMoodGroup: r[19], outMoodWord: r[20], helped: r[21], checkedOutBy: r[22] || '', studentId: String(r[23] || ''), confirmed: String(r[24] || ''),
+      grade: roster[String(r[23] || '')] ? gradeLabel_(roster[String(r[23] || '')].grade) : ''
     });
   }
   return rows;
+}
+
+// ---- Principal dashboard: saved boards, one row per signed-in person -----------
+
+const BOARDS_NAME = 'Dashboards';
+function boardsSheet_() {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  let sheet = ss.getSheetByName(BOARDS_NAME);
+  if (!sheet) {
+    sheet = ss.insertSheet(BOARDS_NAME);
+    sheet.appendRow(['Email', 'Updated', 'Boards (JSON, do not edit)']);
+    sheet.getRange(1, 1, 1, 3).setFontWeight('bold').setBackground('#d61f26').setFontColor('#ffffff');
+    sheet.setFrozenRows(1);
+    sheet.setColumnWidth(3, 500);
+  }
+  return sheet;
+}
+function boardRow_(sheet, email) {
+  const vals = sheet.getRange(1, 1, Math.max(1, sheet.getLastRow()), 1).getValues();
+  for (let i = 1; i < vals.length; i++) if (String(vals[i][0]).toLowerCase() === email) return i + 1;
+  return 0;
+}
+/** principal.html POSTs { type: 'boardLoad', idToken } and gets back that person's boards. */
+function boardLoad_(data) {
+  const email = verifyIdToken_(String(data.idToken || ''));
+  const sheet = boardsSheet_();
+  const row = boardRow_(sheet, email);
+  if (!row) return { ok: true, boards: [] };
+  // Long layouts are split across cells C, D, E… (a cell holds 50,000 characters).
+  const cells = sheet.getRange(row, 3, 1, Math.max(1, sheet.getLastColumn() - 2)).getValues()[0];
+  try { return { ok: true, boards: JSON.parse(cells.join('')) || [] }; } catch (err) { return { ok: true, boards: [] }; }
+}
+/** principal.html POSTs { type: 'boardSave', idToken, boards }. */
+function boardSave_(data) {
+  const email = verifyIdToken_(String(data.idToken || ''));
+  const json = JSON.stringify(Array.isArray(data.boards) ? data.boards : []);
+  if (json.length > 400000) throw new Error('These boards are too large to save. Delete some tiles or boards.');
+  const sheet = boardsSheet_();
+  let row = boardRow_(sheet, email);
+  if (!row) { sheet.appendRow([email, new Date(), '']); row = sheet.getLastRow(); }
+  const parts = json.match(/[\s\S]{1,45000}/g) || [''];
+  const width = Math.max(parts.length, sheet.getLastColumn() - 2, 1);
+  const vals = parts.concat(new Array(width - parts.length).fill(''));
+  sheet.getRange(row, 2).setValue(new Date());
+  sheet.getRange(row, 3, 1, width).setValues([vals]);
+  return { ok: true, saved: new Date().toISOString() };
 }
 
 /** Opening the script URL in a browser: a plain page, no data. */

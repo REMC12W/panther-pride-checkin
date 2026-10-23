@@ -15,6 +15,7 @@ A tap-through check-in kiosk for the Pride Center, rebuilt from the Google Slide
 | `config.js` | The only file you edit: script URLs, kiosk name, timers, basic-needs list. |
 | `apps-script/Code.gs` | Backend that lives inside the Google Sheet. Verifies dashboard sign-ins. |
 | `apps-script/appsscript.json` | Optional manifest (sets the Michigan time zone). |
+| `principal.html` | Principal dashboard: build-your-own boards of charts over the check-in data. Demo data until `PRINCIPAL_DEMO` is false. Uses `principal-data.js`, `principal-charts.js`, `principal-app.js`, and the Vega chart library in `assets/vendor/`. |
 | `feedback.html` | Trial feedback portal. Switch off with `FEEDBACK_ENABLED` in `config.js`. |
 | `sw.js` | Service worker. Lets the kiosk open with no Wi-Fi and keeps files fresh when online. |
 | `assets/` | Panther logo and app icons. |
@@ -252,6 +253,20 @@ Students don't scan a badge or type an ID. They start typing their name, and mat
 If the iPad isn't signed in or can't reach the script, there is no name list: the student types their first and last name, and staff confirm it on the dashboard.
 
 **Staff confirm.** On the dashboard, each student under "In the room now" has **✓ Confirm** and **Not them**. Confirm records "Confirmed · your email · time" in the Staff Confirmed column. Not them flags the visit in the Sheet, the visit log, and the Today timeline, and puts a "Check-in not by this student" item in Needs attention so someone fixes the name. Flagged visits are not deleted and still count in the charts until the name is corrected.
+
+## Principal dashboard
+
+`principal.html` is a report builder for school leaders. It opens with three starter boards (Overview, Incidents, Support) and every tile can be changed, moved, resized, copied, or deleted.
+
+**Tiles.** Each tile is a question: a **measure** (visits, unique students, minutes in room, % arriving red or blue, % leaving green or yellow, % who came in red/blue and left green/yellow, % alert words, incident reports, % followed up, days to follow-up, and more) **grouped by** something (week, day of week, hour, grade, reason, mood, station, what helped, student, incident type, place, period, status…), drawn as bars, horizontal bars, stacked or grouped bars, line, area, pie, donut, heatmap, calendar, scatter, table, a big number, or a flow from mood on arrival to mood at check-out. Every tile can **compare**: the previous period of the same length, groups side by side (for example grade 6 vs 7 vs 8), a second measure on the same chart, or one student against everyone. Tiles take their own filters (grade, how they came, reason, mood, station, place, period, status, day of week) and their own date range, or follow the board's.
+
+**Drill-down.** Tap any bar, slice, cell, table row, or big number to see the visits or reports behind it, with names. From a student's row, "Compare to everyone" adds a tile for that student.
+
+**Boards.** Tabs across the top. Each board has a grid layout (drag a tile by its ⠿ handle to move it, drag the corner to resize) or a list layout (arrows to reorder, half or full width). The board is **locked** by default so a finger scrolling an iPad never moves a tile; tap **Locked** to edit, then lock again. The Board menu renames, duplicates, prints (clean two-column layout for a PDF or packet), copies a **share link** that another leader can open to add the board to their own page, restores the starters, or deletes.
+
+**Exports.** Every tile's menu has **Download numbers** (CSV of exactly what the chart shows) and **Copy as image** (paste into a slide or email).
+
+**Data and privacy.** With `PRINCIPAL_DEMO: true` in `config.js` (the default), the page shows made-up students for a whole school year and never touches the Sheet; boards save in the browser. With `PRINCIPAL_DEMO: false`, the page asks for the same Google sign-in as the staff page, loads the last year from the Sheet through the script, and saves each person's boards to a **Dashboards** tab in the Sheet (one row per signed-in email), so boards follow them to any device. Switching to live needs the current `Code.gs` deployed (it adds the `boardLoad` and `boardSave` routes and the grade on each check-in).
 
 ## Trial feedback portal
 

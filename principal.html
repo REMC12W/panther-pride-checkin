@@ -1,0 +1,254 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Pride Center · Principal Dashboard</title>
+<link rel="icon" href="assets/icon-192.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --brand: #d61f26; --ink: #222; --ink-2: #555; --ink-3: #888; --line: #e4e4e4; --panel: #fff; --bg: #f4f4f6;
+    --m-red: #c1272d; --m-yellow: #eda232; --m-blue: #2b5090; --m-green: #4c9a47;
+    --radius: 14px; --shadow: 0 1px 3px rgba(0,0,0,0.08), 0 6px 18px rgba(0,0,0,0.05);
+    --cols: 12; --row: 68px;
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; background: var(--bg); color: var(--ink); font-family: "Fredoka", "Avenir Next", "Segoe UI", sans-serif; }
+  button, select, input, textarea { font: inherit; color: inherit; }
+  button { cursor: pointer; }
+  .hidden { display: none !important; }
+
+  /* Header */
+  header { position: sticky; top: 0; z-index: 20; background: var(--panel); border-bottom: 1px solid var(--line); padding: 10px 18px; display: flex; align-items: center; gap: 14px; flex-wrap: wrap; }
+  header img { height: 42px; }
+  header .title { font-weight: 700; color: var(--brand); font-size: 1.15rem; line-height: 1.1; }
+  header .title small { display: block; color: var(--ink-3); font-weight: 500; font-size: 0.8rem; }
+  .grow { flex: 1; }
+  .btn { border: 1px solid var(--line); background: var(--panel); border-radius: 999px; padding: 8px 14px; font-weight: 600; font-size: 0.9rem; display: inline-flex; align-items: center; gap: 6px; white-space: nowrap; }
+  .btn:hover { border-color: #bbb; }
+  .btn.primary { background: var(--brand); color: #fff; border-color: var(--brand); }
+  .btn.dark { background: #1f1f1e; color: #fff; border-color: #1f1f1e; }
+  .btn.sm { padding: 5px 10px; font-size: 0.82rem; }
+  .btn.on { background: #1f1f1e; color: #fff; border-color: #1f1f1e; }
+  select.ctl, input.ctl { border: 1px solid var(--line); border-radius: 10px; padding: 7px 10px; background: var(--panel); font-size: 0.9rem; }
+  .note { background: #fff8e1; color: #6b5200; border-bottom: 1px solid #f3e3a1; padding: 8px 18px; font-size: 0.9rem; }
+
+  /* Boards */
+  .tabs { display: flex; gap: 6px; padding: 12px 18px 0; flex-wrap: wrap; align-items: center; }
+  .tab { border: 1px solid var(--line); background: var(--panel); border-radius: 999px; padding: 8px 16px; font-weight: 600; }
+  .tab.on { background: var(--brand); color: #fff; border-color: var(--brand); }
+  .tab.add { color: var(--ink-2); border-style: dashed; }
+  .toolbar { display: flex; gap: 8px; padding: 10px 18px; flex-wrap: wrap; align-items: center; }
+  .toolbar .lbl { font-size: 0.85rem; color: var(--ink-3); }
+  .lock-hint { font-size: 0.82rem; color: var(--ink-3); }
+  .board { display: grid; grid-template-columns: repeat(var(--cols), minmax(0, 1fr)); grid-auto-rows: var(--row); grid-auto-flow: row dense; gap: 14px; padding: 4px 18px 60px; }
+  .board.list { display: flex; flex-direction: column; }
+  .board.list .tile { height: 380px; }
+  .board.list .tile.half { width: calc(50% - 7px); }
+  .board.list { flex-direction: row; flex-wrap: wrap; align-content: flex-start; }
+  .tile { background: var(--panel); border: 1px solid var(--line); border-radius: var(--radius); box-shadow: var(--shadow); display: flex; flex-direction: column; min-height: 0; position: relative; overflow: hidden; }
+  .tile.dragging { opacity: 0.4; }
+  .tile.over { outline: 3px dashed var(--brand); outline-offset: -3px; }
+  .tile .head { display: flex; align-items: center; gap: 8px; padding: 10px 12px 6px 14px; }
+  .tile .head h3 { margin: 0; font-size: 0.98rem; font-weight: 600; flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .tile .head .sub { display: block; color: var(--ink-3); font-weight: 500; font-size: 0.74rem; }
+  .tile .head .grip { color: #bbb; cursor: grab; display: none; font-size: 1.1rem; padding: 0 2px; user-select: none; touch-action: none; }
+  .board.unlocked:not(.list) .tile .head .grip { display: inline; }
+  .tile .head .menu { position: relative; }
+  .tile .head .menu button.kebab { border: 0; background: none; font-size: 1.2rem; line-height: 1; padding: 4px 8px; border-radius: 8px; color: var(--ink-2); }
+  .tile .head .menu button.kebab:hover { background: #f0f0f0; }
+  .tile .head .menu ul { position: absolute; right: 0; top: 100%; margin: 0; padding: 6px; list-style: none; background: var(--panel); border: 1px solid var(--line); border-radius: 12px; box-shadow: var(--shadow); z-index: 10; min-width: 190px; display: none; }
+  .tile .head .menu.open ul { display: block; }
+  .tile .head .menu li button { width: 100%; text-align: left; border: 0; background: none; padding: 8px 10px; border-radius: 8px; font-size: 0.9rem; }
+  .tile .head .menu li button:hover { background: #f3f3f3; }
+  .tile .body { flex: 1; min-height: 0; padding: 0 10px 10px; position: relative; }
+  .tile .body .vis { width: 100%; height: 100%; }
+  .tile .body .vis canvas, .tile .body .vis svg { max-width: 100%; }
+  .tile .empty { color: var(--ink-3); font-size: 0.9rem; padding: 20px; text-align: center; }
+  .tile .resize { position: absolute; right: 2px; bottom: 2px; width: 22px; height: 22px; cursor: nwse-resize; display: none; touch-action: none; }
+  .tile .resize::after { content: ""; position: absolute; right: 5px; bottom: 5px; width: 10px; height: 10px; border-right: 3px solid #bbb; border-bottom: 3px solid #bbb; border-radius: 2px; }
+  .board.unlocked:not(.list) .tile .resize { display: block; }
+  .tile .order { display: none; gap: 4px; }
+  .board.unlocked.list .tile .order { display: inline-flex; }
+  .tile .order button { border: 1px solid var(--line); background: var(--panel); border-radius: 8px; padding: 2px 8px; font-size: 0.85rem; }
+  .bignum { height: 100%; display: flex; flex-direction: column; justify-content: center; padding: 4px 8px; }
+  .bignum .v { font-size: clamp(2rem, 5vw, 3.4rem); font-weight: 700; line-height: 1; color: var(--ink); }
+  .bignum .l { color: var(--ink-2); font-weight: 500; margin-top: 6px; }
+  .bignum .delta { margin-top: 8px; font-weight: 600; color: var(--ink-3); }
+  .bignum .delta.up { color: #2f7d32; } .bignum .delta.down { color: var(--brand); }
+  .bignum .sub { color: var(--ink-3); font-size: 0.8rem; margin-top: 6px; }
+  .tile-table { width: 100%; border-collapse: collapse; font-size: 0.88rem; }
+  .tile-table th { text-align: left; color: var(--ink-3); font-weight: 600; font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.04em; padding: 6px 8px; border-bottom: 1px solid var(--line); position: sticky; top: 0; background: var(--panel); }
+  .tile-table td { padding: 6px 8px; border-bottom: 1px solid #f0f0f0; }
+  .tile-table td.num, .tile-table th:not(:first-child) { text-align: right; }
+  .tile-table tbody tr { cursor: pointer; } .tile-table tbody tr:hover { background: #fafafa; }
+  .tile .body.scroll { overflow: auto; }
+  .add-tile { border: 2px dashed #d8d8d8; border-radius: var(--radius); display: flex; align-items: center; justify-content: center; color: var(--ink-3); font-weight: 600; background: none; grid-column: span 3; min-height: calc(var(--row) * 2 + 14px); }
+  .add-tile:hover { border-color: var(--brand); color: var(--brand); }
+  .board.list .add-tile { width: calc(50% - 7px); height: 120px; }
+
+  /* Drawer */
+  .scrim { position: fixed; inset: 0; background: rgba(0,0,0,0.3); z-index: 30; display: none; }
+  .scrim.show { display: block; }
+  .drawer { position: fixed; top: 0; right: 0; bottom: 0; width: min(520px, 100vw); background: var(--panel); z-index: 31; transform: translateX(100%); transition: transform .2s; display: flex; flex-direction: column; box-shadow: -10px 0 30px rgba(0,0,0,0.15); }
+  .drawer.show { transform: none; }
+  .drawer .dh { padding: 14px 18px; border-bottom: 1px solid var(--line); display: flex; align-items: center; gap: 10px; }
+  .drawer .dh h2 { margin: 0; font-size: 1.05rem; flex: 1; }
+  .drawer .dh .sub { color: var(--ink-3); font-size: 0.85rem; font-weight: 500; display: block; }
+  .drawer .db { overflow: auto; flex: 1; padding: 8px 18px 24px; }
+  .rec { padding: 10px 0; border-bottom: 1px solid #f0f0f0; font-size: 0.9rem; }
+  .rec b { font-weight: 600; }
+  .rec .m { color: var(--ink-3); font-size: 0.82rem; margin-top: 2px; }
+  .chip { display: inline-block; padding: 2px 8px; border-radius: 999px; background: #f1f1f1; font-size: 0.78rem; margin: 2px 4px 0 0; color: var(--ink-2); }
+  .chip i { display: inline-block; width: 8px; height: 8px; border-radius: 50%; margin-right: 5px; vertical-align: 1px; }
+
+  /* Editor dialog */
+  dialog { border: 1px solid var(--line); border-radius: 18px; padding: 0; width: min(760px, 95vw); max-height: 92vh; background: var(--panel); color: var(--ink); box-shadow: 0 20px 50px rgba(0,0,0,0.25); }
+  dialog::backdrop { background: rgba(0,0,0,0.35); }
+  .ed { padding: 18px 20px 20px; display: grid; grid-template-columns: 1fr 1fr; gap: 12px 16px; }
+  .ed h2 { grid-column: 1 / -1; margin: 0 0 4px; font-size: 1.15rem; }
+  .ed label { display: flex; flex-direction: column; gap: 4px; font-size: 0.82rem; color: var(--ink-2); font-weight: 600; }
+  .ed label select, .ed label input { border: 1px solid var(--line); border-radius: 10px; padding: 8px 10px; font-weight: 500; font-size: 0.95rem; background: var(--panel); }
+  .ed .wide { grid-column: 1 / -1; }
+  .ed .help { grid-column: 1 / -1; color: var(--ink-3); font-size: 0.82rem; margin-top: -4px; }
+  .ed .filters { grid-column: 1 / -1; display: flex; flex-direction: column; gap: 8px; }
+  .ed .frow { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
+  .ed .frow .fl { font-size: 0.8rem; color: var(--ink-3); font-weight: 600; min-width: 130px; }
+  .ed .frow button { border: 1px solid var(--line); background: var(--panel); border-radius: 999px; padding: 4px 10px; font-size: 0.82rem; }
+  .ed .frow button[aria-pressed="true"] { background: #1f1f1e; color: #fff; border-color: #1f1f1e; }
+  .ed .foot { grid-column: 1 / -1; display: flex; justify-content: flex-end; gap: 8px; margin-top: 8px; }
+  .ed .foot button { padding: 9px 16px; border-radius: 10px; border: 1px solid var(--line); background: var(--panel); font-weight: 600; }
+  .ed .foot button.primary { background: var(--brand); color: #fff; border-color: var(--brand); }
+  .ed .foot button.danger { color: var(--brand); margin-right: auto; }
+  .gallery { padding: 18px 20px 20px; }
+  .gallery h2 { margin: 0 0 10px; font-size: 1.15rem; }
+  .gallery .g { display: grid; grid-template-columns: repeat(auto-fill, minmax(210px, 1fr)); gap: 10px; }
+  .gallery .g button { text-align: left; border: 1px solid var(--line); background: var(--panel); border-radius: 12px; padding: 12px; font-weight: 600; }
+  .gallery .g button small { display: block; color: var(--ink-3); font-weight: 500; margin-top: 3px; font-size: 0.8rem; }
+  .gallery .g button:hover { border-color: var(--brand); }
+  .gallery .foot { display: flex; justify-content: flex-end; gap: 8px; margin-top: 14px; }
+
+  /* Sign-in gate */
+  .gate { max-width: 460px; margin: 60px auto; background: var(--panel); border: 1px solid var(--line); border-radius: 18px; padding: 26px; text-align: center; }
+  .gate h2 { margin: 0 0 8px; color: var(--brand); }
+  .gate p { color: var(--ink-2); }
+  .gate .msg { color: var(--brand); font-size: 0.9rem; min-height: 1.2em; }
+  #gsiBtn { display: flex; justify-content: center; margin: 14px 0; min-height: 44px; }
+  .status { padding: 0 18px; color: var(--ink-3); font-size: 0.85rem; }
+  .toast { position: fixed; left: 50%; bottom: 24px; transform: translateX(-50%); background: #1f1f1e; color: #fff; padding: 10px 16px; border-radius: 999px; font-size: 0.9rem; z-index: 50; opacity: 0; transition: opacity .2s; pointer-events: none; }
+  .toast.show { opacity: 1; }
+
+  @media (max-width: 1040px) and (min-width: 761px) {
+    .tile[data-w="3"], .tile[data-w="4"] { grid-column: span 6 !important; }
+  }
+  @media (max-width: 760px) {
+    :root { --cols: 2; --row: 64px; }
+    .tile { grid-column: span 2 !important; }
+    .board.list .tile.half, .board.list .add-tile { width: 100%; }
+    .ed { grid-template-columns: 1fr; }
+  }
+  @media print {
+    header, .tabs, .toolbar, .note, .add-tile, .tile .head .menu, .tile .head .grip, .tile .resize, .tile .order, .scrim, .drawer, .toast { display: none !important; }
+    body { background: #fff; }
+    .board { display: grid !important; grid-template-columns: 1fr 1fr; gap: 12px; padding: 0; }
+    .board.list .tile { width: auto; }
+    .tile { break-inside: avoid; box-shadow: none; height: 300px !important; grid-row: auto !important; grid-column: auto !important; }
+    .print-title { display: block !important; font-size: 1.3rem; font-weight: 700; margin: 0 0 10px; }
+  }
+  .print-title { display: none; }
+</style>
+</head>
+<body>
+
+<header>
+  <img src="assets/panther.png" alt="">
+  <div class="title">Pride Center · Principal<small id="who">Loading…</small></div>
+  <div class="grow"></div>
+  <button class="btn" id="refreshBtn" type="button">↻ Refresh data</button>
+  <a class="btn hidden" id="sheetLink" href="#" target="_blank" rel="noopener">Open Sheet</a>
+  <a class="btn" href="staff.html">Staff page</a>
+  <button class="btn hidden" id="signOutBtn" type="button">Sign out</button>
+</header>
+<div class="note hidden" id="demoNote">Demo data: made-up students for a whole school year. Nothing here comes from or goes to the school's Google Sheet. To switch to live data, set <code>PRINCIPAL_DEMO</code> to <code>false</code> in <code>config.js</code>.</div>
+
+<div class="gate hidden" id="gate">
+  <h2>Principal dashboard</h2>
+  <p id="gateText">Sign in with your district Google account to see check-ins, incident reports, and your saved boards.</p>
+  <div id="gsiBtn"></div>
+  <p class="msg" id="gateMsg"></p>
+</div>
+
+<div id="app" class="hidden">
+  <div class="tabs" id="tabs"></div>
+  <div class="toolbar">
+    <span class="lbl">Dates</span>
+    <select class="ctl" id="rangeSel"></select>
+    <input class="ctl hidden" type="date" id="customStart"><input class="ctl hidden" type="date" id="customEnd">
+    <span class="lbl">Grades</span>
+    <div id="gradeFilter" class="frow"></div>
+    <div class="grow"></div>
+    <select class="ctl" id="layoutSel"><option value="grid">Grid layout</option><option value="list">List layout</option></select>
+    <button class="btn" id="lockBtn" type="button">🔒 Locked</button>
+    <button class="btn primary" id="addTileBtn" type="button">+ Add tile</button>
+    <div class="tile-menu-wrap menu" style="position:relative">
+      <button class="btn" id="boardMenuBtn" type="button">Board ▾</button>
+      <ul id="boardMenu" style="display:none;position:absolute;right:0;top:100%;margin:0;padding:6px;list-style:none;background:var(--panel);border:1px solid var(--line);border-radius:12px;box-shadow:var(--shadow);z-index:25;min-width:200px">
+        <li><button type="button" data-act="rename">Rename board</button></li>
+        <li><button type="button" data-act="print">Print or save as PDF</button></li>
+        <li><button type="button" data-act="share">Copy share link</button></li>
+        <li><button type="button" data-act="duplicate">Duplicate board</button></li>
+        <li><button type="button" data-act="reset">Restore starter boards</button></li>
+        <li><button type="button" data-act="delete">Delete this board</button></li>
+      </ul>
+    </div>
+  </div>
+  <div class="status" id="status"></div>
+  <div class="print-title" id="printTitle"></div>
+  <div class="board" id="board"></div>
+</div>
+
+<div class="scrim" id="scrim"></div>
+<aside class="drawer" id="drawer" aria-hidden="true">
+  <div class="dh"><h2 id="drTitle">Details<span class="sub" id="drSub"></span></h2><button class="btn sm" id="drCompare" type="button">Compare to everyone</button><button class="btn sm" id="drClose" type="button">✕</button></div>
+  <div class="db" id="drBody"></div>
+</aside>
+
+<dialog id="editor"><form method="dialog" class="ed" id="edForm">
+  <h2 id="edTitle">Edit tile</h2>
+  <label class="wide">Title<input type="text" id="fTitle" maxlength="80" placeholder="Leave blank for an automatic title"></label>
+  <label>Data<select id="fDataset"></select></label>
+  <label>Chart type<select id="fChart"></select></label>
+  <label>Measure<select id="fMeasure"></select></label>
+  <label id="lDimension">Group by<select id="fDimension"></select></label>
+  <label id="lBreakdown">Break down by<select id="fBreakdown"></select></label>
+  <label>Compare<select id="fCompare">
+    <option value="none">Nothing</option><option value="previous">Previous period</option><option value="groups">Groups side by side</option>
+    <option value="measures">A second measure</option><option value="student">One student vs everyone</option></select></label>
+  <label id="lMeasure2">Second measure<select id="fMeasure2"></select></label>
+  <label id="lStudent">Student<input type="text" id="fStudent" list="studentList" placeholder="Start typing a name"><datalist id="studentList"></datalist></label>
+  <label>Dates<select id="fRange"></select></label>
+  <label id="lTop">Show top<select id="fTop"><option>5</option><option>8</option><option selected>12</option><option>20</option><option value="999">All</option></select></label>
+  <label id="lCustom" class="wide hidden">Custom dates<span style="display:flex;gap:8px"><input type="date" id="fStart"><input type="date" id="fEnd"></span></label>
+  <div class="filters" id="fFilters"></div>
+  <label>Width<select id="fW"><option value="3">Quarter</option><option value="4">Third</option><option value="6" selected>Half</option><option value="8">Two thirds</option><option value="12">Full</option></select></label>
+  <label>Height<select id="fH"><option value="3">Short</option><option value="4" selected>Medium</option><option value="5">Tall</option><option value="7">Extra tall</option></select></label>
+  <div class="help" id="edHelp"></div>
+  <div class="foot"><button type="button" class="danger" id="edDelete">Delete tile</button><button type="button" id="edCancel">Cancel</button><button type="submit" class="primary" id="edSave">Save</button></div>
+</form></dialog>
+
+<dialog id="galleryDlg"><div class="gallery"><h2>Add a tile</h2><div class="g" id="galleryGrid"></div><div class="foot"><button class="btn" id="galleryBlank" type="button">Start from blank</button><button class="btn" id="galleryClose" type="button">Close</button></div></div></dialog>
+
+<div class="toast" id="toast"></div>
+
+<script src="assets/vendor/vega.min.js"></script>
+<script src="assets/vendor/vega-lite.min.js"></script>
+<script src="assets/vendor/vega-embed.min.js"></script>
+<script src="config.js"></script>
+<script src="principal-data.js"></script>
+<script src="principal-charts.js"></script>
+<script src="principal-app.js"></script>
+</body>
+</html>

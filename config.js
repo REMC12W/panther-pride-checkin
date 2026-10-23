@@ -128,4 +128,8 @@ window.PPC_CONFIG = {
 
   // How many days of check-ins the staff dashboard loads.
   DASHBOARD_DAYS: 14,
+
+  // Principal dashboard (principal.html). true = made-up demo students, nothing from the Sheet.
+  // Set to false to use the live Sheet (needs the Google sign-in above and the current Code.gs).
+  PRINCIPAL_DEMO: true,
 };
