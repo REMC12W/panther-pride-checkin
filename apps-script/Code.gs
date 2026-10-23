@@ -72,6 +72,7 @@ const COL_CHECKOUT_TIME = 17;
 function doPost(e) {
   try {
     const data = JSON.parse(e.postData.contents);
+    if (data.type === 'whoami') return json_(whoami_(data));
     if (data.type === 'dashboard') return json_(dashboard_(data));
     if (data.type === 'principalAuth') return json_({ ok: true, email: principal_(data), owner: isOwner_(principal_(data)) });
     if (data.type === 'accessList') return json_(accessList_(data));
@@ -335,6 +336,30 @@ function review_(data) {
  * Verifies a Google ID token from "Sign in with Google" and returns the email.
  * Throws with a message staff.html shows on the sign-in page.
  */
+/** Checks a Google ID token is genuine, for this app, current, and verified. Returns { email, hd }. No role check. */
+function tokenInfo_(idToken) {
+  if (!GOOGLE_CLIENT_ID) throw new Error('Sign-in is not set up: GOOGLE_CLIENT_ID is empty in Code.gs.');
+  if (!idToken) throw new Error('Please sign in.');
+  const res = UrlFetchApp.fetch('https://oauth2.googleapis.com/tokeninfo?id_token=' + encodeURIComponent(idToken), { muteHttpExceptions: true });
+  if (res.getResponseCode() !== 200) throw new Error('Your sign-in expired. Please sign in again.');
+  const info = JSON.parse(res.getContentText());
+  if (info.aud !== GOOGLE_CLIENT_ID) throw new Error('Sign-in token was issued for a different app.');
+  if (info.iss !== 'https://accounts.google.com' && info.iss !== 'accounts.google.com') throw new Error('Sign-in token is not from Google.');
+  if (Number(info.exp) * 1000 < Date.now()) throw new Error('Your sign-in expired. Please sign in again.');
+  if (String(info.email_verified) !== 'true') throw new Error('This Google account is not verified.');
+  return { email: String(info.email || '').toLowerCase(), hd: info.hd };
+}
+
+/** login.html POSTs { type: 'whoami', idToken }: which pages this person may open. Never throws for a valid sign-in. */
+function whoami_(data) {
+  const t = tokenInfo_(String(data.idToken || ''));
+  const staff = isAdmin_(t.email, t.hd);
+  const access = accessMap_() || {};
+  const principal = staff && (isOwner_(t.email) || !!(access[t.email] && access[t.email].principal));
+  const kiosk = !!t.hd && kioskAllowed_(t.email, t.hd);
+  return { ok: true, email: t.email, staff, principal, kiosk, listStarted: !!accessMap_() };
+}
+
 function verifyIdToken_(idToken, forKiosk) {
   if (!GOOGLE_CLIENT_ID) throw new Error('Sign-in is not set up: GOOGLE_CLIENT_ID is empty in Code.gs.');
   if (!idToken) throw new Error('Please sign in.');

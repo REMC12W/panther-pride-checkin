@@ -123,6 +123,8 @@
     $("#gateText").textContent = `This page is limited to ${(CFG.PRINCIPAL_EMAILS || []).join(", ") || "the principal"}. Sign in with that Google account.`;
     if (!CFG.GOOGLE_CLIENT_ID || !CFG.SCRIPT_URL) { $("#gate").classList.remove("hidden"); $("#gateMsg").textContent = "Sign-in isn't set up: add GOOGLE_CLIENT_ID and SCRIPT_URL to config.js."; return; }
     if (idToken) { $("#app").classList.remove("hidden"); loadData().catch(err => signOut(err.message || String(err))); return; }
+    // One sign-in page for everyone: it sends people back here if they have principal access.
+    if (!window.PPD_NO_LOGIN_REDIRECT) { location.replace("login.html?next=principal"); return; }
     $("#gate").classList.remove("hidden");
     const pending = sessionStorage.getItem("ppc_signin_msg"); if (pending) { $("#gateMsg").textContent = pending; sessionStorage.removeItem("ppc_signin_msg"); }
     const s = document.createElement("script"); s.src = "https://accounts.google.com/gsi/client"; s.async = true;
@@ -136,7 +138,7 @@
     s.onerror = () => { const m = $("#gateMsg"); m.textContent = (m.textContent ? m.textContent + " " : "") + "Couldn't load Google sign-in. Check the network and try again."; };
     document.head.appendChild(s);
   }
-  function signOut(msg) { idToken = ""; sessionStorage.removeItem("ppc_id_token"); if (msg) sessionStorage.setItem("ppc_signin_msg", msg); location.reload(); }
+  function signOut(msg) { idToken = ""; sessionStorage.removeItem("ppc_id_token"); if (msg) sessionStorage.setItem("ppc_signin_msg", msg); location.replace(window.PPD_NO_LOGIN_REDIRECT ? location.href : "login.html?next=principal"); }
   $("#signOutBtn").addEventListener("click", () => signOut());
   $("#refreshBtn").addEventListener("click", () => loadData().catch(err => toast("Couldn't refresh: " + (err.message || err))));
 

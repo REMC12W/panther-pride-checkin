@@ -3,6 +3,7 @@
 A tap-through check-in kiosk for the Pride Center, rebuilt from the Google Slides deck so that every check-in is recorded in a Google Sheet and admins can see who came in, why, and how they were feeling.
 
 - **Kiosk (live):** https://remc12w.github.io/panther-pride-checkin/
+- **Staff sign-in (one link for all adults):** https://remc12w.github.io/panther-pride-checkin/login.html — sign in once and it sends you to the principal dashboard, the staff dashboard, or a choice of both, depending on your access. Opening either dashboard directly while signed out goes here too.
 - **Google Sheet:** [Pride Center Check-Ins](https://docs.google.com/spreadsheets/d/1CefuY4Uq8CgEqR6PQteZO4W02puMwbYvrsCOxdRQIgw/edit)
 - **Repo:** https://github.com/REMC12W/panther-pride-checkin (GitHub Pages serves the `master` branch)
 

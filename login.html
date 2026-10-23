@@ -1,0 +1,120 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Pride Center · Sign in</title>
+<link rel="icon" href="assets/icon-192.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root { --brand: #d61f26; --ink: #222; --ink-2: #555; --ink-3: #888; --line: #e4e4e4; --bg: #f4f4f6; }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; min-height: 100%; background: var(--bg); color: var(--ink); font-family: "Fredoka", "Avenir Next", "Segoe UI", sans-serif; }
+  main { max-width: 460px; margin: 8vh auto 40px; padding: 0 16px; }
+  .card { background: #fff; border: 1px solid var(--line); border-radius: 20px; padding: 28px 26px; text-align: center; box-shadow: 0 1px 3px rgba(0,0,0,.06), 0 10px 30px rgba(0,0,0,.05); }
+  img { width: 96px; height: auto; }
+  h1 { margin: 8px 0 4px; color: var(--brand); font-size: 1.6rem; }
+  .sub { color: var(--ink-3); margin: 0 0 18px; }
+  p { color: var(--ink-2); line-height: 1.45; }
+  #gsiBtn { display: flex; justify-content: center; min-height: 44px; margin: 14px 0 6px; }
+  .msg { color: var(--brand); min-height: 1.3em; font-size: 0.95rem; }
+  .who { font-weight: 600; color: var(--ink); }
+  .choices { display: flex; flex-direction: column; gap: 10px; margin-top: 16px; }
+  .choices a, .choices button { display: block; text-decoration: none; text-align: left; border: 1px solid var(--line); background: #fff; color: var(--ink); border-radius: 14px; padding: 14px 16px; font: inherit; font-weight: 600; cursor: pointer; }
+  .choices a small, .choices button small { display: block; color: var(--ink-3); font-weight: 500; margin-top: 2px; }
+  .choices a:hover { border-color: var(--brand); }
+  .link { background: none; border: 0; color: var(--ink-3); text-decoration: underline; cursor: pointer; font: inherit; margin-top: 16px; }
+  .hidden { display: none !important; }
+  footer { text-align: center; color: var(--ink-3); font-size: 0.82rem; margin-top: 14px; }
+</style>
+</head>
+<body>
+<main>
+  <div class="card">
+    <img src="assets/panther.png" alt="">
+    <h1>Panther Pride Center</h1>
+    <div class="sub">Staff sign-in</div>
+
+    <section id="signin">
+      <p>Sign in with your school Google account. You'll go straight to the pages you have access to.</p>
+      <div id="gsiBtn"></div>
+      <div class="msg" id="msg" role="status"></div>
+    </section>
+
+    <section id="routing" class="hidden"><p>Checking your access…</p></section>
+
+    <section id="none" class="hidden">
+      <p>Signed in as <span class="who" id="whoNone"></span></p>
+      <p id="noneMsg"></p>
+      <div class="choices" id="noneChoices"></div>
+      <button class="link" id="switch2" type="button">Use a different account</button>
+    </section>
+  </div>
+  <footer>Students check in on the Pride Center iPad. This page is for adults.</footer>
+</main>
+
+<script src="config.js"></script>
+<script>
+(function () {
+  const CFG = Object.assign({ SCRIPT_URL: "", GOOGLE_CLIENT_ID: "" }, window.PPC_CONFIG || {});
+  const $ = s => document.querySelector(s);
+  const esc = s => String(s == null ? "" : s).replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+  const PAGES = {
+    principal: { href: "principal.html", label: "Principal dashboard", hint: "Your boards, charts, and People & access" },
+    staff: { href: "staff.html", label: "Staff dashboard", hint: "Needs attention, who's in the room, incident follow-ups" },
+    kiosk: { href: "index.html", label: "Student check-in kiosk", hint: "Sign in a Pride Center iPad so students can pick their name" },
+  };
+  // ?next=staff or ?next=principal: where the person was trying to go.
+  const next = new URLSearchParams(location.search).get("next");
+  const show = id => ["signin", "routing", "none"].forEach(x => $("#" + x).classList.toggle("hidden", x !== id));
+
+  const pending = sessionStorage.getItem("ppc_signin_msg");
+  if (pending) { $("#msg").textContent = pending; sessionStorage.removeItem("ppc_signin_msg"); }
+
+  async function route(token) {
+    show("routing");
+    let d;
+    try {
+      const res = await fetch(CFG.SCRIPT_URL, { method: "POST", headers: { "Content-Type": "text/plain;charset=utf-8" }, body: JSON.stringify({ type: "whoami", idToken: token }), redirect: "follow" });
+      d = await res.json();
+    } catch (err) { return fail("Couldn't reach the Sheet. Check the Wi-Fi and try again."); }
+    if (!d.ok) return fail(/Bad token|Unknown request/.test(d.error || "") ? "The script in the Sheet needs the new Code.gs deployed before this sign-in page works." : d.error);
+    sessionStorage.setItem("ppc_id_token", token); // the dashboards reuse this sign-in
+    const can = ["principal", "staff"].filter(k => d[k]);
+    // Straight through when there's one obvious place to go.
+    if (next && can.includes(next)) return location.replace(PAGES[next].href);
+    // Otherwise the most specific page: the principal dashboard (it links to the staff page), then staff.
+    if (can.length) return location.replace(PAGES[can[0]].href);
+    sessionStorage.removeItem("ppc_id_token");
+    $("#whoNone").textContent = d.email;
+    $("#noneMsg").textContent = d.kiosk
+      ? "You don't have access to the dashboards yet. Ask the principal to add you under People & access. You can still set up the check-in iPad."
+      : "This account doesn't have access. Sign in with your @" + (CFG.KIOSK_DOMAIN || CFG.ALLOWED_DOMAIN || "school") + " Google account, or ask the principal to add you.";
+    $("#noneChoices").innerHTML = d.kiosk ? `<a href="${PAGES.kiosk.href}">${esc(PAGES.kiosk.label)}<small>${esc(PAGES.kiosk.hint)}</small></a>` : "";
+    show("none");
+  }
+  function fail(m) { sessionStorage.removeItem("ppc_id_token"); $("#msg").textContent = m; show("signin"); renderButton(); }
+
+  function renderButton() {
+    if (!CFG.GOOGLE_CLIENT_ID || !CFG.SCRIPT_URL) { $("#msg").textContent = "Sign-in isn't set up: add GOOGLE_CLIENT_ID and SCRIPT_URL to config.js."; return; }
+    const draw = () => {
+      google.accounts.id.initialize({ client_id: CFG.GOOGLE_CLIENT_ID, auto_select: false, ux_mode: "popup", callback: r => route(r.credential) });
+      google.accounts.id.renderButton($("#gsiBtn"), { theme: "outline", size: "large", text: "signin_with", shape: "pill", width: 280 });
+    };
+    if (window.google && google.accounts) return draw();
+    const s = document.createElement("script"); s.src = "https://accounts.google.com/gsi/client"; s.async = true; s.onload = draw;
+    s.onerror = () => { const m = $("#msg"); m.textContent = (m.textContent ? m.textContent + " " : "") + "Couldn't load Google sign-in. Check the network and try again."; };
+    document.head.appendChild(s);
+  }
+  const switchAccount = () => { sessionStorage.removeItem("ppc_id_token"); $("#msg").textContent = ""; show("signin"); renderButton(); };
+  $("#switch2").addEventListener("click", switchAccount);
+
+  // Already signed in on this tab? Route straight away.
+  const existing = sessionStorage.getItem("ppc_id_token");
+  if (existing && CFG.SCRIPT_URL) route(existing); else renderButton();
+})();
+</script>
+</body>
+</html>
