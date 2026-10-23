@@ -22,7 +22,7 @@ const ALLOWED_DOMAIN = 'parchmentschools.org';
 // ...plus these specific people from any domain.
 const ADMIN_EMAILS = ['ben.tomlinson@kresa.org'];
 
-// Who may sign in the kiosk iPad to start student check-in (turns on badge / ID lookup).
+// Who may sign in the kiosk iPad (turns on the roster name list students pick their name from).
 // ONLY Google accounts on this domain are accepted. Checked on every lookup, not just at sign-in.
 const KIOSK_DOMAIN = 'parchmentschools.org';
 // Optional: narrow it further to specific people on that domain, e.g.
@@ -71,6 +71,7 @@ function doPost(e) {
     if (data.type === 'kioskSignIn') return json_(kioskSignIn_(data));
     if (data.type === 'kioskStatus') return json_(kioskStatus_(data));
     if (data.type === 'lookup') return json_(lookup_(data));
+    if (data.type === 'roster') return json_(roster_(data));
     if (KIOSK_TOKEN && String(data.token || '') !== KIOSK_TOKEN) {
       return json_({ ok: false, error: 'Bad token. KIOSK_TOKEN in config.js must match Code.gs.' });
     }
@@ -82,17 +83,18 @@ function doPost(e) {
     const ts = data.timestamp ? new Date(data.timestamp) : new Date();
     const tz = Session.getScriptTimeZone();
     const dateOnly = new Date(Utilities.formatDate(ts, tz, 'yyyy/MM/dd'));
+    const who = resolveStudent_(data);
 
     sheet.appendRow([
       ts,
       dateOnly,
       Utilities.formatDate(ts, tz, 'h:mm a'),
-      String(data.name || '').trim(),
+      safe_(who.name),
       data.referral   || '',
       data.reason     || '',
       data.energy     || '',
       data.moodGroup  || '',
-      data.moodWord   || '',
+      safe_(String(data.moodWord || '').slice(0, 40)),
       data.happened   || '',
       data.need       || '',
       data.basicNeeds || '',
@@ -101,7 +103,7 @@ function doPost(e) {
       data.stationSuggested || '',
       data.station    || '',
       '', '', '', '', '', '', '',
-      cleanId_(data.studentId)
+      who.id
     ]);
     ensureHeader_(sheet, COL_STUDENT_ID, 'Student ID');
     return json_({ ok: true });
@@ -120,9 +122,11 @@ function checkout_(data, byStaff) {
   const ts = data.timestamp ? new Date(data.timestamp) : new Date();
   const tz = Session.getScriptTimeZone();
   const nameKey = String(data.name || '').trim().toLowerCase();
-  const outVals = [ts, '', data.energy || '', data.moodGroup || '', data.moodWord || '', data.helped || '', byStaff || 'Student'];
+  const outVals = [ts, '', data.energy || '', data.moodGroup || '', safe_(String(data.moodWord || '').slice(0, 40)), data.helped || '', byStaff || 'Student'];
   const target = data.checkinTimestamp ? new Date(data.checkinTimestamp).getTime() : 0;
-  const sid = cleanId_(data.studentId);
+  const who = resolveStudent_(data);
+  const sid = who.id;
+  const fullKey = who.name.trim().toLowerCase();
 
   const lastRow = sheet.getLastRow();
   if (lastRow > 1) {
@@ -132,7 +136,7 @@ function checkout_(data, byStaff) {
       const r = vals[i];
       const rowId = cleanId_(r[COL_STUDENT_ID - 1]);
       if (sid && rowId) { if (rowId !== sid) continue; }        // badge / ID match wins
-      else if (String(r[3]).trim().toLowerCase() !== nameKey) continue;
+      else { const rowName = String(r[3]).trim().toLowerCase(); if (rowName !== nameKey && rowName !== fullKey) continue; }
       if (!(r[0] instanceof Date)) continue;
       if (byStaff && target && Math.abs(r[0].getTime() - target) > 1000) continue; // staff pick an exact visit
       const diff = ts - r[0];
@@ -145,7 +149,7 @@ function checkout_(data, byStaff) {
   }
   const dateOnly = new Date(Utilities.formatDate(ts, tz, 'yyyy/MM/dd'));
   sheet.appendRow([
-    ts, dateOnly, Utilities.formatDate(ts, tz, 'h:mm a'), String(data.name || '').trim(),
+    ts, dateOnly, Utilities.formatDate(ts, tz, 'h:mm a'), safe_(who.name),
     '', '', '', '', '', '', '', '', 'Check Out (no check-in found)', data.kiosk || '', '', ''
   ].concat(outVals, [sid]));
   if (byStaff) throw new Error('That visit is already checked out, or could not be found.');
@@ -165,7 +169,11 @@ function staffCheckout_(data) {
 
 const INCIDENT_NAME = 'Incident Reports';
 const INCIDENT_HEADERS = ['Timestamp', 'Date', 'Time', 'Name / ID', 'Grade', 'Safe now?', 'Urgent', 'What happened', 'Where', 'When (hour)',
-  'Story', 'Who was involved', 'Witnesses', 'Wants to talk', 'Kiosk', 'Reviewed by', 'Notes', 'Student ID'];
+  'Story', 'Who was involved', 'Witnesses', 'Wants to talk', 'Kiosk', 'Reviewed by', 'Notes', 'Student ID',
+  'Follow-up action', 'Follow-up status'];
+// Choices on the staff page's incident follow-up form. Anything else is saved blank.
+const FOLLOWUP_ACTIONS = ['Talked it through', 'Contacted family', 'Sent to office', 'Referred to counselor', 'Other'];
+const FOLLOWUP_STATUSES = ['Resolved', 'Needs more follow-up'];
 
 function incidentSheet_() {
   const ss = SpreadsheetApp.getActiveSpreadsheet();
@@ -180,11 +188,6 @@ function incidentSheet_() {
     sheet.setColumnWidth(8, 240);
     sheet.setColumnWidth(11, 360);
     sheet.getRange('K:M').setWrap(true);
-    // Urgent rows turn red.
-    const rule = SpreadsheetApp.newConditionalFormatRule()
-      .whenFormulaSatisfied('=$G2="Yes"').setBackground('#f4cccc')
-      .setRanges([sheet.getRange('A2:Q')]).build();
-    sheet.setConditionalFormatRules([rule]);
   }
   return sheet;
 }
@@ -193,10 +196,11 @@ function incident_(data) {
   const sheet = incidentSheet_();
   const ts = data.timestamp ? new Date(data.timestamp) : new Date();
   const tz = Session.getScriptTimeZone();
+  const who = resolveStudent_(data);
   sheet.appendRow([
     ts, new Date(Utilities.formatDate(ts, tz, 'yyyy/MM/dd')), Utilities.formatDate(ts, tz, 'h:mm a'),
-    String(data.name || '').trim(), data.grade || '', data.safe || '', data.urgent || '', data.types || '', data.place || '', data.period || '',
-    data.story || '', data.who || '', data.witness || '', data.talk || '', data.kiosk || '', '', '', cleanId_(data.studentId)
+    safe_(who.name), who.grade || data.grade || '', data.safe || '', data.urgent || '', data.types || '', data.place || '', data.period || '',
+    safe_(data.story), safe_(data.who), safe_(data.witness), data.talk || '', data.kiosk || '', '', '', who.id
   ]);
   ensureHeader_(sheet, 18, 'Student ID');
   return { ok: true };
@@ -213,7 +217,8 @@ function incidentRows_(days) {
     const r = values[i];
     if (!(r[0] instanceof Date) || r[0] < cutoff) continue;
     rows.push({ timestamp: r[0].toISOString(), name: r[3], grade: r[4], safe: r[5], urgent: r[6], types: r[7], place: r[8], period: r[9],
-      story: r[10], who: r[11], witness: r[12], talk: r[13], reviewed: r[15], notes: r[16], studentId: String(r[17] || '') });
+      story: r[10], who: r[11], witness: r[12], talk: r[13], reviewed: r[15], notes: r[16], studentId: String(r[17] || ''),
+      action: String(r[18] || ''), status: String(r[19] || '') });
   }
   return rows;
 }
@@ -241,7 +246,7 @@ function feedback_(data) {
   sheet.appendRow([
     ts, new Date(Utilities.formatDate(ts, tz, 'yyyy/MM/dd')),
     data.role || '', data.tried || '', data.rating === '' ? '' : Number(data.rating) || '',
-    data.worked || '', data.change || '', data.ideas || '', data.contact || '',
+    safe_(data.worked), safe_(data.change), safe_(data.ideas), safe_(data.contact),
     data.device || '', data.version || '', data.kiosk || ''
   ]);
   return { ok: true };
@@ -280,8 +285,9 @@ function dashboard_(data) {
 }
 
 /**
- * Marks an incident report reviewed: fills "Reviewed by" (email + date) and
- * "Notes" on the matching row. staff.html POSTs { type: 'review', idToken, timestamp, name, notes }.
+ * Incident follow-up from the staff page. Fills "Reviewed by" (email + time), adds the note to
+ * "Notes", and saves "Follow-up action" and "Follow-up status" on the matching row.
+ * staff.html POSTs { type: 'review', idToken, timestamp, name, action, status, notes }.
  */
 function review_(data) {
   const email = verifyIdToken_(String(data.idToken || ''));
@@ -295,8 +301,18 @@ function review_(data) {
     if (!(r[0] instanceof Date) || Math.abs(r[0].getTime() - target) > 1000) continue;
     if (String(r[3]).trim().toLowerCase() !== nameKey) continue;
     const stamp = email + ' · ' + Utilities.formatDate(new Date(), Session.getScriptTimeZone(), 'yyyy-MM-dd h:mm a');
-    sheet.getRange(i + 1, 16, 1, 2).setValues([[stamp, String(data.notes || '').slice(0, 1000)]]);
-    return { ok: true };
+    const note = String(data.notes || '').trim().slice(0, 1000);
+    const before = String(r[16] || '').trim();
+    const notes = note ? (before ? before + '\n' + note : note) : before;
+    sheet.getRange(i + 1, 16, 1, 2).setValues([[stamp, safe_(notes)]]);
+    const action = FOLLOWUP_ACTIONS.indexOf(data.action) !== -1 ? data.action : '';
+    const status = FOLLOWUP_STATUSES.indexOf(data.status) !== -1 ? data.status : '';
+    if (action || status) {
+      ensureHeader_(sheet, 19, 'Follow-up action');
+      ensureHeader_(sheet, 20, 'Follow-up status');
+      sheet.getRange(i + 1, 19, 1, 2).setValues([[action, status]]);
+    }
+    return { ok: true, followUp: true };
   }
   throw new Error('Could not find that report in the Sheet.');
 }
@@ -430,26 +446,107 @@ function kioskStatus_(data) {
   catch (err) { return { ok: true, signedIn: false }; }
 }
 
-/** Student ID -> first name (and last initial, grade). Needs a signed-in iPad. */
+/** Older kiosks only: student ID -> first name (and last initial, grade). Needs a signed-in iPad. */
 function lookup_(data) {
   kioskSession_(data.session);
   const id = cleanId_(data.id);
   if (!id) return { ok: true, found: false };
   const r = rosterMap_()[id];
-  return r ? { ok: true, found: true, id: id, firstName: r.first, lastInitial: r.last, grade: r.grade } : { ok: true, found: false };
+  return r ? { ok: true, found: true, id: id, firstName: r.first, lastInitial: r.last.charAt(0).toUpperCase(), grade: r.grade } : { ok: true, found: false };
+}
+
+/**
+ * The kiosk's name list. Needs a signed-in iPad. Each student gets an opaque key (a salted
+ * hash, so raw student IDs never reach the iPad) and a unique label such as "Jordan S. · 7th".
+ * Same first name, initial, and grade? The label adds letters of the last name until it differs.
+ */
+function roster_(data) {
+  kioskSession_(data.session);
+  const map = rosterMap_();
+  const list = Object.keys(map).map(id => {
+    const r = map[id];
+    return { id: id, first: r.first, last: r.last, grade: gradeShort_(r.grade) };
+  }).filter(r => r.first);
+  const labelFor = (r, n) => r.first + (r.last ? ' ' + r.last.slice(0, n) + (n < r.last.length ? '.' : '') : '') + (r.grade ? ' · ' + r.grade : '');
+  const groups = {};
+  list.forEach(r => { r.n = 1; r.label = labelFor(r, 1); (groups[r.label] = groups[r.label] || []).push(r); });
+  Object.keys(groups).forEach(k => {
+    let g = groups[k];
+    for (let n = 2; g.length > 1 && n <= 20; n++) {
+      g.forEach(r => { r.n = n; r.label = labelFor(r, n); });
+      const seen = {}; g.forEach(r => { seen[r.label] = (seen[r.label] || 0) + 1; });
+      g = g.filter(r => seen[r.label] > 1);
+    }
+    if (g.length > 1) g.forEach(r => { r.label += ' · …' + r.id.slice(-3); }); // still identical: add the last 3 ID digits
+  });
+  const salt = rosterSalt_();
+  list.sort((a, b) => a.label.localeCompare(b.label));
+  return { ok: true, students: list.map(r => ({ key: rosterKey_(r.id, salt), label: r.label, first: r.first, last: r.last.slice(0, r.n) })) };
+}
+
+function rosterSalt_() {
+  const props = PropertiesService.getScriptProperties();
+  let salt = props.getProperty('roster_salt');
+  if (!salt) { salt = Utilities.getUuid(); props.setProperty('roster_salt', salt); }
+  return salt;
+}
+
+function rosterKey_(id, salt) { return sha_(salt + '|' + id).slice(0, 24); }
+
+/**
+ * Who a kiosk record is about, worked out at save time from the roster key (or an older
+ * kiosk's student ID). Returns the roster's full name and grade. Never blocks a save:
+ * on any roster problem it falls back to what the kiosk sent.
+ */
+function resolveStudent_(data) {
+  const sent = String(data.name || '').trim();
+  const fallback = { id: cleanId_(data.studentId), name: sent, grade: '' };
+  try {
+    const map = rosterMap_();
+    let id = '';
+    if (data.rosterKey) {
+      const salt = rosterSalt_();
+      id = Object.keys(map).find(x => rosterKey_(x, salt) === String(data.rosterKey)) || '';
+    } else if (fallback.id && map[fallback.id]) id = fallback.id;
+    if (!id) return fallback;
+    const r = map[id];
+    return { id: id, name: (r.first + ' ' + r.last).trim() || sent, grade: gradeLabel_(r.grade) };
+  } catch (err) { return fallback; }
+}
+
+/** "7" -> "7th"; anything else as typed. */
+function gradeShort_(g) {
+  g = String(g || '').trim();
+  const m = g.match(/^(\d{1,2})(st|nd|rd|th)?(\s*grade)?$/i);
+  if (!m) return g;
+  const n = Number(m[1]);
+  const suf = (n % 100 >= 11 && n % 100 <= 13) ? 'th' : ({ 1: 'st', 2: 'nd', 3: 'rd' }[n % 10] || 'th');
+  return n + suf;
+}
+
+/** "7" -> "7th Grade", matching the incident report's old grade answers. */
+function gradeLabel_(g) { const s = gradeShort_(g); return /^\d+(st|nd|rd|th)$/.test(s) ? s + ' Grade' : s; }
+
+/** Text a person typed: never let the Sheet treat it as a formula. */
+function safe_(v) {
+  const s = String(v == null ? '' : v);
+  return /^[=+\-@]/.test(s) ? "'" + s : s;
 }
 
 /** Reads the Roster tab. Header names are matched loosely, so most exports work as pasted. */
 function rosterMap_() {
   const cache = CacheService.getScriptCache();
-  const hit = cache.get('roster_v1');
-  if (hit) return JSON.parse(hit);
+  const hit = cache.get(ROSTER_CACHE);
+  if (hit) { const map = {}; JSON.parse(hit).forEach(a => { map[a[0]] = { first: a[1], last: a[2], grade: a[3] }; }); return map; }
   const sheet = rosterSheet_();
   const values = sheet.getDataRange().getValues();
   const head = (values[0] || []).map(h => String(h).trim().toLowerCase());
   const find = re => head.findIndex(h => re.test(h));
   const cId = find(/(student\s*(id|number|#|no)|^id$|^number$|badge)/);
-  const cFirst = find(/(first|preferred|nick)/);
+  // A filled-in Preferred / Nickname cell wins over the legal First Name on that row.
+  const cPref = find(/(preferred|nick)/);
+  const cLegal = find(/first/);
+  const cFirst = cLegal >= 0 ? cLegal : cPref;
   const cLast = find(/(last|surname|family)/);
   const cGrade = find(/grade/);
   const map = {};
@@ -458,14 +555,17 @@ function rosterMap_() {
     const id = cleanId_(values[i][cId]);
     if (!id) continue;
     map[id] = {
-      first: String(values[i][cFirst] || '').trim(),
-      last: cLast >= 0 ? String(values[i][cLast] || '').trim().charAt(0).toUpperCase() : '',
+      first: String((cPref >= 0 && values[i][cPref]) || values[i][cFirst] || '').trim(),
+      last: cLast >= 0 ? String(values[i][cLast] || '').trim() : '',
       grade: cGrade >= 0 ? String(values[i][cGrade] || '').trim() : ''
     };
   }
-  try { cache.put('roster_v1', JSON.stringify(map), 600); } catch (err) {} // 10 minutes; skipped if too large
+  try { // compact arrays keep a school-size roster well under the 100 KB cache limit
+    cache.put(ROSTER_CACHE, JSON.stringify(Object.keys(map).map(id => [id, map[id].first, map[id].last, map[id].grade])), 600);
+  } catch (err) {} // skipped if too large; the Sheet is then read on each request
   return map;
 }
+const ROSTER_CACHE = 'roster_v2';
 
 function rosterSheet_() {
   if (ROSTER_SPREADSHEET_ID) {
@@ -494,15 +594,19 @@ function formatRoster_() {
   sheet.setColumnWidth(1, 140); sheet.setColumnWidth(2, 160); sheet.setColumnWidth(3, 160); sheet.setColumnWidth(4, 90);
   sheet.getRange('D2:D').setDataValidation(SpreadsheetApp.newDataValidation()
     .requireValueInList(['6', '7', '8'], true).setAllowInvalid(true).build());
-  sheet.getRange('A1').setNote('One student per row. Student ID = the number on the badge (or what the scanner types). ' +
-    'First Name = what the student goes by; the kiosk says "Hi, <First Name>!". Last Name is optional; only its first letter is shown. ' +
-    'Grade is optional (6, 7, 8). Changes are picked up within 10 minutes.');
+  sheet.getRange('A1').setNote('One student per row. Student ID = the school student ID (never shown on the iPad). ' +
+    'First Name = what the student goes by; the kiosk name list shows it with the last initial and grade, ' +
+    'and says "Hi, <First Name>!". To keep legal names off the iPad, add a "Preferred Name" column: it is used instead of First Name. ' +
+    'Grade is optional (6, 7, 8). Changes are picked up within 10 minutes, or right away after running refreshRoster.');
 }
 
 /** Run from the editor after pasting a new roster, so lookups see it right away. */
 function refreshRoster() {
-  CacheService.getScriptCache().remove('roster_v1');
-  Logger.log(Object.keys(rosterMap_()).length + ' students in the roster.');
+  const cache = CacheService.getScriptCache();
+  cache.remove('roster_v1'); cache.remove(ROSTER_CACHE);
+  const n = Object.keys(rosterMap_()).length;
+  const cached = cache.get(ROSTER_CACHE);
+  Logger.log(n + ' students in the roster. Cache: ' + (cached ? Math.round(cached.length / 1024) + ' KB' : 'too large, reading the Sheet each time'));
 }
 
 /** Run from the editor to sign every iPad out (for example, if one is lost). */
@@ -514,7 +618,7 @@ function signOutAllKiosks() {
 }
 
 function cleanId_(v) {
-  // Badge scanners sometimes add spaces or a prefix/suffix; keep letters and digits only.
+  // Keep letters and digits only, so IDs match however they were pasted or typed.
   return String(v == null ? '' : v).replace(/[^0-9A-Za-z]/g, '').replace(/^0+(?=\d)/, '').toUpperCase().slice(0, 32);
 }
 
@@ -548,6 +652,19 @@ function setup() {
   sheet.setColumnWidth(6, 200);
   sheet.setColumnWidth(10, 150);
   sheet.setColumnWidth(12, 220);
+
+  // Incident reports no longer ask "Are you safe?": remove the old red-row rule, keep any other rules.
+  const inc = ss.getSheetByName(INCIDENT_NAME);
+  if (inc) {
+    const keep = inc.getConditionalFormatRules().filter(rule => {
+      const c = rule.getBooleanCondition();
+      return !(c && c.getCriteriaType() === SpreadsheetApp.BooleanCriteria.CUSTOM_FORMULA &&
+        String(c.getCriteriaValues()[0]).replace(/\s/g, '') === '=$G2="Yes"');
+    });
+    inc.setConditionalFormatRules(keep);
+    ensureHeader_(inc, 19, 'Follow-up action');
+    ensureHeader_(inc, 20, 'Follow-up status');
+  }
 
   const s1 = ss.getSheetByName('Sheet1');
   if (s1 && s1.getLastRow() === 0 && ss.getSheets().length > 1) ss.deleteSheet(s1);
@@ -587,12 +704,13 @@ function buildSummary_(ss) {
   };
 
   section('By referral', 'E', ['Self Referred', 'Staff Referred']);
-  section('By reason', 'F', ['Drop In: I need a reset', 'Scheduled Break', 'Drop In: I have a need']);
+  section('By reason', 'F', ['Drop In: I need a reset', 'Scheduled Break', 'Drop In: I have a need', 'Break', 'Defiance', 'Sickness']);
   section('By energy', 'G', ['Moving Fast', 'Moving Slow', 'Moving Ok']);
   section('By mood group', 'H', ['Red', 'Yellow', 'Blue', 'Green']);
-  section('By what happened', 'J', ['At Home', 'With my Teacher', 'With a friend', 'Just with myself']);
+  section('By what happened', 'J', ['At Home', 'With my Teacher', 'With a friend', 'Just with myself', 'Not sure right now', 'Nothing happened']);
   section('By outcome', 'M', ['Check In', 'Incident Report', 'Basic Need']);
   section('By station', 'P', ['Red', 'Yellow', 'Blue', 'Green', 'Staff first']);
+  section('Alert word picked (Station Suggested)', 'O', ['Staff first']);
   section('Mood at check-out', 'T', ['Red', 'Yellow', 'Blue', 'Green']);
 
   push('Check-outs', 'Today', 'All time');

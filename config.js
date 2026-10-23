@@ -15,8 +15,8 @@ window.PPC_CONFIG = {
   // Staff dashboard: @parchmentschools.org accounts, plus the people listed in ADMIN_EMAILS
   // in Code.gs. The script enforces it; this only labels the sign-in page.
   ALLOWED_DOMAIN: "parchmentschools.org",
-  // Only staff Google accounts on this domain can sign in the kiosk iPad to start check-in.
-  // Must match KIOSK_DOMAIN in Code.gs.
+  // Only staff Google accounts on this domain can sign in the kiosk iPad. Signing it in turns on
+  // the roster name list students pick their name from. Must match KIOSK_DOMAIN in Code.gs.
   KIOSK_DOMAIN: "parchmentschools.org",
 
   // A label for this device so staff can tell kiosks apart in the Sheet.
@@ -67,8 +67,10 @@ window.PPC_CONFIG = {
     { color: "Green",  label: "Green station",  hint: "Keep it steady" },
   ],
 
-  // Mood words that mean a staff member should come to the student before any
-  // station. The app shows "a staff member is coming to you" instead of the picker.
+  // Alert words. When a student taps one, the staff page shows it under "Needs attention"
+  // ("Staff should go to this student"). On the iPad nothing changes: the student goes on to
+  // the station picker like any other word, since an adult is already with them.
+  // Words a student types with "Type my own word" never raise an alert.
   STAFF_FIRST_WORDS: [
     "Enraged", "Livid", "Fuming", "Panicked", "Frightened",
     "Despair", "Hopeless", "Desolate", "Despondent", "Depressed",
@@ -105,7 +107,7 @@ window.PPC_CONFIG = {
   INCIDENT_PLACES: [
     { icon: "🏫", label: "Classroom" },
     { icon: "🚪", label: "Hallway" },
-    { icon: "🚌", label: "Bus" },
+    { icon: "🚌", label: "Bus/Bus Stop" },
     { icon: "🌳", label: "Outside" },
     { icon: "🏀", label: "Gym" },
     { icon: "🍽️", label: "Cafeteria" },
@@ -115,10 +117,10 @@ window.PPC_CONFIG = {
     { icon: "❓", label: "Other" },
   ],
   INCIDENT_PERIODS: [
-    "1st Hour", "2nd Hour", "3rd Hour", "4th Hour", "Lunch", "Recess", "SEL", "WIN",
-    "6th Hour", "7th Hour", "8th Hour", "Passing Time", "Other",
+    "Before School", "Breakfast", "1st Hour", "2nd Hour", "3rd Hour", "4th Hour", "Lunch", "Recess",
+    "5th Hour", "6th Hour", "7th Hour", "8th Hour", "Passing Time", "Other",
   ],
-  INCIDENT_GRADES: ["6th Grade", "7th Grade", "8th Grade"],
+  // Grade is no longer asked: the script fills it in from the roster.
 
   // Trial feedback portal (feedback.html). Shows a small "Give feedback" link on the
   // kiosk start screen and the admin dashboard. Set to false when the trial ends.

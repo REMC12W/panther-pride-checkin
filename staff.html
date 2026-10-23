@@ -231,6 +231,9 @@
   .co-foot button { padding: 9px 16px; border-radius: 10px; border: 1px solid var(--line); background: var(--panel); cursor: pointer; font-weight: 600; }
   .co-foot button.primary { background: var(--ink); color: var(--panel); border-color: var(--ink); }
   .co-foot button:disabled { opacity: 0.45; cursor: default; }
+  .fu-note { width: 100%; min-height: 70px; font: inherit; font-size: 0.9rem; padding: 8px 10px; border: 1px solid var(--line); border-radius: 10px; background: var(--panel); color: var(--ink); resize: vertical; }
+  .inc .fu { margin-top: 6px; }
+  .co-foot button:disabled { opacity: 0.45; cursor: default; }
   .co-err { color: var(--st-critical); font-size: 0.86rem; margin-top: 8px; min-height: 1em; }
 
   .fb-btn { display: none; position: fixed; right: 14px; bottom: 14px; z-index: 40; align-items: center; gap: 6px; padding: 10px 16px; border-radius: 999px; background: #1f1f1e; color: #fff; font: inherit; font-weight: 600; font-size: 0.9rem; text-decoration: none; box-shadow: 0 6px 18px rgba(0,0,0,0.18); }
@@ -427,7 +430,7 @@
     <!-- 7. Incident reports -->
     <section>
       <h2>Incident reports <span class="sub" id="incCount" style="display:inline"></span></h2>
-      <p class="sub">Unreviewed first. Mark reviewed once someone has followed up.</p>
+      <p class="sub">Open reports first. Tap <b>Follow up</b> after an adult has talked with the student.</p>
       <div id="incList"></div>
     </section>
 
@@ -472,6 +475,21 @@
   </div>
 </dialog>
 
+<dialog class="co-dlg" id="fuDlg" aria-labelledby="fuTitle">
+  <div class="co-in">
+    <h2 id="fuTitle">Follow up</h2>
+    <div class="sub" id="fuSub"></div>
+    <div class="q">What was done?</div>
+    <div class="pick" id="fuActions"></div>
+    <div class="q">Status</div>
+    <div class="pick" id="fuStatus"></div>
+    <div class="q">Note <small>optional</small></div>
+    <textarea class="fu-note" id="fuNote" maxlength="1000" placeholder="Anything the next adult should know"></textarea>
+    <div class="co-err" id="fuErr"></div>
+    <div class="co-foot"><button type="button" id="fuCancel">Cancel</button><button type="button" class="primary" id="fuSave" disabled>Save follow-up</button></div>
+  </div>
+</dialog>
+
 <dialog class="help-dlg" id="helpDlg" aria-labelledby="helpTitle">
   <div class="help-in">
     <div class="help-top"><h2 id="helpTitle">How the Pride Center app works</h2><button type="button" id="helpClose" aria-label="Close">✕</button></div>
@@ -480,7 +498,7 @@
       Your browser can't play this video. <a href="assets/overview.mp4">Download it</a> instead.
     </video>
     <div class="tips">
-      <div class="tip-card"><b>Needs attention</b>Safety items come first. Tap <i>Mark reviewed</i> after following up on an incident report.</div>
+      <div class="tip-card"><b>Needs attention</b>Safety items come first. Tap <i>Follow up</i> on an incident report to record what was done.</div>
       <div class="tip-card"><b>In the room now</b>Confirm who a student is, or check them out. "Skip the read" records just the time they left.</div>
       <div class="tip-card"><b>Today</b>The Today button shows every visit in order. Tap a name to see that student's history.</div>
     </div>
@@ -509,8 +527,18 @@
     Green:  { v: "var(--m-green)",  dark: false, name: "Green",  desc: "low energy, pleasant" },
     "Staff first": { v: "var(--m-staff)", dark: false, name: "Staff first", desc: "" }
   };
-  const HAPPENED = ["At Home", "With my Teacher", "With a friend", "Just with myself"];
-  const REASON_SHORT = { "Drop In: I need a reset": "Reset", "Scheduled Break": "Scheduled break", "Drop In: I have a need": "Has a need" };
+  const HAPPENED = ["At Home", "With my Teacher", "With a friend", "Just with myself", "Nothing happened", "Not sure right now"];
+  // Self-referred reasons, then the staff-referred ones (Break, Defiance, Sickness).
+  const REASON_SHORT = { "Drop In: I need a reset": "Reset", "Scheduled Break": "Scheduled break", "Drop In: I have a need": "Has a need",
+    "Break": "Break", "Defiance": "Defiance", "Sickness": "Sickness" };
+  const REASON_ORDER = ["Reset", "Scheduled break", "Break", "Defiance", "Sickness", "Basic need", "Incident report"];
+  // Incident follow-up form choices. Must match FOLLOWUP_ACTIONS / FOLLOWUP_STATUSES in Code.gs.
+  const FU_ACTIONS = ["Talked it through", "Contacted family", "Sent to office", "Referred to counselor", "Other"];
+  const FU_STATUSES = ["Resolved", "Needs more follow-up"];
+  // An incident stays open until it has a follow-up, or while its follow-up says more is needed.
+  const isOpen = r => !r.reviewed || r.status === "Needs more follow-up";
+  // A student picked an alert word (config.js STAFF_FIRST_WORDS). Older rows stored it as the station.
+  const needsStaff = r => (r.stationSuggested === "Staff first" || r.station === "Staff first") && r.outcome !== "Incident Report";
   const FACES = { 1: "😣", 2: "🙁", 3: "😐", 4: "🙂", 5: "😀" };
   const DISMISS_KEY = "ppc_dismissed";
 
@@ -580,7 +608,7 @@
       $("#who").innerHTML = `Signed in as ${esc(d.email)} <button type="button" id="signout">Sign out</button>`;
       $("#signout").addEventListener("click", () => signOut());
       if (d.sheetUrl) { $("#sheetLink").href = d.sheetUrl; $("#sheetLink").classList.remove("hidden"); }
-      $("#status").textContent = `Updated ${new Date().toLocaleTimeString([], { hour: "numeric", minute: "2-digit" })} · refreshes every minute`;
+      $("#status").textContent = `Updated ${new Date().toLocaleTimeString([], { hour: "numeric", minute: "2-digit" })} · tap Refresh to update`;
       renderAll();
     } catch (err) {
       $("#status").className = "status-line err";
@@ -612,7 +640,7 @@
   // ---------- Helpers ----------
   const esc = s => String(s ?? "").replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
   const norm = s => String(s || "").trim().toLowerCase();
-  // One student = one badge ID when we have it, otherwise the typed name.
+  // One student = one roster student ID when we have it, otherwise the typed name.
   const who = r => r.studentId ? "id:" + String(r.studentId).toLowerCase() : "n:" + norm(r.name);
   const dayKey = d => { const x = new Date(d); return `${x.getFullYear()}-${String(x.getMonth() + 1).padStart(2, "0")}-${String(x.getDate()).padStart(2, "0")}`; };
   const todayKey = () => dayKey(new Date());
@@ -642,7 +670,7 @@
     bars("#needs", countSplit(inWin, "basicNeeds"), "No basic needs requested.");
     bars("#helped", countSplit(inWin, "helped"), "No check-outs yet.");
     bars("#referral", count(inWin, "referral", ["Self Referred", "Staff Referred"]), "No check-ins yet.", null, true);
-    bars("#reason", count(inWin.map(r => Object.assign({}, r, { reasonLabel: r.outcome === "Incident Report" ? "Incident report" : r.need === "Basic Need" ? "Basic need" : REASON_SHORT[r.reason] || r.reason })), "reasonLabel", ["Reset", "Scheduled break", "Basic need", "Incident report"]), "No check-ins yet.", null, true);
+    bars("#reason", count(inWin.map(r => Object.assign({}, r, { reasonLabel: r.outcome === "Incident Report" ? "Incident report" : r.need === "Basic Need" ? "Basic need" : REASON_SHORT[r.reason] || r.reason })), "reasonLabel", REASON_ORDER), "No check-ins yet.", null, true, REASON_ORDER.length);
     bars("#energy", count(inWin, "energy", ["Moving Fast", "Moving Ok", "Moving Slow"]), "No check-ins yet.", null, true);
     const st = inWin.filter(r => r.station);
     bars("#station", count(st, "station", ["Red", "Yellow", "Blue", "Green", "Staff first"]), "No station picks yet.", g => MOOD[g] ? MOOD[g].v : null, true);
@@ -658,23 +686,24 @@
   function renderAlerts(all, today) {
     const dismissed = getDismissed();
     const items = [];
-    (data.incidents || []).filter(r => !r.reviewed).forEach(r => {
-      const notSafe = r.urgent === "Yes";
+    (data.incidents || []).filter(isOpen).forEach(r => {
+      const notSafe = r.urgent === "Yes" && !r.reviewed; // older reports asked "Are you safe?"
+      const more = !!r.reviewed;
       items.push({
-        key: "inc:" + r.timestamp, rank: notSafe ? 0 : r.talk === "Yes" ? 2 : 3, level: notSafe ? "critical" : "warning",
-        icon: "!", label: notSafe ? "Said they are not safe" : r.talk === "Yes" ? "Incident · wants to talk" : "Incident report",
+        key: "inc:" + r.timestamp, rank: notSafe ? 0 : (more || r.talk === "Yes") ? 2 : 3, level: notSafe ? "critical" : "warning",
+        icon: "!", label: notSafe ? "Said they are not safe" : more ? "Incident · needs more follow-up" : r.talk === "Yes" ? "Incident · wants to talk" : "Incident report",
         title: `${r.name || "A student"}${r.grade ? " · " + r.grade : ""}`,
         detail: `${r.types || "Incident"}${r.place ? " · " + r.place : ""}${r.period ? " · " + r.period : ""} · reported ${ago(r.timestamp)}`,
         incident: r
       });
     });
-    today.filter(r => r.station === "Staff first" && r.outcome !== "Incident Report").forEach(r => items.push({
+    today.filter(needsStaff).forEach(r => items.push({
       key: "sf:" + r.timestamp, rank: 1, level: "critical", icon: "!", label: "Staff should go to this student",
       title: r.name, detail: `Picked "${r.moodWord}" at check-in · ${ago(r.timestamp)}`
     }));
     all.filter(r => isNotThem(r) && inWindow(r.timestamp, 7)).forEach(r => items.push({
       key: "nt:" + r.timestamp, rank: 3, level: "warning", icon: "?", label: "Check-in not by this student",
-      title: r.name, detail: `Staff marked the ${time(r.timestamp)} ${dayKey(r.timestamp) === todayKey() ? "" : "(" + fmtDay(dayKey(r.timestamp)) + ") "}check-in as someone else. Fix the name in the Sheet, then tap Done.`
+      title: r.name, detail: `Staff marked the ${time(r.timestamp)} ${dayKey(r.timestamp) === todayKey() ? "" : "(" + fmtDay(dayKey(r.timestamp)) + ") "}check-in as someone else. Fix the name and Student ID in the Sheet, then tap Done.`
     }));
     today.filter(r => r.checkoutTime && unpleasant(r.outMoodGroup)).forEach(r => items.push({
       key: "out:" + r.timestamp, rank: 4, level: "warning", icon: "↩", label: "Left still " + r.outMoodGroup.toLowerCase(),
@@ -688,7 +717,7 @@
     Object.values(by).forEach(v => {
       const hard = v.filter(r => unpleasant(r.moodGroup)).length;
       if (v.length < 3 && hard < 2) return;
-      const reason = v.length >= 3 ? `${v.length} drop-in visits in 7 days${hard ? `, ${hard} came in red or blue` : ""}` : `Came in ${v.filter(r => unpleasant(r.moodGroup)).map(r => r.moodGroup.toLowerCase()).join(", ")} this week`;
+      const reason = v.length >= 3 ? `${v.length} visits in 7 days${hard ? `, ${hard} came in red or blue` : ""}` : `Came in ${v.filter(r => unpleasant(r.moodGroup)).map(r => r.moodGroup.toLowerCase()).join(", ")} this week`;
       items.push({
         key: "pat:" + who(v[0]) + ":" + dayKey(v.at(-1).timestamp), rank: 5, score: hard * 2 + v.length, level: "info", icon: "↻", label: "Pattern to check in on",
         title: v.at(-1).name, detail: reason, dots: v.map(r => r.moodGroup)
@@ -709,12 +738,12 @@
           ${i.dots ? `<div class="dots">${i.dots.map(g => g ? `<i style="background:${MOOD[g].v}" title="${esc(g)}"></i>` : "").join("")}</div>` : ""}
         </div>
         <div class="acts">${i.incident
-          ? `<button type="button" class="primary" data-review="${n}">Mark reviewed</button>`
+          ? `<button type="button" class="primary" data-review="${n}">Follow up</button>`
           : `<button type="button" data-dismiss="${esc(i.key)}">Done</button>`}</div>
       </div>`).join("") + (hiddenPatterns ? `<div class="empty">+ ${hiddenPatterns} more pattern${hiddenPatterns === 1 ? "" : "s"}. Search the visit log to see a student's history.</div>` : "")
       : `<div class="allclear"><span class="ic">✓</span> Nothing needs attention right now.</div>`;
     $("#alerts").querySelectorAll("[data-dismiss]").forEach(b => b.addEventListener("click", () => dismiss(b.dataset.dismiss)));
-    $("#alerts").querySelectorAll("[data-review]").forEach(b => b.addEventListener("click", () => review(shown[Number(b.dataset.review)].incident, b)));
+    $("#alerts").querySelectorAll("[data-review]").forEach(b => b.addEventListener("click", () => review(shown[Number(b.dataset.review)].incident)));
     $("#alerts").querySelectorAll("[data-name]").forEach(el => el.addEventListener("click", () => lookup(el.dataset.name)));
   }
 
@@ -889,8 +918,9 @@
     rows.forEach(r => String(r[key] || "").split(",").map(s => s.trim()).filter(Boolean).forEach(k => { m[k] = (m[k] || 0) + 1; }));
     return Object.keys(m).sort((a, b) => m[b] - m[a]).map(k => [k, m[k]]);
   }
-  function bars(sel, pairs, emptyMsg, colorFn, keepOrder) {
-    pairs = keepOrder ? pairs.slice(0, 6) : pairs.slice().sort((a, b) => b[1] - a[1]).slice(0, 6);
+  function bars(sel, pairs, emptyMsg, colorFn, keepOrder, limit) {
+    limit = limit || 6;
+    pairs = keepOrder ? pairs.slice(0, limit) : pairs.slice().sort((a, b) => b[1] - a[1]).slice(0, limit);
     const max = Math.max(1, ...pairs.map(p => p[1]));
     $(sel).innerHTML = pairs.length ? pairs.map(([k, n]) => `
       <div class="bar" data-tip="${esc(k)}: ${n}"><div class="bl">${colorFn && colorFn(k) ? `<i style="background:${colorFn(k)}"></i>` : ""}${esc(k)}</div><div class="bv">${n}</div>
@@ -937,39 +967,64 @@
 
   // 9. Incidents
   function renderIncidents(rows) {
-    rows = rows.slice().sort((a, b) => (!!a.reviewed - !!b.reviewed) || (b.urgent === "Yes") - (a.urgent === "Yes") || new Date(b.timestamp) - new Date(a.timestamp));
-    const open = rows.filter(r => !r.reviewed).length;
-    $("#incCount").textContent = rows.length ? `· ${open} to review, ${rows.length} total` : "";
+    rows = rows.slice().sort((a, b) => (isOpen(b) - isOpen(a)) || (b.urgent === "Yes") - (a.urgent === "Yes") || new Date(b.timestamp) - new Date(a.timestamp));
+    const open = rows.filter(isOpen).length;
+    $("#incCount").textContent = rows.length ? `· ${open} open, ${rows.length} total` : "";
     $("#incList").innerHTML = rows.length ? rows.map((r, i) => `
       <div class="inc">
         <div class="meta">${esc(when(r.timestamp))} · <b>${esc(r.name)}</b>${r.grade ? " · " + esc(r.grade) : ""}
-          ${r.urgent === "Yes" ? '<span class="tag crit">! Said not safe</span>' : ""}${r.talk === "Yes" ? '<span class="tag">Wants to talk</span>' : ""}${r.reviewed ? `<span class="tag ok">✓ Reviewed</span>` : ""}</div>
+          ${r.urgent === "Yes" ? '<span class="tag crit">! Said not safe</span>' : ""}${r.talk === "Yes" ? '<span class="tag">Wants to talk</span>' : ""}${r.reviewed ? (isOpen(r) ? '<span class="tag crit">Needs more follow-up</span>' : '<span class="tag ok">✓ Followed up</span>') : ""}</div>
         <div class="what">${esc(r.types)}${r.place ? " · " + esc(r.place) : ""}${r.period ? " · " + esc(r.period) : ""}</div>
         ${r.story ? `<div class="story">${esc(r.story)}</div>` : ""}
         ${r.who ? `<div class="meta">Involved: ${esc(r.who)}</div>` : ""}${r.witness ? `<div class="meta">Saw it: ${esc(r.witness)}</div>` : ""}
-        ${r.reviewed ? `<div class="meta">Reviewed by ${esc(r.reviewed)}${r.notes ? " · " + esc(r.notes) : ""}</div>` : `<button type="button" data-inc="${i}">Mark reviewed</button>`}
+        ${r.reviewed ? `<div class="meta">Followed up by ${esc(r.reviewed)}${r.action ? " · " + esc(r.action) : ""}${r.status ? " · " + esc(r.status) : ""}${r.notes ? " · " + esc(r.notes) : ""}</div>` : ""}
+        ${isOpen(r) ? `<div class="fu"><button type="button" data-inc="${i}">${r.reviewed ? "Add follow-up" : "Follow up"}</button></div>` : ""}
       </div>`).join("") : `<div class="empty">No incident reports in this window.</div>`;
-    $("#incList").querySelectorAll("[data-inc]").forEach(b => b.addEventListener("click", () => review(rows[Number(b.dataset.inc)], b)));
+    $("#incList").querySelectorAll("[data-inc]").forEach(b => b.addEventListener("click", () => review(rows[Number(b.dataset.inc)])));
   }
-  async function review(inc, btn) {
-    const notes = prompt(`Mark ${inc.name}'s report reviewed. Optional note (what was done):`, "");
-    if (notes === null) return;
-    btn.disabled = true; btn.textContent = "Saving…";
+  // Incident follow-up: a short form an adult fills in after talking with the student.
+  let fuInc = null, fuPick = { action: "", status: "Resolved" };
+  function pickRow(sel, items, key) {
+    $(sel).innerHTML = items.map(v => `<button type="button" data-v="${esc(v)}" aria-pressed="${fuPick[key] === v}">${esc(v)}</button>`).join("");
+    $(sel).querySelectorAll("button").forEach(b => b.addEventListener("click", () => {
+      fuPick[key] = b.dataset.v;
+      $(sel).querySelectorAll("button").forEach(x => x.setAttribute("aria-pressed", String(x === b)));
+      $("#fuSave").disabled = !fuPick.action;
+    }));
+  }
+  function review(inc) {
+    fuInc = inc; fuPick = { action: "", status: "Resolved" };
+    $("#fuSub").textContent = `${inc.name || "A student"} · ${when(inc.timestamp)}${inc.types ? " · " + inc.types : ""}`;
+    pickRow("#fuActions", FU_ACTIONS, "action");
+    pickRow("#fuStatus", FU_STATUSES, "status");
+    $("#fuNote").value = ""; $("#fuErr").textContent = "";
+    $("#fuSave").disabled = true; $("#fuSave").textContent = "Save follow-up";
+    $("#fuDlg").showModal();
+  }
+  $("#fuCancel").addEventListener("click", () => $("#fuDlg").close());
+  $("#fuSave").addEventListener("click", async () => {
+    const inc = fuInc, notes = $("#fuNote").value.trim();
+    if (!inc || !fuPick.action) return;
+    $("#fuSave").disabled = true; $("#fuSave").textContent = "Saving…";
     if (TEST) {
       let rv = {}; try { rv = JSON.parse(localStorage.getItem("ppc_local_reviews") || "{}"); } catch {}
-      rv[inc.timestamp] = { reviewed: "Test mode · " + new Date().toLocaleDateString(), notes };
+      const before = (rv[inc.timestamp] && rv[inc.timestamp].notes) || "";
+      rv[inc.timestamp] = { reviewed: "Test mode · " + new Date().toLocaleDateString(), notes: notes ? (before ? before + "\n" + notes : notes) : before, action: fuPick.action, status: fuPick.status };
       try { localStorage.setItem("ppc_local_reviews", JSON.stringify(rv)); } catch {}
+      $("#fuDlg").close();
       return loadLocal();
     }
     try {
-      const d = await post({ type: "review", timestamp: inc.timestamp, name: inc.name, notes });
-      if (!d.ok) throw new Error(/Bad token/.test(d.error || "") ? "The script in the Sheet needs updating to save reviews (paste the new Code.gs and deploy a new version)." : d.error);
+      const d = await post({ type: "review", timestamp: inc.timestamp, name: inc.name, action: fuPick.action, status: fuPick.status, notes });
+      if (!d.ok) throw new Error(/Bad token/.test(d.error || "") ? "The script in the Sheet needs updating to save follow-ups (paste the new Code.gs and deploy a new version)." : d.error);
+      $("#fuDlg").close();
+      if (!d.followUp) alert("Saved as reviewed, but the script in the Sheet is an older version, so \"What was done\" and the status weren't saved. Paste the new Code.gs into Apps Script and deploy a new version.");
       load();
     } catch (err) {
-      btn.disabled = false; btn.textContent = "Mark reviewed";
-      alert("Couldn't save: " + (err.message || err));
+      $("#fuSave").disabled = false; $("#fuSave").textContent = "Save follow-up";
+      $("#fuErr").textContent = "Couldn't save: " + (err.message || err);
     }
-  }
+  });
 
   // 10. Feedback
   function renderFeedback(rows) {
@@ -992,8 +1047,7 @@
     const t = todayKey(), ev = [];
     const incTimes = new Set((data.incidents || []).map(r => r.timestamp));
     data.checkins.filter(r => dayKey(r.timestamp) === t && !(r.outcome === "Incident Report" && incTimes.has(r.timestamp))).forEach(r => {
-      const staff = r.station === "Staff first";
-      ev.push({ at: r.timestamp, kind: "in", r, alert: staff, needs: !!r.basicNeeds });
+      ev.push({ at: r.timestamp, kind: "in", r, alert: needsStaff(r), needs: !!r.basicNeeds });
       if (r.checkoutTime && dayKey(r.checkoutTime) === t) ev.push({ at: r.checkoutTime, kind: "out", r, alert: false, needs: false });
     });
     (data.incidents || []).filter(r => dayKey(r.timestamp) === t).forEach(r => ev.push({ at: r.timestamp, kind: "inc", r, alert: true, needs: false }));
@@ -1005,7 +1059,7 @@
     const r = e.r;
     let dotColor = "var(--ink-3)", sq = false, kind = "", chips = "", crit = false;
     if (e.kind === "in") {
-      crit = r.station === "Staff first" && r.outcome !== "Incident Report";
+      crit = needsStaff(r);
       dotColor = MOOD[r.moodGroup] ? MOOD[r.moodGroup].v : "var(--ink-3)";
       kind = r.outcome === "Incident Report" ? "checked in to report" : "checked in";
       chips = (crit ? chip("! Staff should go to them", "crit") : "") +
@@ -1028,7 +1082,7 @@
       kind = "incident report";
       chips = (crit ? chip("! Said not safe", "crit") : "") + (r.talk === "Yes" ? chip("Wants to talk") : "") +
         (r.types ? r.types.split(",").map(x => chip(x.trim())).join("") : "") + chip(r.place) + chip(r.period) +
-        (r.reviewed ? chip("✓ Reviewed") : chip("Not reviewed yet"));
+        (!r.reviewed ? chip("No follow-up yet") : isOpen(r) ? chip("Needs more follow-up", "crit") : chip("✓ Followed up"));
     }
     return `<div class="ev ${crit ? "crit" : ""}"><div class="tm">${time(e.at)}</div><div class="rail"><i class="${sq ? "sq" : ""}" style="background:${dotColor}"></i></div>
       <div class="card"><span class="who2" data-name="${esc(r.name)}">${esc(r.name)}</span><span class="kind">${kind}</span><div class="chips">${chips}</div></div></div>`;
@@ -1161,7 +1215,7 @@
   $("#search").addEventListener("input", () => renderLog(data.checkins.filter(r => inWindow(r.timestamp, win()))));
   $("#refresh").addEventListener("click", load);
   let rt; addEventListener("resize", () => { clearTimeout(rt); rt = setTimeout(() => { if (!$("#dash").classList.contains("hidden")) { const r = data.checkins.filter(x => inWindow(x.timestamp, win())); renderDaily(r); renderHourly(r); } }, 150); });
-  setInterval(() => { if (!$("#dash").classList.contains("hidden")) load(); }, 60000);
+  // Auto-refresh is off for now. The Refresh button reloads the data.
   start();
 })();
 </script>
