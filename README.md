@@ -25,23 +25,129 @@ A tap-through check-in kiosk for the Pride Center, rebuilt from the Google Slide
 
 Matches the hyperlinks in the current PowerPoint deck.
 
-1. Start → student types name or ID
-2. Why are you here today? **Self Referred** (I came on my own) or **Staff Referred** (a teacher sent me)
-3. What do you need today? **Drop In: I need a reset**, **Scheduled Break**, or **I have a need… (medical, food, clothing)**
-4. **I have a need** goes to: Incident Report or Basic Need. Incident Report opens a short in-app report that covers every question on the district "Student Incident Report" form: Are you safe right now? → Grade (6th/7th/8th) → What happened (multi-select from `INCIDENT_TYPES`) → Where (`INCIDENT_PLACES`, the district's list) → When (`INCIDENT_PERIODS`, the district's class hours) → Tell us what happened (own words, who was involved, witnesses) → Do you want to talk to someone today? The district form collects the student's Google email automatically; the kiosk can't, so the name typed at check-in is the identifier. A student who says they are not safe is routed to "a staff member is coming to you." Reports land in an **Incident Reports** tab in the Sheet with urgent rows highlighted, and in the admin dashboard. Basic Need opens "What do you need?" where the student taps one or more items from `BASIC_NEEDS` in `config.js`, then continues to the feelings questions below.
+1. Start → the student types their name and taps it in the roster name list (see "The roster name list" below)
+2. Why are you here today? **I came on my own** (I have a need) or **Staff Referred** (a teacher sent me)
+3. Self-referred: What do you need today? **I Need a Reset**, **Scheduled Break**, or **I have a need… (sickness, food, clothing, or to report something)**. Staff-referred: Why did a teacher send you? **Break**, **Defiance**, or **Sickness**. Staff-referred students never see Scheduled Break.
+4. **I have a need** goes to: Incident Report or Basic Need. Incident Report opens a short in-app report: What happened (multi-select from `INCIDENT_TYPES`) → Where (`INCIDENT_PLACES`, with Bus/Bus Stop) → When (`INCIDENT_PERIODS`: Before School, Breakfast, the class hours, Lunch, Recess, Passing Time) → Tell us what happened (own words, who was involved, witnesses) → Do you want to talk to someone today? There is no "Are you safe?" question and no grade question: the script fills in the student's grade from the roster. Reports land in an **Incident Reports** tab in the Sheet and in the admin dashboard, where an adult records a follow-up. Basic Need opens "What do you need?" where the student taps one or more items from `BASIC_NEEDS` in `config.js`, then continues to the feelings questions below.
 5. How is your body + brain feeling? (Fast / Slow / Ok)
-6. "Pick the word that fits how you feel." Fast shows the red and yellow grids, Slow shows blue, Ok shows green. A student can tap one word, or tap "Just pick Red" (etc.) under a grid when no single word fits; the Sheet then records the color with no word.
-7. What happened? (Home / Teacher / Friend / Myself / I'm not sure right now). "Not sure" is recorded as Not sure.
-8. Station suggestion. The mood word's color picks a regulation station (Red, Yellow, Blue, Green). The app says "The blue station is set up for how you're feeling. Go there, or pick another," and records both the suggestion and the choice. Words in `STAFF_FIRST_WORDS` (enraged, hopeless, and so on) skip the picker and show "A staff member is coming to you" instead.
+6. "Pick the word that fits how you feel." Fast shows the red and yellow grids, Slow shows blue, Ok shows green. A student can tap one word, or tap **Type my own word** under a grid and type it; the Sheet records their word with that grid's color.
+7. Did something happen… (At Home / With my Teacher / With a friend / Just with myself / Nothing happened / I'm not sure right now)
+8. Station suggestion. The mood word's color picks a regulation station (Red, Yellow, Blue, Green). The app says "Suggested: Blue station. You can pick another," and records both the suggestion and the choice. Every word goes to the station picker, including the alert words in `STAFF_FIRST_WORDS` (enraged, hopeless, and so on), since an adult is already with the student. A tapped alert word is saved with "Staff first" in Station Suggested, which raises "Staff should go to this student" on the staff dashboard. A word the student typed never raises an alert.
 9. End screen with the deck's CLICK HERE button: Incident Report opens the incident form, Check In and Basic Need open the sign-in form. Both need a KRESA Google login, exactly as before. Clear `FORM_INCIDENT_URL` or `FORM_SIGNIN_URL` in `config.js` to hide a button. The app resets for the next student after 30 seconds.
 
 **Already checked in?** After typing their name, a student who already has an open check-in today on that iPad (within 4 hours, not checked out) sees "Welcome back" with two choices: check out, or start a new visit. A student who taps check-out without a check-in sees "We don't see a check-in for you today" with: check in, or check out anyway. So nobody answers the check-in questions twice by accident. This uses the iPad's own record, so a staff check-out from the dashboard isn't known to the iPad; "start a new visit" covers that case.
 
-**Confirmation screens** lead with a big block in the color of the station they're headed to (or "A staff member is coming to you"), On check-out it shows the word the student picked on a neutral card, with only a small color mark, so it reflects their answer instead of assigning them a color.
+**Confirmation screens** lead with a big block in the color of the station they're headed to, with "You picked: <their word>." The wording is plain and tells students what happens next, never how to feel: "You're checked in," "Your report is saved," "Your request is saved."
 
-**Check-out.** The start screen has a "Leaving? Tap here to check out" link. The student types their name, answers the body + brain question and the word grid again, then taps what helped (from `WHAT_HELPED` in `config.js`). The Sheet fills in the check-out columns on that student's check-in row: check-out time, minutes in room, mood at check-out, and what helped. The end screen says "You said you feel calm" in the student's own word.
+**Back** is a large dark button fixed in the bottom-left corner of every question screen. Start over stays in the top right.
+
+**Check-out.** The start screen has a "Leaving? Tap here to check out" link. The student types their name, answers the body + brain question and the word grid again, then taps what helped (from `WHAT_HELPED` in `config.js`). The Sheet fills in the check-out columns on that student's check-in row: check-out time, minutes in room, mood at check-out, and what helped. The end screen repeats the student's word ("You picked: Calm") and says the check-out is saved.
 
 Every check-in is saved the moment the end screen appears. If Wi-Fi drops, it's kept on the iPad and synced automatically when the connection returns. If a student walks away mid-flow, the app returns to the start after two minutes so nobody sees their answers.
+
+## How it connects to the Google Sheet
+
+Nothing in this repo calls the Google Sheets API directly. The bridge is the Apps Script web app that lives inside the Sheet: the pages on GitHub Pages POST JSON to the script's URL, and the script writes the rows. Until `SCRIPT_URL` in `config.js` is filled in (Setup step 4), the kiosk runs in test mode and nothing reaches the Sheet.
+
+### The pieces
+
+```mermaid
+flowchart LR
+  subgraph pages["GitHub Pages · remc12w.github.io"]
+    cfg["config.js<br/>SCRIPT_URL · KIOSK_TOKEN · GOOGLE_CLIENT_ID"]
+    kiosk["index.html<br/>student kiosk"]
+    fb["feedback.html<br/>trial feedback"]
+    staff["staff.html<br/>admin dashboard"]
+    cfg --> kiosk
+    cfg --> fb
+    cfg --> staff
+  end
+
+  subgraph sheet["Google Sheet · Pride Center Check-Ins"]
+    script["Apps Script web app<br/>Code.gs · doPost()<br/>Execute as: Me · Access: Anyone"]
+    checkins[("Check-Ins tab")]
+    incidents[("Incident Reports tab")]
+    feedback[("Feedback tab")]
+    summary["Summary tab<br/>COUNTIF and QUERY formulas"]
+  end
+
+  gsi["Sign in with Google"]
+  tokeninfo["Google tokeninfo"]
+
+  kiosk -->|"POST JSON + KIOSK_TOKEN<br/>type: checkin · checkout · incident"| script
+  fb -->|"POST JSON + KIOSK_TOKEN<br/>type: feedback"| script
+  gsi -->|"ID token"| staff
+  staff -->|"POST type: dashboard + ID token"| script
+  script -->|"verify ID token"| tokeninfo
+  script -->|"checkin: appendRow<br/>checkout: fill columns Q to V on the matching row"| checkins
+  script -->|"incident: appendRow<br/>staff add a follow-up"| incidents
+  script -->|"feedback: appendRow"| feedback
+  script -->|"JSON: checkins, incidents, feedback, sheetUrl"| staff
+  checkins -.->|"live counts"| summary
+```
+
+Setup wires this together in order: paste `Code.gs` into the Sheet (step 2), run `setup` to build the tabs (step 3), deploy as a web app and paste its URL into `config.js` (step 4), create the OAuth Client ID for the dashboard (step 5), then push so GitHub Pages serves the new config (step 6).
+
+### One check-in, step by step
+
+```mermaid
+sequenceDiagram
+  autonumber
+  participant S as Student
+  participant K as Kiosk (index.html)
+  participant L as iPad localStorage
+  participant A as Apps Script doPost()
+  participant T as Check-Ins tab
+
+  S->>K: Taps through to the end screen
+  K->>K: finish() builds the record: type checkin, timestamp, name, every answer
+  K->>L: save() appends it to ppc_local (last 500 kept)
+  alt SCRIPT_URL is empty (test mode)
+    K-->>S: "Test mode: saved on this device only."
+  else SCRIPT_URL is set
+    K->>A: fetch POST SCRIPT_URL, Content-Type text/plain, body = JSON + token
+    Note over K,A: text/plain avoids a CORS preflight that Apps Script cannot answer.<br/>redirect: follow handles the Apps Script redirect.
+    A->>A: JSON.parse, check token equals KIOSK_TOKEN
+    A->>T: appendRow: 16 values + 6 blank check-out cells, Detroit time zone
+    A-->>K: { ok: true }
+    K-->>S: "Saved ✓"
+  end
+  opt fetch throws or ok is false (offline, bad token)
+    K->>L: push the record onto ppc_queue
+    K-->>S: "Saved on this iPad. It will sync when Wi-Fi is back."
+    Note over K,L: flushQueue() retries oldest first: on open, on the online event, every 30 s
+    K->>A: POST queued records until one fails
+  end
+```
+
+Check-out, incident, and feedback records travel the same road. The differences are on the Sheet side: a check-out does not add a row but finds the same name checked in within 6 hours with no check-out yet and fills columns Q to V of that row (or adds a "no check-in found" row), an incident goes to the Incident Reports tab (created on first use), and feedback goes to the Feedback tab. For every record, the script swaps the kiosk's roster key for the student's ID, full name, and grade from the Roster tab before saving.
+
+### Dashboard read path
+
+```mermaid
+sequenceDiagram
+  autonumber
+  participant U as Staff member
+  participant D as Dashboard (staff.html)
+  participant G as Sign in with Google
+  participant A as Apps Script doPost()
+  participant V as Google tokeninfo
+  participant SH as Sheet tabs
+
+  U->>D: Opens staff.html
+  D->>G: Loads the sign-in button with GOOGLE_CLIENT_ID, hd = kresa.org
+  G-->>D: ID token, kept in sessionStorage for the tab
+  D->>A: POST type dashboard, idToken, days (on load, when the day count changes, on Refresh)
+  A->>V: GET tokeninfo?id_token=...
+  V-->>A: aud, iss, exp, email_verified, email, hd
+  A->>A: aud must equal GOOGLE_CLIENT_ID, email must be on ALLOWED_DOMAIN or in ADMIN_EMAILS
+  A->>SH: getDataRange() on Check-Ins, Incident Reports, Feedback, filtered to the last N days
+  A-->>D: { ok, email, sheetUrl, checkins, incidents, feedback }
+  D-->>U: Tiles, bars, table, CSV download, Open Sheet button
+  Note over D,A: Any token error signs the page out and shows the reason on the sign-in screen.
+```
+
+The Summary tab needs none of this. It is COUNTIF and QUERY formulas pointing at the Check-Ins tab, so it updates the moment a row lands.
 
 ## Setup (about 15 minutes, one time)
 
@@ -102,6 +208,8 @@ git add -A && git commit -m "Connect the Google Sheet" && git push
 
 GitHub Pages updates in about a minute. The yellow "test mode" banner disappears from the kiosk, and `staff.html` shows the sign-in page.
 
+**Updating to the roster name list and incident follow-up (October 2026).** This update changes Code.gs, so do these once: paste the new `apps-script/Code.gs` into Apps Script, then **Deploy → Manage deployments → pencil icon → Version: New version → Deploy** (the URL stays the same), then run **setup** once. Setup adds the Follow-up action and status columns to the Incident Reports tab, removes the old red highlight on "not safe" rows (any other rules you added stay), and rebuilds the Summary tab with the new reasons and answers. Until the new version is deployed, the iPad has no name list and accepts typed names, and the staff page warns that follow-up details weren't saved.
+
 **If you later edit Code.gs**, publish a new version: **Deploy → Manage deployments → pencil icon → Version: New version → Deploy**. The URL stays the same.
 
 ### 7. Set up the iPad
@@ -114,7 +222,7 @@ GitHub Pages updates in about a minute. The yellow "test mode" banner disappears
 
 Open `staff.html` and sign in with a @parchmentschools.org staff account (or an account listed in `ADMIN_EMAILS`). It is built around what staff act on, top to bottom:
 
-1. **Needs attention.** Safety first: incident reports where the student said they were not safe, students who picked a staff-first word today, then unreviewed incident reports, students who checked out still red or blue, and up to three patterns from the last 7 days (3+ drop-in visits, or 2+ red/blue arrivals; scheduled breaks don't count). Incident reports clear with **Mark reviewed**, which writes your email, the date, and an optional note into the Sheet. Other items clear with **Done** on that computer.
+1. **Needs attention.** Safety first: students who tapped an alert word today, then incident reports with no follow-up yet (or marked "Needs more follow-up"), students who checked out still red or blue, and up to three patterns from the last 7 days (3+ visits, or 2+ red/blue arrivals; scheduled breaks don't count). Older reports from when the kiosk asked "Are you safe?" still show "Said they are not safe" until followed up. Incident reports clear with **Follow up** (below). Other items clear with **Done** on that computer.
 2. **In the room now.** Checked in within 3 hours and not checked out, with station, feeling word, basic needs, and minutes in the room. **Check out** lets staff check a student out with their own read of how the student seems (color, optional word, what helped). These are saved with "Staff: <email>" in the Checked Out By column; kiosk check-outs say "Student". Staff who aren't comfortable assigning a mood can choose **Check out, skip the read**, which records only the time the student left; those visits count toward time in the room but are left out of the mood-change numbers and never raise a "left still red or blue" alert. Check-out stays optional either way.
 3. **Today.** Check-ins, red/blue arrivals, basic needs, and incident reports, each with a 14-school-day sparkline.
 4. **How students arrived.** The Mood Meter as a 2x2, with counts, share, and top words per quadrant.
@@ -123,25 +231,27 @@ Open `staff.html` and sign in with a @parchmentschools.org staff account (or an 
 7. **What's behind the visits, what to keep stocked, what helped.**
 8. **Referral, reason, energy, and station.** Station bars use the station colors and show how often students went where the app suggested.
 9. **Visit log** with student search. Tap a name to see that student's visits and a row of mood dots, oldest to newest.
-10. **Incident reports** (unreviewed first) and **trial feedback** (collapsed).
+10. **Incident reports** (open first) and **trial feedback** (collapsed).
+
+**Incident follow-up.** After an adult talks with the student, they tap **Follow up** on the report and fill in a three-part form: what was done (Talked it through, Contacted family, Sent to office, Referred to counselor, Other), status (Resolved, or Needs more follow-up), and an optional note. It saves to the report's row: Reviewed by (your email and the time), Notes (added to, never replaced), Follow-up action, and Follow-up status. "Needs more follow-up" keeps the report in Needs attention, with an **Add follow-up** button, until a later follow-up marks it Resolved.
 
 The **Today** button in the header (with today's check-in count) slides out a timeline of the day: every check-in, check-out, and incident report in order, grouped by hour, with chips for feeling word, reason, station, basic needs, minutes in the room, and what helped, plus a "Now" line. Filter it to check-ins, check-outs, items that need a staff member, or basic needs. Tap a name to jump to that student's history. Esc or a click outside closes it.
 
 The window selector (7, 14, 30, 90 days) drives sections 4 through 9. Sections 1 through 3 are always about today and this week. Mood colors were checked for color-blind safety in light and dark mode, and every color is paired with a word.
 
-## Badges, student IDs, and the roster
+## The roster name list
 
-Students can scan their badge (or type their student ID) instead of typing a name. The kiosk then greets them by first name ("Hi, Riley!") and every check-in, check-out, and incident report carries the student ID, so visits match on ID instead of spelling.
+Students don't scan a badge or type an ID. They start typing their name, and matching students from the roster appear under the box as "Jordan S. · 7th." Tapping their name ties the visit to that student. The list starts after two letters and shows at most six names. The iPad shows first names, last initials, and grades, and never student IDs, except in the rare collision described below.
 
-**Scanner.** Use a USB or Bluetooth barcode scanner paired to the iPad in keyboard mode. On the start screen, a scan starts a check-in by itself. On the name screen, a scan fills the box and continues. Manual entry works the same way: type the ID, or type a first and last name.
+**Matching.** Typing "jor" lists every Jordan. Enter (or Next) picks a name by itself only when the typed name can mean just one student, for example "Jordan S." when there is one; otherwise the student is asked to tap their name. A name that isn't on the roster shows "We can't find that name. Ask an adult to help," and the adult adds the student to the Roster tab. When two students would show the same label, the script adds more of the last name ("Jordan Sa." and "Jordan Sm."), and if they still match, the last three digits of the student ID.
 
-**Roster.** The roster is a **Roster** tab in the main Sheet ([open it](https://docs.google.com/spreadsheets/d/1CefuY4Uq8CgEqR6PQteZO4W02puMwbYvrsCOxdRQIgw/edit?gid=1679508098#gid=1679508098)); `ROSTER_SHEET_GID` in `Code.gs` points at it. Columns: Student ID, First Name, Last Name, Grade. Running `setup` formats it: frozen header, IDs kept as text, a 6/7/8 grade dropdown, and instructions in a note on the Student ID header. Header names are matched loosely (Student Number, ID, Preferred Name, Surname, Grade Level all work), so a pasted export works too. Changes are picked up within 10 minutes, or right away after running **refreshRoster**. Anyone given edit access to fill in the roster can also see every other tab (check-ins, incident reports). To avoid that, set `ROSTER_SPREADSHEET_ID` to a separate spreadsheet and share only that. The roster never goes in this public repository.
+**Roster.** The roster is a **Roster** tab in the main Sheet ([open it](https://docs.google.com/spreadsheets/d/1CefuY4Uq8CgEqR6PQteZO4W02puMwbYvrsCOxdRQIgw/edit?gid=1679508098#gid=1679508098)); `ROSTER_SHEET_GID` in `Code.gs` points at it. Columns: Student ID, First Name, Last Name, Grade. Add a **Preferred Name** column to show a student's chosen name instead of their legal first name; a filled-in Preferred Name always wins, on the iPad and in the Sheet. Running `setup` formats the tab: frozen header, IDs kept as text, a 6/7/8 grade dropdown, and instructions in a note on the Student ID header. Header names are matched loosely (Student Number, ID, Surname, Grade Level all work), so a pasted export works too. Changes are picked up within 10 minutes, or right away after running **refreshRoster**, which also logs how many students it found. Anyone given edit access to fill in the roster can also see every other tab (check-ins, incident reports). To avoid that, set `ROSTER_SPREADSHEET_ID` to a separate spreadsheet and share only that. The roster never goes in this public repository.
 
-**iPad sign-in.** Lookups only work on an iPad that a staff member has signed in, so nobody can pull names from the roster with the public kiosk token. On the start screen, tap **"Badge scanning is off. Staff: sign in this iPad"** (or tap the panther on the start screen 5 times) and sign in with Google. The script checks the account and gives the iPad its own pass for `KIOSK_SESSION_DAYS` (30). Students never see a login. **Only @parchmentschools.org staff accounts can sign an iPad in** (`KIOSK_DOMAIN` in `Code.gs` and `config.js`); the domain is re-checked on every lookup. `KIOSK_ACCOUNTS` can narrow it to specific people. Because Parchment accounts are outside the kresa.org Google Workspace that owns the sign-in app, its OAuth consent screen must be set to **External** (Google Cloud Console → Google Auth Platform → Audience → Make external, publishing status In production). To sign every iPad out, for example if one goes missing, run **signOutAllKiosks** in Apps Script. Sign the iPad in before turning on Guided Access, since the sign-in opens a Google popup.
+**What the iPad gets.** After sign-in, the iPad downloads the list into memory only, never into browser storage, and refreshes it on the start screen every 10 minutes. Each student comes with a label, a first name for "Hi, Jordan!", and an opaque key (a salted hash) instead of their student ID. When a check-in, check-out, or incident report is saved, the script turns the key back into the student ID, full name, and grade.
 
-If the iPad isn't signed in, is offline, or an ID isn't on the roster, the student is asked to type their name and the ID is still saved with the visit.
+**iPad sign-in.** The name list only works on an iPad that a staff member has signed in, so nobody can pull names from the roster with the public kiosk token. On the start screen, tap **"Name list is off. Staff: sign in this iPad"** (or tap the panther logo 5 times) and sign in with Google. The script checks the account and gives the iPad its own pass for `KIOSK_SESSION_DAYS` (30). Students never see a login. **Only @parchmentschools.org staff accounts can sign an iPad in** (`KIOSK_DOMAIN` in `Code.gs` and `config.js`); the domain is re-checked on every request. `KIOSK_ACCOUNTS` can narrow it to specific people. Because Parchment accounts are outside the kresa.org Google Workspace that owns the sign-in app, its OAuth consent screen must be set to **External** (Google Cloud Console → Google Auth Platform → Audience → Make external, publishing status In production). To sign every iPad out, for example if one goes missing, run **signOutAllKiosks** in Apps Script. Sign the iPad in before turning on Guided Access, since the sign-in opens a Google popup.
 
-**Is this you?** After a badge or ID matches the roster, the kiosk shows the student's name and grade with "Yes, that's me" and "No, that's not me." No sends them back to scan their own badge or type their name. Typed names skip this screen.
+If the iPad isn't signed in or can't reach the script, there is no name list: the student types their first and last name, and staff confirm it on the dashboard.
 
 **Staff confirm.** On the dashboard, each student under "In the room now" has **✓ Confirm** and **Not them**. Confirm records "Confirmed · your email · time" in the Staff Confirmed column. Not them flags the visit in the Sheet, the visit log, and the Today timeline, and puts a "Check-in not by this student" item in Needs attention so someone fixes the name. Flagged visits are not deleted and still count in the charts until the name is corrected.
 
