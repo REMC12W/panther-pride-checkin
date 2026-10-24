@@ -6,7 +6,8 @@
 window.PPC_CHARTS = (function () {
   const D = window.PPD;
   const MOOD_COLOR = { Red: "#c1272d", Yellow: "#eda232", Blue: "#2b5090", Green: "#4c9a47" };
-  const PALETTE = ["#d61f26", "#2b5090", "#4c9a47", "#eda232", "#7e6bb0", "#1f8a9c", "#c75d9a", "#8a6d3b", "#555", "#9bbb59", "#e07b39", "#4472c4"];
+  // Brand maroon first, then the Mood Meter hues and distinct supporting colors.
+  const PALETTE = ["#842D46", "#2b5090", "#4c9a47", "#eda232", "#6D6E70", "#1f8a9c", "#c75d9a", "#8a6d3b", "#231F20", "#9bbb59", "#e07b39", "#4472c4"];
   const PREV_COLOR = "#b8b8b8";
   const WEEKDAY_ORDER = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
   const HOUR_ORDER = Array.from({ length: 11 }, (_, i) => 7 + i); // 7am to 5pm
@@ -196,7 +197,7 @@ window.PPC_CHARTS = (function () {
   function values(agg) {
     return agg.rows.map(r => ({ key: r.key, label: keyLabel(agg.dim, r.key), series: agg.breakdown ? keyLabel(agg.breakdown, r.series) : r.series, value: r.value, n: r.n, prevKey: r.prevKey || null }));
   }
-  const BASE = { config: { font: "Fredoka, Avenir Next, Segoe UI, sans-serif", axis: { labelFontSize: 12, titleFontSize: 12, labelColor: "#444", titleColor: "#666", gridColor: "#eee", domainColor: "#ccc" }, legend: { labelFontSize: 12, titleFontSize: 12 }, view: { stroke: null }, background: "transparent" }, autosize: { type: "fit", contains: "padding" }, width: "container", height: "container" };
+  const BASE = { config: { font: "Raleway, system-ui, sans-serif", axis: { labelFontSize: 12, titleFontSize: 12, labelColor: "#4A4647", titleColor: "#6D6E70", gridColor: "#EFEFF0", domainColor: "#BCBDBF" }, legend: { labelFontSize: 12, titleFontSize: 12 }, view: { stroke: null }, background: "transparent" }, autosize: { type: "fit", contains: "padding" }, width: "container", height: "container" };
 
   function spec(agg, tile) {
     const dim = DIMENSIONS[agg.dim];
