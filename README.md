@@ -56,7 +56,7 @@ Nothing in this repo calls the Google Sheets API directly. The bridge is the App
 ```mermaid
 flowchart LR
   subgraph pages["GitHub Pages · remc12w.github.io"]
-    cfg["config.js<br/>SCRIPT_URL · KIOSK_TOKEN · GOOGLE_CLIENT_ID"]
+    cfg["config.js<br/>SCRIPT_URL · GOOGLE_CLIENT_ID"]
     kiosk["index.html<br/>student kiosk"]
     fb["feedback.html<br/>trial feedback"]
     staff["staff.html<br/>admin dashboard"]
@@ -76,8 +76,8 @@ flowchart LR
   gsi["Sign in with Google"]
   tokeninfo["Google tokeninfo"]
 
-  kiosk -->|"POST JSON + KIOSK_TOKEN<br/>type: checkin · checkout · incident"| script
-  fb -->|"POST JSON + KIOSK_TOKEN<br/>type: feedback"| script
+  kiosk -->|"POST JSON + iPad session<br/>type: checkin · checkout · incident"| script
+  fb -->|"POST JSON + iPad session or ID token<br/>type: feedback"| script
   gsi -->|"ID token"| staff
   staff -->|"POST type: dashboard + ID token"| script
   script -->|"verify ID token"| tokeninfo
@@ -107,9 +107,9 @@ sequenceDiagram
   alt SCRIPT_URL is empty (test mode)
     K-->>S: "Test mode: saved on this device only."
   else SCRIPT_URL is set
-    K->>A: fetch POST SCRIPT_URL, Content-Type text/plain, body = JSON + token
+    K->>A: fetch POST SCRIPT_URL, Content-Type text/plain, body = JSON + iPad session pass
     Note over K,A: text/plain avoids a CORS preflight that Apps Script cannot answer.<br/>redirect: follow handles the Apps Script redirect.
-    A->>A: JSON.parse, check token equals KIOSK_TOKEN
+    A->>A: JSON.parse, check the iPad session pass (or a staff ID token) is valid
     A->>T: appendRow: 16 values + 6 blank check-out cells, Detroit time zone
     A-->>K: { ok: true }
     K-->>S: "Saved ✓"
@@ -162,7 +162,7 @@ The sheet already exists: [Pride Center Check-Ins](https://docs.google.com/sprea
 1. In the Sheet, go to **Extensions → Apps Script**.
 2. Delete the sample code in `Code.gs` and paste in everything from `apps-script/Code.gs`.
 3. Dashboard access is `ALLOWED_DOMAIN` (any @parchmentschools.org Workspace account) plus the people in `ADMIN_EMAILS` (currently the principal, jeremy.andrick@parchmentschools.org, plus ben.tomlinson@kresa.org for setup). Everyone else is refused. To lock it to named people only, list them in `ADMIN_EMAILS` and set `ALLOWED_DOMAIN` to `''`.
-4. `KIOSK_TOKEN` must match `config.js`. They already match in this repo.
+4. There is no shared secret in `config.js` any more. Every check-in, check-out, incident report, and feedback note needs a signed-in @parchmentschools.org staff account: the kiosk iPad's sign-in session, or a staff Google sign-in. Someone who finds the script URL can't add or read anything. (If an older copy of this script still has a `KIOSK_TOKEN` line, it is no longer used and can be deleted.)
 5. Click **Save**.
 
 ### 3. Run setup once
@@ -251,7 +251,7 @@ Students don't scan a badge or type an ID. They start typing their name, and mat
 
 **What the iPad gets.** After sign-in, the iPad downloads the list into memory only, never into browser storage, and refreshes it on the start screen every 10 minutes. Each student comes with a label, a first name for "Hi, Jordan!", and an opaque key (a salted hash) instead of their student ID. When a check-in, check-out, or incident report is saved, the script turns the key back into the student ID, full name, and grade.
 
-**iPad sign-in.** The name list only works on an iPad that a staff member has signed in, so nobody can pull names from the roster with the public kiosk token. On the start screen, tap **"Name list is off. Staff: sign in this iPad"** (or tap the panther logo 5 times) and sign in with Google. The script checks the account and gives the iPad its own pass for `KIOSK_SESSION_DAYS` (30). Students never see a login. **Only @parchmentschools.org staff accounts can sign an iPad in** (`KIOSK_DOMAIN` in `Code.gs` and `config.js`); the domain is re-checked on every request. `KIOSK_ACCOUNTS` can narrow it to specific people. Because Parchment accounts are outside the kresa.org Google Workspace that owns the sign-in app, its OAuth consent screen must be set to **External** (Google Cloud Console → Google Auth Platform → Audience → Make external, publishing status In production). To sign every iPad out, for example if one goes missing, run **signOutAllKiosks** in Apps Script. Sign the iPad in before turning on Guided Access, since the sign-in opens a Google popup.
+**iPad sign-in.** The name list only works on an iPad that a staff member has signed in, so nobody can pull names from the roster, and the same sign-in is now required to save check-ins, check-outs, incident reports, and feedback. On the start screen, tap **"Name list is off. Staff: sign in this iPad"** (or tap the panther logo 5 times) and sign in with Google. The script checks the account and gives the iPad its own pass for `KIOSK_SESSION_DAYS` (30). Students never see a login. **Only @parchmentschools.org staff accounts can sign an iPad in** (`KIOSK_DOMAIN` in `Code.gs` and `config.js`); the domain is re-checked on every request. `KIOSK_ACCOUNTS` can narrow it to specific people. Because Parchment accounts are outside the kresa.org Google Workspace that owns the sign-in app, its OAuth consent screen must be set to **External** (Google Cloud Console → Google Auth Platform → Audience → Make external, publishing status In production). To sign every iPad out, for example if one goes missing, run **signOutAllKiosks** in Apps Script. Sign the iPad in before turning on Guided Access, since the sign-in opens a Google popup.
 
 If the iPad isn't signed in or can't reach the script, there is no name list: the student types their first and last name, and staff confirm it on the dashboard.
 
@@ -317,7 +317,7 @@ With `SCRIPT_URL` empty, the kiosk saves check-ins in the browser on that device
 - Student names are stored only in the district Google Sheet. Nothing goes to any other service.
 - The kiosk keeps a copy of the last 500 check-ins in the iPad browser's local storage so nothing is lost offline. Clear Safari website data on the iPad if you ever retire it.
 - The dashboard login is Google's own "Sign in with Google", verified by the script on every request. There is no password or PIN to manage. `ALLOWED_DOMAIN` and the optional `ADMIN_EMAILS` list in `Code.gs` control who gets in.
-- The repo is public (GitHub Pages needs that on a free plan). It contains no student data. The script URLs and the kiosk token in `config.js` are visible to anyone who reads the repo; the token stops casual junk rows, not a determined person. The kiosk URL only accepts check-ins, and the dashboard URL requires a district sign-in.
+- The repo is public (GitHub Pages needs that on a free plan). It contains no student data. `config.js` holds only the script URL, the Google sign-in client ID, and wording; a web page has to send those to the browser, so they are visible, but none of them is a secret. Every request to the script, kiosk or dashboard, needs a signed-in @parchmentschools.org staff account. The old shared `KIOSK_TOKEN` is gone from the code; it remains in git history, where it no longer opens anything.
 
 ## Customizing
 

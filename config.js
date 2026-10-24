@@ -1,13 +1,10 @@
 // Panther Pride Center check-in settings.
 // Edit this file, save, and reload the app. Nothing else needs to change.
 window.PPC_CONFIG = {
-  // Kiosk endpoint: the Apps Script deployment with access "Anyone" (README step 4).
+  // Kiosk endpoint: the Apps Script deployment with access "Anyone" (README step 4). The URL alone
+  // can't add or read anything: every request needs a signed-in @parchmentschools.org staff account.
   // Leave it empty to run in test mode: check-ins are saved only on this device.
   SCRIPT_URL: "https://script.google.com/macros/s/AKfycbzneBQPNeLkP0xcEIERfIdeXWirEBYhfPIArTAnEFoOXQpBfmb7bQygDL9LthYzHLRJmQ/exec",
-
-  // Shared secret the kiosk sends with every check-in. Must match KIOSK_TOKEN in
-  // Code.gs. Stops junk rows from anyone who finds the script URL.
-  KIOSK_TOKEN: "7b4a5c379eb19ea01f851fea",
 
   // Admin dashboard sign-in (staff.html). A Google OAuth "Web application" Client ID
   // from Google Cloud Console (README step 5). Must also be set in Code.gs.

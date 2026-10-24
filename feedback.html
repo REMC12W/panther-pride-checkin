@@ -158,7 +158,7 @@
 <script src="config.js"></script>
 <script>
 (function () {
-  const CFG = Object.assign({ SCRIPT_URL: "", KIOSK_TOKEN: "", KIOSK_NAME: "Kiosk" }, window.PPC_CONFIG || {});
+  const CFG = Object.assign({ SCRIPT_URL: "", KIOSK_NAME: "Kiosk" }, window.PPC_CONFIG || {});
   const $ = s => document.querySelector(s);
   // Where the person came from (kiosk screen or staff dashboard), so feedback has context.
   const FROM = (new URLSearchParams(location.search).get("from") || "direct").slice(0, 60);
@@ -186,11 +186,14 @@
   }
   const role = group("#role", false), tried = group("#tried", true), rating = group("#rating", false);
 
+  // The kiosk iPad's staff sign-in (same site storage as index.html), or the dashboard's Google sign-in.
+  function kioskPass() { try { return (JSON.parse(localStorage.getItem("ppc_kiosk_session") || "null") || {}).session || ""; } catch { return ""; } }
+
   async function post(record) {
     const res = await fetch(CFG.SCRIPT_URL, {
       method: "POST",
       headers: { "Content-Type": "text/plain;charset=utf-8" },
-      body: JSON.stringify(Object.assign({ token: CFG.KIOSK_TOKEN }, record)),
+      body: JSON.stringify(Object.assign({ session: kioskPass(), idToken: sessionStorage.getItem("ppc_id_token") || "" }, record)),
       redirect: "follow"
     });
     const data = await res.json();
