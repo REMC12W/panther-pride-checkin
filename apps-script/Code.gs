@@ -5,7 +5,7 @@
  * deployment (Web app, Execute as: Me, Who has access: Anyone).
  *
  * - The kiosk POSTs check-ins, check-outs, incident reports, and feedback,
- *   each carrying KIOSK_TOKEN.
+ *   each carrying the iPad's staff sign-in session (see kioskSignIn_).
  * - The admin dashboard (staff.html on GitHub Pages) POSTs a Google ID token
  *   from "Sign in with Google". It is verified here on every request, and only
  *   ALLOWED_DOMAIN Workspace accounts, plus anyone in ADMIN_EMAILS, get data back.
@@ -48,10 +48,6 @@ const PRINCIPAL_EMAILS = ['jeremy.andrick@parchmentschools.org', 'ben.tomlinson@
 const ACCESS_NAME = 'Access';
 const ACCESS_HEADERS = ['Email', 'Staff dashboard', 'Principal dashboard', 'Updated by', 'Updated'];
 
-// Must match KIOSK_TOKEN in the app's config.js. Check-ins without it are rejected.
-// Leave empty to accept any POST (not recommended once the app is live).
-const KIOSK_TOKEN = '7b4a5c379eb19ea01f851fea';
-
 const SHEET_NAME   = 'Check-Ins';
 const SUMMARY_NAME = 'Summary';
 
@@ -88,10 +84,10 @@ function doPost(e) {
     if (data.type === 'lookup') return json_(lookup_(data));
     if (data.type === 'roster') return json_(roster_(data));
     // A signed-in staff request the script doesn't know means Code.gs is out of date, not a kiosk token problem.
-    if (data.idToken && data.type && data.type !== 'checkin') return json_({ ok: false, error: 'Unknown request type: ' + data.type });
-    if (KIOSK_TOKEN && String(data.token || '') !== KIOSK_TOKEN) {
-      return json_({ ok: false, error: 'Bad token. KIOSK_TOKEN in config.js must match Code.gs.' });
-    }
+    if (data.idToken && data.type && WRITE_TYPES_.indexOf(data.type) === -1) return json_({ ok: false, error: 'Unknown request type: ' + data.type });
+    // Writing to the Sheet needs a signed-in staff member: a kiosk iPad signed in with a
+    // @parchmentschools.org account (its session pass), or a staff Google sign-in. Nothing public.
+    staffWriter_(data);
     if (data.type === 'checkout') return json_(checkout_(data));
     if (data.type === 'feedback') return json_(feedback_(data));
     if (data.type === 'incident') return json_(incident_(data));
@@ -637,6 +633,16 @@ function kioskSession_(session) {
   return s;
 }
 
+const WRITE_TYPES_ = ['checkin', 'checkout', 'incident', 'feedback'];
+
+/** Who may add check-ins, check-outs, incident reports, and feedback. Throws if nobody signed in. */
+function staffWriter_(data) {
+  let why = 'Not signed in. Sign this iPad in with a @' + KIOSK_DOMAIN + ' staff account.';
+  if (data.session) { try { return kioskSession_(data.session).email; } catch (err) { why = String(err.message || err); } }
+  if (data.idToken) return verifyIdToken_(String(data.idToken), true); // KIOSK_DOMAIN Workspace staff only
+  throw new Error(why);
+}
+
 function kioskStatus_(data) {
   try { const s = kioskSession_(data.session); return { ok: true, signedIn: true, email: s.email, expires: new Date(s.exp).toISOString() }; }
   catch (err) { return { ok: true, signedIn: false }; }
@@ -980,8 +986,8 @@ function testInsert() {
     postData: { contents: JSON.stringify({
       timestamp: new Date().toISOString(), name: 'Test Student', referral: 'Self Referred', reason: 'Drop In: I need a reset',
       energy: 'Moving Fast', moodGroup: 'Red', moodWord: 'Frustrated', happened: 'With a friend',
-      need: '', basicNeeds: '', outcome: 'Check In', kiosk: 'Editor test', token: KIOSK_TOKEN
+      need: '', basicNeeds: '', outcome: 'Check In', kiosk: 'Editor test'
     }) }
   };
-  Logger.log(doPost(fake).getContent());
+  Logger.log(doPost(fake).getContent()); // expect "Not signed in": check-ins need a signed-in staff member now
 }
