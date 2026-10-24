@@ -1,8 +1,11 @@
 /* Principal dashboard: boards, tiles, editor, layout, saving, exports. */
 (function () {
-  const D = window.PPD, C = window.PPC_CHARTS;
+  const D = window.PPD, C = window.PPC_CHARTS, R = window.PPR;
   const CFG = Object.assign({ SCRIPT_URL: "", GOOGLE_CLIENT_ID: "", ALLOWED_DOMAIN: "", PRINCIPAL_DEMO: true, PRINCIPAL_EMAILS: [] }, window.PPC_CONFIG || {});
-  const DEMO = !!CFG.PRINCIPAL_DEMO || !CFG.SCRIPT_URL;
+  // Sample (made-up school year) or Live (the Sheet). PRINCIPAL_DEMO sets the default; the header switch remembers the choice per browser.
+  const SOURCE_KEY = "ppc_principal_source";
+  let source = (() => { if (!CFG.SCRIPT_URL) return "sample"; try { const s = localStorage.getItem(SOURCE_KEY); if (s === "sample" || s === "live") return s; } catch {} return CFG.PRINCIPAL_DEMO ? "sample" : "live"; })();
+  let remoteBoardsLoaded = false;
   const $ = s => document.querySelector(s);
   // Lucide icons from icons.js (the design system uses no emoji).
   const IC = (name, size, label) => window.PPC_ICON ? window.PPC_ICON(name, size, label) : "";
@@ -13,38 +16,61 @@
 
   // ---------- Starter boards ----------
   const tile = (o) => Object.assign({ id: uid(), dataset: "visit", measure: "count", dimension: "week", chart: "bar", range: "board", filters: [], compare: "none", w: 6, h: 4 }, o);
+  const notice = focus => tile({ title: "What the research says", chart: "research", focus, w: 12, h: 1 });
+  // Boards saved before titles were shortened: rename tiles still carrying an old starter title.
+  const OLD_TITLES = {
+    "Students this period": ["Students", null],
+    "Came in red or blue, left green or yellow": ["Recovered", "Came in red or blue and left green or yellow"],
+    "Incidents followed up": ["Followed up", "Incident reports with a follow-up recorded"],
+    "Mood on arrival by grade": ["Arrival mood by grade", null],
+    "Mood in → mood out": ["Mood in → out", "Mood on arrival to mood at check-out"],
+    "What helped (share leaving green or yellow)": ["What helped", "Share leaving green or yellow after using each strategy"],
+    "Incidents by place": ["Where incidents happen", null],
+    "Incident reports by week": ["Reports by week", null],
+    "Incidents by grade": ["Reports by grade", null],
+    "Report log by status": ["Follow-up status", null],
+    "Students with the most visits": ["Most visits", null],
+    "Arriving red or blue, by student": ["Arriving red or blue", "Share of each student's visits that started red or blue"],
+    "Alert words by week": ["Alert words", "Share of visits that started with an alert word, by week"],
+    "Sent by staff vs came on their own": ["Sent vs on their own", "Visits sent by staff compared with students coming on their own"],
+    "Minutes in room vs visits, by student": ["Minutes vs visits", "Average minutes in the room against number of visits, one dot per student"],
+    "Basic needs requested": ["Basic needs", null]
+  };
   function starterBoards() {
     return [
-      { id: uid(), name: "Overview", layout: "grid", tiles: [
-        tile({ title: "Students this period", chart: "number", measure: "students", compare: "previous", w: 3, h: 3 }),
+      { id: uid(), name: "Overview", layout: "grid", noticeSeeded: true, tiles: [
+        notice("overview"),
+        tile({ title: "Students", chart: "number", measure: "students", compare: "previous", w: 3, h: 3 }),
         tile({ title: "Visits", chart: "number", measure: "count", compare: "previous", w: 3, h: 3 }),
-        tile({ title: "Came in red or blue, left green or yellow", chart: "number", measure: "pctImproved", compare: "previous", w: 3, h: 3 }),
-        tile({ title: "Incidents followed up", chart: "number", dataset: "incident", measure: "pctFollowedUp", compare: "previous", w: 3, h: 3 }),
+        tile({ title: "Recovered", hint: "Came in red or blue and left green or yellow", chart: "number", measure: "pctImproved", compare: "previous", w: 3, h: 3 }),
+        tile({ title: "Followed up", hint: "Incident reports with a follow-up recorded", chart: "number", dataset: "incident", measure: "pctFollowedUp", compare: "previous", w: 3, h: 3 }),
         tile({ title: "Visits by week", chart: "line", dimension: "week", compare: "previous", w: 8, h: 4 }),
-        tile({ title: "Mood on arrival by grade", chart: "stacked", dimension: "grade", breakdown: "moodIn", w: 4, h: 4 }),
+        tile({ title: "Arrival mood by grade", chart: "stacked", dimension: "grade", breakdown: "moodIn", w: 4, h: 4 }),
         tile({ title: "Busiest times", chart: "heatmap", dimension: "weekday", breakdown: "hour", w: 6, h: 4 }),
-        tile({ title: "Mood in → mood out", chart: "sankey", w: 6, h: 4 }),
+        tile({ title: "Mood in → out", hint: "Mood on arrival to mood at check-out", chart: "sankey", w: 6, h: 4 }),
         tile({ title: "Why students come", chart: "barh", dimension: "reason", w: 4, h: 4 }),
-        tile({ title: "What helped (share leaving green or yellow)", chart: "barh", dimension: "helped", measure: "pctLeftOk", w: 4, h: 4 }),
-        tile({ title: "Incidents by place", chart: "bar", dataset: "incident", measure: "incidents", dimension: "place", w: 4, h: 4 }),
+        tile({ title: "What helped", hint: "Share leaving green or yellow after using each strategy", chart: "barh", dimension: "helped", measure: "pctLeftOk", w: 4, h: 4 }),
+        tile({ title: "Where incidents happen", chart: "bar", dataset: "incident", measure: "incidents", dimension: "place", w: 4, h: 4 }),
       ] },
-      { id: uid(), name: "Incidents", layout: "grid", tiles: [
-        tile({ title: "Incident reports by week", chart: "bar", dataset: "incident", measure: "incidents", dimension: "week", w: 8, h: 4 }),
+      { id: uid(), name: "Incidents", layout: "grid", noticeSeeded: true, tiles: [
+        notice("incidents"),
+        tile({ title: "Reports by week", chart: "bar", dataset: "incident", measure: "incidents", dimension: "week", w: 8, h: 4 }),
         tile({ title: "Still open", chart: "number", dataset: "incident", measure: "pctOpen", w: 4, h: 3 }),
         tile({ title: "Days to follow-up", chart: "number", dataset: "incident", measure: "avgDaysFU", compare: "previous", w: 4, h: 3 }),
         tile({ title: "Where and when", chart: "heatmap", dataset: "incident", measure: "incidents", dimension: "period", breakdown: "place", w: 8, h: 5 }),
         tile({ title: "What happened", chart: "barh", dataset: "incident", measure: "incidents", dimension: "type", w: 4, h: 5 }),
         tile({ title: "Follow-up actions", chart: "donut", dataset: "incident", measure: "incidents", dimension: "action", w: 4, h: 4 }),
-        tile({ title: "Incidents by grade", chart: "bar", dataset: "incident", measure: "incidents", dimension: "grade", w: 4, h: 4 }),
-        tile({ title: "Report log by status", chart: "table", dataset: "incident", measure: "incidents", dimension: "status", w: 4, h: 4 }),
+        tile({ title: "Reports by grade", chart: "bar", dataset: "incident", measure: "incidents", dimension: "grade", w: 4, h: 4 }),
+        tile({ title: "Follow-up status", chart: "table", dataset: "incident", measure: "incidents", dimension: "status", w: 4, h: 4 }),
       ] },
-      { id: uid(), name: "Support", layout: "grid", tiles: [
-        tile({ title: "Students with the most visits", chart: "table", dimension: "student", top: 12, w: 4, h: 6 }),
-        tile({ title: "Arriving red or blue, by student", chart: "barh", dimension: "student", measure: "pctHard", top: 12, w: 4, h: 6 }),
-        tile({ title: "Alert words by week", chart: "bar", dimension: "week", measure: "pctAlert", w: 4, h: 3 }),
-        tile({ title: "Sent by staff vs came on their own", chart: "area", dimension: "week", breakdown: "referral", compare: "groups", w: 4, h: 3 }),
-        tile({ title: "Minutes in room vs visits, by student", chart: "scatter", dimension: "student", measure: "avgMinutes", compare: "measures", measure2: "count", top: 999, w: 6, h: 5 }),
-        tile({ title: "Basic needs requested", chart: "donut", dimension: "basicNeed", w: 6, h: 5 }),
+      { id: uid(), name: "Support", layout: "grid", noticeSeeded: true, tiles: [
+        notice("support"),
+        tile({ title: "Most visits", chart: "table", dimension: "student", top: 12, w: 4, h: 6 }),
+        tile({ title: "Arriving red or blue", hint: "Share of each student's visits that started red or blue", chart: "barh", dimension: "student", measure: "pctHard", top: 12, w: 4, h: 6 }),
+        tile({ title: "Alert words", hint: "Share of visits that started with an alert word, by week", chart: "bar", dimension: "week", measure: "pctAlert", w: 4, h: 3 }),
+        tile({ title: "Sent vs on their own", hint: "Visits sent by staff compared with students coming on their own", chart: "area", dimension: "week", breakdown: "referral", compare: "groups", w: 4, h: 3 }),
+        tile({ title: "Minutes vs visits", hint: "Average minutes in the room against number of visits, one dot per student", chart: "scatter", dimension: "student", measure: "avgMinutes", compare: "measures", measure2: "count", top: 999, w: 6, h: 5 }),
+        tile({ title: "Basic needs", chart: "donut", dimension: "basicNeed", w: 6, h: 5 }),
       ] },
     ];
   }
@@ -65,7 +91,20 @@
     ["Repeat visitors", "Table of students by visits", { chart: "table", dimension: "student", top: 12, h: 5 }],
     ["Grade 6 vs 7 vs 8 over time", "Grouped lines by grade", { chart: "line", dimension: "week", breakdown: "grade", compare: "groups" }],
     ["One student vs everyone", "Pick a student in the editor", { chart: "grouped", dimension: "weekday", compare: "student" }],
+    ["What the research says", "A notice tied to this board's data, with a research card", { chart: "research", focus: "all", w: 12, h: 1 }],
   ];
+  // Boards saved before the research library existed get their notice once; deleting it afterwards sticks.
+  function ensureNotices() {
+    let changed = false;
+    state.boards.forEach(b => b.tiles.forEach(t => { const m = OLD_TITLES[t.title]; if (m) { t.title = m[0]; if (m[1] && !t.hint) t.hint = m[1]; changed = true; } }));
+    state.boards.forEach(b => {
+      if (b.noticeSeeded) return;
+      b.noticeSeeded = true; changed = true;
+      const focus = { Overview: "overview", Incidents: "incidents", Support: "support" }[b.name];
+      if (focus && !b.tiles.some(t => t.chart === "research")) b.tiles.unshift(notice(focus));
+    });
+    if (changed) persist();
+  }
 
   // ---------- State ----------
   function defaultState() { return { boards: starterBoards(), active: null, locked: true, range: "year", custom: {}, grades: [] }; }
@@ -73,7 +112,7 @@
   function persist() {
     state.locked = true === state.locked;
     try { localStorage.setItem(STORE_KEY, JSON.stringify(state)); } catch {}
-    if (!DEMO && idToken) { clearTimeout(saveTimer); saveTimer = setTimeout(saveRemote, 1200); }
+    if (CFG.SCRIPT_URL && idToken) { clearTimeout(saveTimer); saveTimer = setTimeout(saveRemote, 1200); }
   }
   async function saveRemote() {
     try {
@@ -94,18 +133,23 @@
   async function loadData() {
     setStatus("Loading…");
     $("#signOutBtn").classList.remove("hidden");
-    if (DEMO) {
-      // Demo data is made up, but the page is still limited to the principal: the script checks the sign-in.
+    renderSource();
+    if (source === "sample") {
+      // Sample data is made up, but the page is still limited to the principal: the script checks the sign-in.
       const a = await post({ type: "principalAuth" });
       if (!a.ok) throw new Error(OLD_SCRIPT.test(a.error || "") ? "The script in the Sheet needs the new Code.gs deployed before this page can check your sign-in." : a.error);
       tables = D.normalize(D.demoData());
-      $("#who").textContent = `Signed in as ${a.email} · Demo data · ${tables.visits.length} visits, ${tables.incidents.length} incident reports this school year`;
-      $("#demoNote").classList.remove("hidden");
+      $("#who").textContent = `${a.email} · Sample data`;
     } else {
       const d = await D.liveData(CFG.SCRIPT_URL, idToken, 365);
       tables = D.normalize(d);
-      $("#who").textContent = `Signed in as ${d.email} · ${tables.visits.length} visits, ${tables.incidents.length} incident reports in the last year`;
+      $("#who").textContent = `${d.email} · Live from the Sheet`;
       if (d.sheetUrl) { $("#sheetLink").href = d.sheetUrl; $("#sheetLink").classList.remove("hidden"); }
+    }
+    $("#demoNote").classList.toggle("hidden", source !== "sample");
+    // Saved boards are the same in both modes; read them from the Sheet once per visit.
+    if (!remoteBoardsLoaded && CFG.SCRIPT_URL) {
+      remoteBoardsLoaded = true;
       const remote = await post({ type: "boardLoad" }).catch(() => null);
       if (remote && remote.ok && Array.isArray(remote.boards) && remote.boards.length) { state.boards = remote.boards; state.active = remote.boards[0].id; }
     }
@@ -115,6 +159,16 @@
     renderAll();
   }
   function setStatus(t) { $("#status").textContent = t; }
+  function renderSource() {
+    const box = $("#sourceSwitch"); if (!box) return;
+    box.classList.toggle("hidden", !CFG.SCRIPT_URL);
+    box.querySelectorAll("[data-src]").forEach(b => { const on = b.dataset.src === source; b.classList.toggle("on", on); b.setAttribute("aria-pressed", String(on)); });
+  }
+  document.querySelectorAll("#sourceSwitch [data-src]").forEach(b => b.addEventListener("click", () => {
+    if (b.dataset.src === source) return;
+    source = b.dataset.src; try { localStorage.setItem(SOURCE_KEY, source); } catch {}
+    loadData().catch(err => { toast("Couldn't load " + (source === "live" ? "live data: " : "sample data: ") + (err.message || err)); setStatus(""); });
+  }));
 
   // ---------- Sign-in (live only) ----------
   function start() {
@@ -145,7 +199,7 @@
   $("#refreshBtn").addEventListener("click", () => loadData().catch(err => toast("Couldn't refresh: " + (err.message || err))));
 
   // ---------- Render ----------
-  function renderAll() { renderTabs(); renderToolbar(); renderBoard(); }
+  function renderAll() { ensureNotices(); renderTabs(); renderToolbar(); renderBoard(); }
   function renderTabs() {
     $("#tabs").innerHTML = state.boards.map(b => `<button class="tab ${b.id === state.active ? "on" : ""}" data-id="${b.id}">${esc(b.name)}</button>`).join("") + `<button class="tab add" id="addBoard">${IC("plus", 16)}New board</button>`;
     $("#tabs").querySelectorAll("[data-id]").forEach(b => b.addEventListener("click", () => { state.active = b.dataset.id; persist(); renderAll(); }));
@@ -159,7 +213,12 @@
     $("#customStart").classList.toggle("hidden", !custom); $("#customEnd").classList.toggle("hidden", !custom);
     $("#customStart").value = (state.custom && state.custom.start) || ""; $("#customEnd").value = (state.custom && state.custom.end) || "";
     const grades = ["6th", "7th", "8th"];
-    $("#gradeFilter").innerHTML = grades.map(g => `<button type="button" class="btn sm ${state.grades.includes(g) ? "on" : ""}" data-g="${g}">${g}</button>`).join("");
+    const graded = tables && (tables.visits.some(r => grades.includes(r.grade)) || tables.incidents.some(r => grades.includes(r.grade)));
+    if (tables && !graded) {
+      // Live rows only get a grade from the Roster tab. Without it the chips would filter everything out.
+      if (state.grades.length) { state.grades = []; persist(); }
+      $("#gradeFilter").innerHTML = `<span class="lbl">No grades yet: add students to the Roster tab</span>`;
+    } else $("#gradeFilter").innerHTML = grades.map(g => `<button type="button" class="btn sm ${state.grades.includes(g) ? "on" : ""}" data-g="${g}">${g}</button>`).join("");
     $("#gradeFilter").querySelectorAll("[data-g]").forEach(b => b.addEventListener("click", () => { const g = b.dataset.g; state.grades = state.grades.includes(g) ? state.grades.filter(x => x !== g) : state.grades.concat(g); persist(); renderAll(); }));
     $("#layoutSel").value = board().layout || "grid";
     $("#lockBtn").innerHTML = state.locked ? IC("lock", 16) + "Locked" : IC("lock-open", 16) + "Editing layout";
@@ -176,11 +235,23 @@
 
   function tileTitle(t) {
     if (t.title) return t.title;
+    if (t.chart === "research") return "What the research says";
     const m = C.MEASURES[t.measure] ? C.MEASURES[t.measure].label : "Visits";
     const d = t.chart !== "number" && C.DIMENSIONS[t.dimension] ? " by " + C.DIMENSIONS[t.dimension].label.toLowerCase() : "";
     return m + d;
   }
+  // Small chips beside the title instead of a subtitle line: only what changes how to read the tile.
+  function tileChips(t) {
+    if (t.chart === "research") return "";
+    const chips = [];
+    if (t.range && t.range !== "board") chips.push([IC("calendar-days", 12) + esc(C.RANGE_LABELS[t.range] || ""), "Date range for this tile"]);
+    if (t.compare === "previous") chips.push([IC("history", 12), "Compared with the period just before"]);
+    if (t.compare === "student" && t.student) chips.push([IC("user", 12) + esc(t.student), t.student + " compared with everyone"]);
+    (t.filters || []).forEach(f => { if (f.values && f.values.length && C.DIMENSIONS[f.dim]) chips.push([esc(f.values.length > 2 ? f.values.length + " " + C.DIMENSIONS[f.dim].label.toLowerCase() + "s" : f.values.join(", ")), C.DIMENSIONS[f.dim].label + ": " + f.values.join(", ")]); });
+    return chips.map(([h, title]) => `<span class="tchip" title="${esc(title)}">${h}</span>`).join("");
+  }
   function tileSub(t) {
+    if (t.chart === "research") return t.cardId ? "Pinned from the research library" : "Matched to this board's date range and filters";
     const bits = [];
     if (t.range && t.range !== "board") bits.push(C.RANGE_LABELS[t.range]);
     if (t.compare === "previous") bits.push("vs previous period");
@@ -197,16 +268,16 @@
     el.innerHTML = "";
     b.tiles.forEach((t, i) => {
       const d = document.createElement("div");
-      d.className = "tile" + (b.layout === "list" && t.w <= 6 ? " half" : "");
+      d.className = "tile" + (t.chart === "research" ? " research" : "");
       d.dataset.id = t.id; d.dataset.w = String(t.w || 6);
-      if (b.layout !== "list") { d.style.gridColumn = `span ${Math.min(12, Math.max(2, t.w || 6))}`; d.style.gridRow = `span ${Math.max(2, t.h || 4)}`; }
-      d.innerHTML = `<div class="head"><span class="grip" title="Drag to move">${IC("grip-vertical", 18)}</span><h3>${esc(tileTitle(t))}<span class="sub">${esc(tileSub(t))}</span></h3>
-        <span class="order"><button type="button" data-mv="-1" title="Move up" aria-label="Move up">${IC("arrow-up", 16)}</button><button type="button" data-mv="1" title="Move down" aria-label="Move down">${IC("arrow-down", 16)}</button><button type="button" data-half title="Half or full width" aria-label="Half or full width">${IC(t.w <= 6 ? "arrow-right" : "arrow-left", 16)}</button></span>
+      if (b.layout !== "list") { d.style.gridColumn = `span ${Math.min(12, Math.max(2, t.w || 6))}`; d.style.gridRow = `span ${Math.max(t.chart === "research" ? 1 : 2, t.h || 4)}`; }
+      d.innerHTML = `<div class="head"><span class="grip" title="Drag to move">${IC("grip-vertical", 18)}</span><h3 title="${esc(t.hint || tileTitle(t))}">${esc(tileTitle(t))}</h3>${tileChips(t)}
+        <span class="order"><button type="button" data-mv="-1" title="Move up" aria-label="Move up">${IC("arrow-up", 16)}</button><button type="button" data-mv="1" title="Move down" aria-label="Move down">${IC("arrow-down", 16)}</button></span>
         <div class="menu"><button type="button" class="kebab" aria-label="Tile menu">${IC("ellipsis", 18)}</button><ul>
           <li><button type="button" data-act="edit">Edit…</button></li><li><button type="button" data-act="dup">Duplicate</button></li>
           <li><button type="button" data-act="csv">Download numbers (CSV)</button></li><li><button type="button" data-act="img">Copy as image</button></li>
           <li><button type="button" data-act="drill">See the records</button></li><li><button type="button" data-act="del">Delete</button></li></ul></div></div>
-        <div class="body"><div class="vis"></div></div><div class="resize" title="Drag to resize"></div>`;
+        <div class="take"></div><div class="body"><div class="vis"></div></div><div class="resize" title="Drag to resize"></div>`;
       el.appendChild(d);
       wireTile(d, t, i);
       renderTile(d, t);
@@ -217,10 +288,12 @@
   async function renderTile(d, t) {
     const vis = d.querySelector(".vis"), body = d.querySelector(".body");
     body.classList.toggle("scroll", t.chart === "table");
+    if (t.chart === "research") return renderResearch(vis, t);
     let agg;
     try { agg = C.aggregate(tables, t, boardOpts()); } catch (err) { vis.innerHTML = `<div class="empty">Couldn't build this tile: ${esc(err.message || err)}</div>`; return; }
     aggs[t.id] = agg;
     if (!agg.totalN) { vis.innerHTML = `<div class="empty">No records in this date range.</div>`; return; }
+    if (board().layout === "list") return renderRow(d, t, agg);
     if (t.chart === "number") { vis.innerHTML = C.numberHTML(agg, t); vis.style.cursor = "pointer"; vis.onclick = () => drill(t, agg, null, null); return; }
     if (t.chart === "sankey") { vis.innerHTML = C.sankeySVG(agg.current, body.clientWidth - 20, body.clientHeight - 10); return; }
     if (t.chart === "table") { vis.innerHTML = C.tableHTML(agg); vis.querySelectorAll("tbody tr").forEach(tr => tr.addEventListener("click", () => drill(t, agg, tr.dataset.key, null))); return; }
@@ -232,6 +305,39 @@
     } catch (err) { vis.innerHTML = `<div class="empty">Chart error: ${esc(err.message || err)}</div>`; }
   }
 
+  // List layout: one row per tile. Headline on the left, a compact chart on the right, tap to see the records.
+  async function renderRow(d, t, agg) {
+    const vis = d.querySelector(".vis"), take = d.querySelector(".take");
+    const k = C.takeaway(agg, t);
+    take.innerHTML = `<button type="button" class="go" aria-label="See the records">
+      <span class="tv">${esc(k.value)}</span><span class="tl">${esc(k.label || "")}</span>${k.delta ? `<span class="delta ${k.delta.dir}">${esc(k.delta.text)}</span>` : ""}${IC("chevron-right", 18)}</button>`;
+    take.querySelector(".go").addEventListener("click", () => drill(t, agg, null, null));
+    if (t.chart === "sankey") { vis.innerHTML = moodBars(agg.current); return; }
+    if (t.chart === "table") {
+      const live = agg.rows.filter(r => !r.previous && !r.secondary).sort((a, b) => (b.value || 0) - (a.value || 0)).slice(0, 4);
+      vis.innerHTML = `<ol class="mini">${live.map(r => `<li><span>${esc(C.keyLabel(agg.dim, r.key))}</span><b>${esc(C.fmt(r.value, agg.unit))}</b></li>`).join("")}</ol>`;
+      return;
+    }
+    let a = agg, tt = t;
+    if (t.chart === "number") {
+      // A big number gets its weekly trend as the mini chart.
+      tt = Object.assign({}, t, { chart: "area", dimension: "week", compare: "none" });
+      try { a = C.aggregate(tables, tt, boardOpts()); } catch (err) { return; }
+    }
+    try {
+      const res = await vegaEmbed(vis, C.spec(a, tt, { compact: true }), { actions: false, renderer: "canvas", tooltip: { theme: "light" } });
+      views[t.id] = res.view;
+      res.view.addEventListener("click", (ev, item) => { if (item && item.datum && a === agg) drill(t, agg, item.datum.key, item.datum.series || null); });
+    } catch (err) { vis.innerHTML = `<div class="empty">Chart error: ${esc(err.message || err)}</div>`; }
+  }
+  // Mood on arrival and at check-out as two thin stacked bars (the list layout's version of the flow chart).
+  function moodBars(rows) {
+    const both = rows.filter(r => r.moodIn && r.moodOut); if (!both.length) return `<div class="empty">No check-outs yet.</div>`;
+    const bar = key => { const n = {}; both.forEach(r => { n[r[key]] = (n[r[key]] || 0) + 1; });
+      return D.MOODS.filter(m => n[m]).map(m => `<span style="flex:${n[m]};background:${C.MOOD_COLOR[m]}" title="${m}: ${Math.round(100 * n[m] / both.length)}%"></span>`).join(""); };
+    return `<div class="moodbars"><div><small>In</small><div class="mb">${bar("moodIn")}</div></div><div><small>Out</small><div class="mb">${bar("moodOut")}</div></div></div>`;
+  }
+
   // ---------- Tile wiring: menu, order, drag, resize ----------
   function wireTile(d, t, i) {
     const menu = d.querySelector(".menu");
@@ -239,7 +345,7 @@
     menu.querySelectorAll("[data-act]").forEach(b => b.addEventListener("click", () => {
       menu.classList.remove("open");
       const act = b.dataset.act, bd = board();
-      if (act === "edit") openEditor(t);
+      if (act === "edit") { if (t.chart === "research") openLibrary(t); else openEditor(t); }
       if (act === "dup") { const c = JSON.parse(JSON.stringify(t)); c.id = uid(); bd.tiles.splice(i + 1, 0, c); persist(); renderBoard(); }
       if (act === "del") { if (confirm(`Delete "${tileTitle(t)}"?`)) { bd.tiles = bd.tiles.filter(x => x.id !== t.id); persist(); renderBoard(); } }
       if (act === "csv") { const a = aggs[t.id]; if (a) download(tileTitle(t).replace(/[^\w]+/g, "-") + ".csv", C.csv(a), "text/csv"); }
@@ -247,7 +353,6 @@
       if (act === "drill") { const a = aggs[t.id]; if (a) drill(t, a, null, null); }
     }));
     d.querySelectorAll("[data-mv]").forEach(b => b.addEventListener("click", () => { const bd = board(), j = i + Number(b.dataset.mv); if (j < 0 || j >= bd.tiles.length) return; [bd.tiles[i], bd.tiles[j]] = [bd.tiles[j], bd.tiles[i]]; persist(); renderBoard(); }));
-    const half = d.querySelector("[data-half]"); if (half) half.addEventListener("click", () => { t.w = t.w <= 6 ? 12 : 6; persist(); renderBoard(); });
     // Drag to reorder (grid layout, unlocked). Pointer events so it works with a finger on a tablet.
     const grip = d.querySelector(".grip");
     grip.addEventListener("pointerdown", e => {
@@ -471,6 +576,80 @@
     });
   }
   let toastTimer;
+  // ---------- Research library ----------
+  // The notice reads the same rows the board's tiles use: date range, grade chips, and filters.
+  function boardRows() {
+    const pick = dataset => { try { return C.aggregate(tables, { dataset, chart: "number", measure: dataset === "incident" ? "incidents" : "count", filters: [] }, boardOpts()).current; } catch (err) { return []; } };
+    return { visits: pick("visit"), incidents: pick("incident") };
+  }
+  function renderResearch(vis, t) {
+    if (!R) { vis.innerHTML = `<div class="empty">The research library didn't load.</div>`; return; }
+    let picks;
+    if (t.cardId && R.card(t.cardId)) {
+      const live = R.notices(t.focus || "all", boardRows()).find(n => n.card.id === t.cardId);
+      picks = [{ card: R.card(t.cardId), noticed: live ? live.noticed : "" }];
+    } else picks = R.notices(t.focus || "all", boardRows());
+    const [top, ...rest] = picks;
+    vis.innerHTML = `<div class="notice">
+      <span class="ni">${IC("book-open", 18)}</span>
+      <span class="seen" title="${esc(top.noticed || "")}">${esc(top.noticed || "A good place to start")}</span>
+      <button type="button" class="try" data-read="${top.card.id}" title="${esc(top.card.title)}">${esc(top.card.short)}${IC("arrow-right", 16)}</button>
+      ${rest.length ? `<button type="button" class="more" title="${esc(rest.map(n => n.card.short).join(", "))}">+${rest.length} more</button>` : ""}
+      <button type="button" class="btn sm" data-lib>${IC("library", 16)}Library</button>
+    </div>`;
+    const more = vis.querySelector(".more"); if (more) more.addEventListener("click", () => openLibrary(null));
+    const noticedFor = id => (picks.find(n => n.card.id === id) || {}).noticed || "";
+    vis.querySelectorAll("[data-read], [data-card]").forEach(b => b.addEventListener("click", () => { const id = b.dataset.read || b.dataset.card; openCard(R.card(id), noticedFor(id)); }));
+    vis.querySelector("[data-lib]").addEventListener("click", () => openLibrary(null));
+  }
+  function cardHTML(card, noticed) {
+    const li = xs => xs.map(x => `<li>${esc(x)}</li>`).join("");
+    return `<div class="rcard">
+      <span class="ev">${esc(R.EVIDENCE[card.evidence] || card.evidence)}</span>
+      ${noticed ? `<div class="seen">${esc(noticed)}</div>` : ""}
+      <h4>When to reach for this</h4><p>${esc(card.signal)}</p>
+      <h4>What the research says</h4><ul>${li(card.says)}</ul>
+      <h4>Try this</h4><ul>${li(card.tryThis)}</ul>
+      <h4>Sources</h4><ul class="src">${card.sources.map(s => `<li>${esc(s.t)}${s.u ? ` <a href="${esc(s.u)}" target="_blank" rel="noopener">${esc(s.u.replace(/^https?:\/\//, ""))}</a>` : ""}</li>`).join("")}</ul>
+    </div>`;
+  }
+  function openCard(card, noticed) {
+    if (!card) return;
+    $("#drTitle").firstChild.textContent = card.title;
+    $("#drSub").textContent = card.tagline;
+    $("#drCompare").classList.add("hidden");
+    $("#drBody").innerHTML = cardHTML(card, noticed);
+    $("#scrim").classList.add("show"); $("#drawer").classList.add("show");
+  }
+  let libTag = "";
+  // forTile: when opened from a notice tile's menu, "Use here" pins the card to that tile.
+  function openLibrary(forTile) {
+    if (!R) return;
+    const rows = boardRows(), live = {}; R.notices("all", rows).forEach(n => { live[n.card.id] = n.noticed; });
+    $("#libTags").innerHTML = [`<button type="button" class="btn sm ${libTag ? "" : "on"}" data-tag="">All</button>`].concat(R.TAGS.map(t => `<button type="button" class="btn sm ${libTag === t ? "on" : ""}" data-tag="${esc(t)}">${esc(t)}</button>`)).join("");
+    $("#libTags").querySelectorAll("[data-tag]").forEach(b => b.addEventListener("click", () => { libTag = b.dataset.tag; openLibrary(forTile); }));
+    const cards = R.CARDS.filter(c => !libTag || c.tag === libTag);
+    $("#libraryGrid").innerHTML = cards.map(c => `<div class="lc" data-id="${c.id}">
+      <span class="tag">${esc(c.tag)}</span><b>${esc(c.title)}</b><p>${esc(c.tagline)}</p>
+      ${live[c.id] ? `<div class="seen">${esc(live[c.id])}</div>` : ""}
+      <div class="la"><button type="button" class="btn sm primary" data-read>${IC("book-open", 16)}Read</button><button type="button" class="btn sm" data-pin>${IC(forTile ? "check" : "plus", 16)}${forTile ? "Use here" : "Pin to board"}</button></div>
+    </div>`).join("");
+    $("#libraryGrid").querySelectorAll(".lc").forEach(el => {
+      const c = R.card(el.dataset.id);
+      el.querySelector("[data-read]").addEventListener("click", () => { $("#libraryDlg").close(); openCard(c, live[c.id]); });
+      el.querySelector("[data-pin]").addEventListener("click", () => {
+        $("#libraryDlg").close();
+        if (forTile) { forTile.cardId = c.id; forTile.title = c.title; persist(); renderBoard(); }
+        else addTile(tile({ title: c.title, chart: "research", focus: "all", cardId: c.id, w: 12, h: 2 }));
+      });
+    });
+    $("#libAuto").classList.toggle("hidden", !forTile);
+    $("#libAuto").onclick = () => { $("#libraryDlg").close(); delete forTile.cardId; forTile.title = "What the research says"; persist(); renderBoard(); };
+    $("#libraryDlg").showModal();
+  }
+  $("#libraryBtn").addEventListener("click", () => openLibrary(null));
+  $("#libraryClose").addEventListener("click", () => $("#libraryDlg").close());
+
   function toast(msg) { const t = $("#toast"); t.textContent = msg; t.classList.add("show"); clearTimeout(toastTimer); toastTimer = setTimeout(() => t.classList.remove("show"), 3500); }
 
   // Re-render charts when the window changes size (charts size to their tile).

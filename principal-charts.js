@@ -197,9 +197,29 @@ window.PPC_CHARTS = (function () {
   function values(agg) {
     return agg.rows.map(r => ({ key: r.key, label: keyLabel(agg.dim, r.key), series: agg.breakdown ? keyLabel(agg.breakdown, r.series) : r.series, value: r.value, n: r.n, prevKey: r.prevKey || null }));
   }
-  const BASE = { config: { font: "Raleway, system-ui, sans-serif", axis: { labelFontSize: 12, titleFontSize: 12, labelColor: "#4A4647", titleColor: "#6D6E70", gridColor: "#EFEFF0", domainColor: "#BCBDBF" }, legend: { labelFontSize: 12, titleFontSize: 12 }, view: { stroke: null }, background: "transparent" }, autosize: { type: "fit", contains: "padding" }, width: "container", height: "container" };
+  const BASE = { config: { font: "Raleway, system-ui, sans-serif", axis: { labelFontSize: 11, titleFontSize: 11, labelColor: "#4A4647", titleColor: "#6D6E70", gridColor: "#EFEFF0", domainColor: "#BCBDBF", ticks: false, labelPadding: 4 }, legend: { labelFontSize: 11, titleFontSize: 11, title: null, orient: "bottom", symbolSize: 70 }, view: { stroke: null }, background: "transparent" }, autosize: { type: "fit", contains: "padding" }, width: "container", height: "container" };
 
-  function spec(agg, tile) {
+  // opts.compact: the list layout's mini chart: no legend, no value axis, few labels.
+  function spec(agg, tile, opts) {
+    const s = fullSpec(agg, tile);
+    s.encoding = s.encoding || {};
+    // Axis titles repeat the tile title, so they go everywhere except the scatter plot.
+    if (tile.chart !== "scatter") ["x", "y"].forEach(k => { if (s.encoding[k]) s.encoding[k].title = null; });
+    if (s.encoding.color && s.encoding.color.title) s.encoding.color.title = null;
+    if (!(opts && opts.compact)) return s;
+    s.config = JSON.parse(JSON.stringify(s.config));
+    s.config.legend = { disable: true };
+    s.config.axis = Object.assign(s.config.axis, { grid: false, domain: false, labelFontSize: 10, labelAngle: 0, labelOverlap: true, labelLimit: 70 });
+    s.config.padding = 2;
+    const valueAxis = tile.chart === "barh" ? "x" : "y";
+    if (s.encoding[valueAxis] && s.encoding[valueAxis].type === "quantitative") s.encoding[valueAxis].axis = null;
+    ["x", "y"].forEach(k => { const e = s.encoding[k]; if (e && e.axis) { e.axis = Object.assign({}, e.axis, { labelAngle: 0, labelLimit: 70, labelFontSize: 10 }); } });
+    if (tile.chart === "heatmap" || tile.chart === "calendar") { if (s.encoding.y) s.encoding.y.axis = null; }
+    if (tile.chart === "pie" || tile.chart === "donut") s.mark = Object.assign({}, s.mark, { innerRadius: tile.chart === "donut" ? 22 : 0 });
+    if (s.mark && s.mark.point) s.mark = Object.assign({}, s.mark, { point: false });
+    return s;
+  }
+  function fullSpec(agg, tile) {
     const dim = DIMENSIONS[agg.dim];
     const temporal = dim && dim.temporal;
     const vals = values(agg);
@@ -218,7 +238,7 @@ window.PPC_CHARTS = (function () {
       xField.axis.labelExpr = temporal === "month" ? "timeFormat(timeParse(datum.value, '%Y-%m-01'), '%b %Y')" : "timeFormat(timeParse(datum.value, '%Y-%m-%d'), '%b %d')";
       tooltip[0] = { field: "label", title: dim.label, type: "nominal" };
     }
-    const s = Object.assign({}, BASE, { data: { values: vals } });
+    const s = Object.assign(JSON.parse(JSON.stringify(BASE)), { data: { values: vals } }); // own copy: heatmaps change config
     switch (chart) {
       case "line": case "area":
         s.mark = { type: chart, point: chart === "line" ? { size: 50 } : false, tooltip: true, interpolate: "monotone", opacity: chart === "area" ? 0.75 : 1 };
@@ -239,7 +259,8 @@ window.PPC_CHARTS = (function () {
         s.encoding = { x: xField, y: yField, color, xOffset: { field: "series" }, tooltip };
         return s;
       case "pie": case "donut":
-        s.mark = { type: "arc", innerRadius: chart === "donut" ? 55 : 0, tooltip: true };
+        s.mark = { type: "arc", innerRadius: chart === "donut" ? 50 : 0, tooltip: true };
+        s.config = Object.assign({}, s.config, { legend: Object.assign({}, s.config.legend, { orient: "right", labelLimit: 140 }) });
         s.encoding = { theta: { field: "value", type: "quantitative", stack: true }, color: keyColorScale(agg), tooltip };
         s.data.values = vals.filter(v => !v.prevKey && v.series !== "Previous period");
         return s;
@@ -247,7 +268,7 @@ window.PPC_CHARTS = (function () {
         const bd = DIMENSIONS[agg.breakdown];
         s.mark = { type: "rect", tooltip: true };
         s.encoding = { x: Object.assign({}, xField, { type: "ordinal" }), y: { field: "series", type: "ordinal", title: bd ? bd.label : "", sort: agg.series.map(k => keyLabel(agg.breakdown, k)) },
-          color: { field: "value", type: "quantitative", title: agg.measure.label, scale: { scheme: "reds" }, legend: { orient: "bottom", direction: "horizontal", gradientLength: 180 } }, tooltip };
+          color: { field: "value", type: "quantitative", title: agg.measure.label, scale: { scheme: "reds" }, legend: { orient: "bottom", direction: "horizontal", gradientLength: 140, gradientThickness: 8 } }, tooltip };
         s.config.axis.grid = false;
         return s;
       }
@@ -328,16 +349,59 @@ window.PPC_CHARTS = (function () {
     return `<table class="tile-table"><thead>${head}</thead><tbody>${body}</tbody></table>`;
   }
 
+  /** Change from the previous period, short: { text, dir } or null when not comparing. */
+  function deltaOf(agg) {
+    if (agg.compare !== "previous") return null;
+    if (!agg.previousN || agg.previousTotal == null || agg.total == null) return { text: "No earlier data", dir: "" };
+    const diff = agg.total - agg.previousTotal;
+    if (Math.abs(diff) < 0.05) return { text: "No change", dir: "" };
+    const text = agg.unit === "%" ? fmt(Math.abs(Math.round(diff * 10) / 10), " pts")
+      : agg.previousTotal ? Math.round(Math.abs(diff) / agg.previousTotal * 100) + "%" : fmt(Math.abs(diff), agg.unit);
+    return { text: (diff > 0 ? "▲ " : "▼ ") + text, dir: diff > 0 ? "up" : "down" };
+  }
   function numberHTML(agg, tile) {
-    const v = agg.total;
-    let delta = "";
-    if (agg.compare === "previous" && !agg.previousN) delta = `<div class="delta">No data in the previous period to compare</div>`;
-    else if (agg.compare === "previous" && agg.previousTotal != null && v != null) {
-      const diff = v - agg.previousTotal;
-      const up = diff > 0, flat = Math.abs(diff) < 0.05;
-      delta = `<div class="delta ${flat ? "" : up ? "up" : "down"}">${flat ? "No change" : (up ? "▲ " : "▼ ") + fmt(Math.abs(diff), agg.unit === "%" ? " pts" : agg.unit)} vs previous period</div>`;
+    const d = deltaOf(agg);
+    return `<div class="bignum"><div class="v">${fmt(agg.total, agg.unit)}</div>${d ? `<div class="delta ${d.dir}" title="Compared with the period just before">${esc(d.text)}</div>` : ""}</div>`;
+  }
+
+  /** One headline for a tile: { value, label, delta }. Used by the list layout's rows. */
+  function takeaway(agg, tile) {
+    const chart = tile.chart || "bar";
+    const live = agg.rows.filter(r => !r.previous && !r.secondary);
+    if (chart === "number") return { value: fmt(agg.total, agg.unit), label: agg.unit === "%" ? "" : agg.measure.label.toLowerCase(), delta: deltaOf(agg) };
+    if (chart === "sankey") {
+      const hard = agg.current.filter(r => r.improved != null), ok = hard.filter(r => r.improved).length;
+      return hard.length ? { value: Math.round(100 * ok / hard.length) + "%", label: "red or blue who left green or yellow" } : { value: "–", label: "no check-outs yet" };
     }
-    return `<div class="bignum"><div class="v">${fmt(v, agg.unit)}</div><div class="l">${esc(agg.measure.label)}</div>${delta}<div class="sub">${agg.totalN} record${agg.totalN === 1 ? "" : "s"}</div></div>`;
+    if (!live.length) return { value: "–", label: "no records" };
+    const dim = DIMENSIONS[agg.dim];
+    if (chart === "heatmap" || chart === "calendar") {
+      const top = live.reduce((a, b) => (b.value || 0) > (a.value || 0) ? b : a);
+      const where = chart === "calendar" ? new Date(top.key + "T12:00:00").toLocaleDateString([], { weekday: "short", month: "short", day: "numeric" }) : `${keyLabel(agg.dim, top.key)} · ${keyLabel(agg.breakdown, top.series)}`;
+      return { value: where, label: "busiest" };
+    }
+    if (dim && dim.temporal) {
+      // Latest period, and the change from the one before it.
+      const byKey = new Map(); live.forEach(r => byKey.set(r.key, (byKey.get(r.key) || 0) + (r.value || 0)));
+      const keys = [...byKey.keys()].sort(), last = keys[keys.length - 1], prev = keys[keys.length - 2];
+      const v = byKey.get(last), p = prev != null ? byKey.get(prev) : null;
+      let delta = null;
+      if (p != null && v != null) { const diff = v - p; delta = Math.abs(diff) < 0.05 ? { text: "No change", dir: "" } : { text: (diff > 0 ? "▲ " : "▼ ") + (agg.unit === "%" ? fmt(Math.abs(Math.round(diff * 10) / 10), " pts") : p ? Math.round(Math.abs(diff) / p * 100) + "%" : fmt(Math.abs(diff), agg.unit)), dir: diff > 0 ? "up" : "down" }; }
+      return { value: fmt(Math.round(v * 10) / 10, agg.unit), label: "latest " + dim.label.toLowerCase(), delta };
+    }
+    if (chart === "scatter") {
+      const top = live.reduce((a, b) => (b.value || 0) > (a.value || 0) ? b : a);
+      return { value: keyLabel(agg.dim, top.key), label: "highest " + agg.measure.label.toLowerCase() };
+    }
+    // Categories: the top one, as a share for counts or its rate for % measures.
+    const byKey = new Map(); live.forEach(r => byKey.set(r.key, (byKey.get(r.key) || 0) + (r.value || 0)));
+    // Lists the chart already ranks (students, places, strategies) lead with their own first entry, so a rate
+    // like "100%" from a single visit doesn't beat the student with the most visits.
+    const ranked = dim && dim.sortByValue && agg.keys && agg.keys.length ? agg.keys.find(k => byKey.has(k)) : null;
+    const [topKey, topVal] = ranked != null ? [ranked, byKey.get(ranked)] : [...byKey.entries()].sort((a, b) => b[1] - a[1])[0];
+    const sum = [...byKey.values()].reduce((a, b) => a + b, 0);
+    const rate = agg.unit === "%" || agg.unit === " min" || agg.unit === " days";
+    return { value: keyLabel(agg.dim, topKey), label: rate ? fmt(Math.round(topVal * 10) / 10, agg.unit) : (sum ? Math.round(100 * topVal / sum) + "% of " + agg.measure.label.toLowerCase() : "") };
   }
 
   function csv(agg) {
@@ -347,5 +411,5 @@ window.PPC_CHARTS = (function () {
     return rows.map(r => r.map(c => `"${String(c).replace(/"/g, '""')}"`).join(",")).join("\n");
   }
 
-  return { DIMENSIONS, MEASURES, CHARTS, DATASETS, FILTERABLE, RANGE_LABELS, MOOD_COLOR, range, aggregate, spec, sankeySVG, tableHTML, numberHTML, csv, fmt, esc, keyLabel };
+  return { DIMENSIONS, MEASURES, CHARTS, DATASETS, FILTERABLE, RANGE_LABELS, MOOD_COLOR, range, aggregate, spec, takeaway, sankeySVG, tableHTML, numberHTML, csv, fmt, esc, keyLabel };
 })();
