@@ -21,7 +21,7 @@ window.PPC_CHARTS = (function () {
     week:     { label: "Week", temporal: "week", get: r => r.week, for: ["visit", "incident"] },
     month:    { label: "Month", temporal: "month", get: r => r.month, for: ["visit", "incident"] },
     weekday:  { label: "Day of week", order: WEEKDAY_ORDER, get: r => r.weekday, for: ["visit", "incident"] },
-    hour:     { label: "Hour of day", order: HOUR_ORDER.map(String), get: r => String(r.hour), fmt: k => { const h = Number(k); return h === 12 ? "12 pm" : h > 12 ? (h - 12) + " pm" : h + " am"; }, for: ["visit", "incident"] },
+    hour:     { label: "Hour of day", get: r => String(r.hour), fmt: k => { const h = Number(k); return h === 12 ? "12 pm" : h > 12 ? (h - 12) + " pm" : h + " am"; }, for: ["visit", "incident"] },
     grade:    { label: "Grade", order: GRADE_ORDER, get: r => r.grade || "Unknown", for: ["visit", "incident"] },
     student:  { label: "Student", get: r => r.student || "Unknown", for: ["visit", "incident"], sortByValue: true, personal: true },
     referral: { label: "How they came", get: r => r.referral || "Unknown", for: ["visit"] },
@@ -30,15 +30,15 @@ window.PPC_CHARTS = (function () {
     moodIn:   { label: "Mood on arrival", order: D.MOODS, mood: true, get: r => r.moodIn || "No word", for: ["visit"] },
     wordIn:   { label: "Feeling word on arrival", get: r => r.wordIn || "None", for: ["visit"], sortByValue: true },
     energy:   { label: "Energy", order: ["Moving Fast", "Moving Ok", "Moving Slow"], get: r => r.energy || "Unknown", for: ["visit"] },
-    happened: { label: "Did something happen", get: r => r.happened || "No answer", for: ["visit"] },
+    happened: { label: "What it involved", get: r => r.happened || "No answer", for: ["visit"] },
     station:  { label: "Station", order: D.MOODS, mood: true, get: r => r.station || "None", for: ["visit"] },
     basicNeed:{ label: "Basic need", multi: true, get: r => r.basicNeeds, for: ["visit"], sortByValue: true },
     moodOut:  { label: "Mood at check-out", order: D.MOODS, mood: true, get: r => r.moodOut || "No read", for: ["visit"] },
     helped:   { label: "What helped", multi: true, get: r => r.helped, for: ["visit"], sortByValue: true },
-    checkedOutBy: { label: "Checked out by", get: r => r.checkedOutBy || "Not checked out", for: ["visit"] },
+    checkedOutBy: { label: "Who checked them out", get: r => r.checkedOutBy || "Not checked out", for: ["visit"] },
     type:     { label: "Incident type", multi: true, get: r => r.types, for: ["incident"], sortByValue: true },
-    place:    { label: "Where", get: r => r.place || "Unknown", for: ["incident"], sortByValue: true },
-    period:   { label: "When (hour)", order: PERIOD_ORDER, get: r => r.period || "Unknown", for: ["incident"] },
+    place:    { label: "Where it happened", get: r => r.place || "Unknown", for: ["incident"], sortByValue: true },
+    period:   { label: "Class period", order: PERIOD_ORDER, get: r => r.period || "Unknown", for: ["incident"] },
     status:   { label: "Follow-up status", order: ["Open", "Needs more follow-up", "Resolved"], get: r => r.status, for: ["incident"] },
     action:   { label: "Follow-up action", get: r => r.action || "None yet", for: ["incident"], sortByValue: true },
   };
@@ -47,20 +47,20 @@ window.PPC_CHARTS = (function () {
   const avg = a => a.length ? Math.round(10 * a.reduce((s, x) => s + x, 0) / a.length) / 10 : null;
   const MEASURES = {
     count:        { label: "Visits", unit: "", for: ["visit"], calc: rows => rows.length },
-    students:     { label: "Students (unique)", unit: "", for: ["visit", "incident"], calc: rows => new Set(rows.map(r => r.studentId || r.student)).size },
+    students:     { label: "Different students", unit: "", for: ["visit", "incident"], calc: rows => new Set(rows.map(r => r.studentId || r.student)).size },
     perStudent:   { label: "Visits per student", unit: "", for: ["visit"], calc: rows => { const n = new Set(rows.map(r => r.studentId || r.student)).size; return n ? Math.round(10 * rows.length / n) / 10 : null; } },
     avgMinutes:   { label: "Average minutes in room", unit: " min", for: ["visit"], calc: rows => avg(rows.filter(r => r.minutes != null).map(r => r.minutes)) },
-    pctHard:      { label: "% arriving red or blue", unit: "%", for: ["visit"], calc: rows => { const b = rows.filter(r => r.moodIn); return pct(b.filter(r => r.arrivedHard).length, b.length); } },
-    pctLeftOk:    { label: "% leaving green or yellow", unit: "%", for: ["visit"], calc: rows => { const b = rows.filter(r => r.moodOut); return pct(b.filter(r => r.leftPleasant).length, b.length); } },
-    pctImproved:  { label: "% who came in red/blue and left green/yellow", unit: "%", for: ["visit"], calc: rows => { const b = rows.filter(r => r.improved != null); return pct(b.filter(r => r.improved).length, b.length); } },
-    pctCheckedOut:{ label: "% checked out", unit: "%", for: ["visit"], calc: rows => pct(rows.filter(r => r.checkedOut).length, rows.length) },
-    pctAlert:     { label: "% alert words", unit: "%", for: ["visit"], calc: rows => pct(rows.filter(r => r.alert).length, rows.length) },
+    pctHard:      { label: "% arriving red or blue", unit: "%", good: "down", for: ["visit"], calc: rows => { const b = rows.filter(r => r.moodIn); return pct(b.filter(r => r.arrivedHard).length, b.length); } },
+    pctLeftOk:    { label: "% leaving green or yellow", unit: "%", good: "up", for: ["visit"], calc: rows => { const b = rows.filter(r => r.moodOut); return pct(b.filter(r => r.leftPleasant).length, b.length); } },
+    pctImproved:  { label: "% who came in red or blue and left green or yellow", unit: "%", good: "up", for: ["visit"], calc: rows => { const b = rows.filter(r => r.improved != null); return pct(b.filter(r => r.improved).length, b.length); } },
+    pctCheckedOut:{ label: "% checked out", unit: "%", good: "up", for: ["visit"], calc: rows => pct(rows.filter(r => r.checkedOut).length, rows.length) },
+    pctAlert:     { label: "% starting with a concerning word", unit: "%", good: "down", for: ["visit"], calc: rows => pct(rows.filter(r => r.alert).length, rows.length) },
     pctStaffSent: { label: "% sent by staff", unit: "%", for: ["visit"], calc: rows => pct(rows.filter(r => r.referral === "Sent by staff").length, rows.length) },
-    pctSuggested: { label: "% went to suggested station", unit: "%", for: ["visit"], calc: rows => { const b = rows.filter(r => r.station && r.stationSuggested && r.stationSuggested !== "Staff first"); return pct(b.filter(r => r.station === r.stationSuggested).length, b.length); } },
-    incidents:    { label: "Incident reports", unit: "", for: ["incident"], calc: rows => rows.length },
-    pctFollowedUp:{ label: "% followed up", unit: "%", for: ["incident"], calc: rows => pct(rows.filter(r => r.followedUp).length, rows.length) },
-    pctOpen:      { label: "% still open", unit: "%", for: ["incident"], calc: rows => pct(rows.filter(r => r.open).length, rows.length) },
-    avgDaysFU:    { label: "Average days to follow-up", unit: " days", for: ["incident"], calc: rows => avg(rows.filter(r => r.daysToFollowUp != null).map(r => r.daysToFollowUp)) },
+    pctSuggested: { label: "% who used the suggested station", unit: "%", for: ["visit"], calc: rows => { const b = rows.filter(r => r.station && r.stationSuggested && r.stationSuggested !== "Staff first"); return pct(b.filter(r => r.station === r.stationSuggested).length, b.length); } },
+    incidents:    { label: "Incident reports", unit: "", good: "down", for: ["incident"], calc: rows => rows.length },
+    pctFollowedUp:{ label: "% followed up", unit: "%", good: "up", for: ["incident"], calc: rows => pct(rows.filter(r => r.followedUp).length, rows.length) },
+    pctOpen:      { label: "% still needing follow-up", unit: "%", good: "down", for: ["incident"], calc: rows => pct(rows.filter(r => r.open).length, rows.length) },
+    avgDaysFU:    { label: "Average days to follow-up", unit: " days", good: "down", for: ["incident"], calc: rows => avg(rows.filter(r => r.daysToFollowUp != null).map(r => r.daysToFollowUp)) },
     pctTalk:      { label: "% wanted to talk", unit: "%", for: ["incident"], calc: rows => pct(rows.filter(r => r.talk).length, rows.length) },
   };
   const CHARTS = {
@@ -88,7 +88,24 @@ window.PPC_CHARTS = (function () {
     }
   }
   const RANGE_LABELS = { board: "Same as the board", week: "This week", lastweek: "Last week", 30: "Last 30 days", month: "This month", lastmonth: "Last month", 90: "Last 90 days", year: "This school year", custom: "Custom dates" };
-  function previousRange(r) { const len = r.end - r.start + 1; return { start: new Date(r.start - len), end: new Date(r.end - len) }; }
+  const DAY = 86400000;
+  const shiftDays = (d, n) => { const x = new Date(d); x.setDate(x.getDate() + n); return x; };
+  const endOf = d => { const x = new Date(d); x.setHours(23, 59, 59, 999); return x; };
+  /** The period just before, built from the calendar (same weekdays, same days of the month, last school year), not a count of milliseconds. */
+  function previousRange(r, preset) {
+    switch (preset) {
+      case "week": case "lastweek": return { start: shiftDays(r.start, -7), end: shiftDays(r.end, -7) };
+      case "month": { const s = new Date(r.start.getFullYear(), r.start.getMonth() - 1, 1); const last = new Date(s.getFullYear(), s.getMonth() + 1, 0).getDate(); return { start: s, end: endOf(new Date(s.getFullYear(), s.getMonth(), Math.min(r.end.getDate(), last))) }; }
+      case "lastmonth": { const s = new Date(r.start.getFullYear(), r.start.getMonth() - 1, 1); return { start: s, end: endOf(new Date(s.getFullYear(), s.getMonth() + 1, 0)) }; }
+      case "year": return { start: new Date(r.start.getFullYear() - 1, r.start.getMonth(), r.start.getDate()), end: endOf(new Date(r.end.getFullYear() - 1, r.end.getMonth(), r.end.getDate())) };
+      default: { const days = Math.round((new Date(r.end.getFullYear(), r.end.getMonth(), r.end.getDate()) - new Date(r.start.getFullYear(), r.start.getMonth(), r.start.getDate())) / DAY) + 1; return { start: shiftDays(r.start, -days), end: shiftDays(r.end, -days) }; }
+    }
+  }
+  /** Move a bucket key (day, week or month) forward by a number of calendar days so the earlier period lines up under the current one. */
+  function shiftKey(temporal, key, days) {
+    const d = shiftDays(new Date((temporal === "month" ? key + "-01" : key) + "T12:00:00"), days);
+    return temporal === "month" ? D.monthKey(d) : temporal === "week" ? D.weekKey(d) : D.dayKey(d);
+  }
 
   // ---------- Filtering and aggregation ----------
   function applyFilters(rows, filters) {
@@ -106,13 +123,14 @@ window.PPC_CHARTS = (function () {
     rows.forEach(r => { const v = dim.get(r); (Array.isArray(v) ? v : [v]).forEach(k => { if (!m.has(k)) m.set(k, []); m.get(k).push(r); }); });
     return m;
   }
+  const natural = (a, b) => (isFinite(a) && isFinite(b)) ? a - b : String(a).localeCompare(String(b));
   function orderKeys(dimKey, keys, valueOf) {
     const dim = DIMENSIONS[dimKey];
     if (!dim) return keys;
     if (dim.temporal) return keys.slice().sort();
-    if (dim.order) return dim.order.filter(k => keys.includes(k)).concat(keys.filter(k => !dim.order.includes(k)).sort());
+    if (dim.order) return dim.order.filter(k => keys.includes(k)).concat(keys.filter(k => !dim.order.includes(k)).sort(natural));
     if (dim.sortByValue && valueOf) return keys.slice().sort((a, b) => (valueOf(b) || 0) - (valueOf(a) || 0));
-    return keys.slice().sort();
+    return keys.slice().sort(natural);
   }
   /** Returns { rows: [{key, series, value, n, items}], keys, series, measure, dim, breakdown, compare } */
   function aggregate(tables, tile, opts) {
@@ -128,7 +146,8 @@ window.PPC_CHARTS = (function () {
     const out = { rows: [], measure, dim: dimKey, breakdown: null, compare: tile.compare || "none", range: r, unit: measure.unit };
 
     const push = (key, series, items) => { const v = measure.calc(items); out.rows.push({ key, series, value: v, n: items.length, items }); };
-    const breakdownKey = (tile.chart === "heatmap" || tile.chart === "stacked" || tile.chart === "grouped" || tile.compare === "groups") && tile.breakdown ? tile.breakdown : null;
+    // Comparing one student with everyone takes over the grouping, so a leftover "break down by" is ignored.
+    const breakdownKey = tile.compare !== "student" && (tile.chart === "heatmap" || tile.chart === "stacked" || tile.chart === "grouped" || tile.compare === "groups") && tile.breakdown ? tile.breakdown : null;
     const compare2 = tile.compare === "measures" && tile.measure2 && MEASURES[tile.measure2] ? MEASURES[tile.measure2] : null;
     out.measure2 = compare2;
 
@@ -136,9 +155,17 @@ window.PPC_CHARTS = (function () {
     let keys = [...buckets.keys()];
     if (breakdownKey) {
       out.breakdown = breakdownKey;
+      // Few series stay readable: keep the biggest and fold the rest into "Other".
+      const maxSeries = tile.chart === "heatmap" ? 14 : 8;
+      const sizes = new Map(); bucket(current, breakdownKey).forEach((its, s) => sizes.set(s, its.length));
+      const keep = sizes.size > maxSeries ? new Set([...sizes.entries()].sort((a, b) => b[1] - a[1]).slice(0, maxSeries - 1).map(e => e[0])) : null;
       const seriesSet = new Set();
-      buckets.forEach((items, key) => { const sub = bucket(items, breakdownKey); sub.forEach((its, s) => { seriesSet.add(s); push(key, s, its); }); });
-      out.series = orderKeys(breakdownKey, [...seriesSet]);
+      buckets.forEach((items, key) => {
+        let sub = bucket(items, breakdownKey);
+        if (keep) { const folded = new Map(); sub.forEach((its, s) => { const k = keep.has(s) ? s : "Other"; folded.set(k, (folded.get(k) || []).concat(its)); }); sub = folded; }
+        sub.forEach((its, s) => { seriesSet.add(s); push(key, s, its); });
+      });
+      out.series = orderKeys(breakdownKey, [...seriesSet].filter(s => s !== "Other")).concat(seriesSet.has("Other") ? ["Other"] : []);
     } else if (compare2) {
       buckets.forEach((items, key) => { push(key, measure.label, items); const v = compare2.calc(items); out.rows.push({ key, series: compare2.label, value: v, n: items.length, items, secondary: true }); });
       out.series = [measure.label, compare2.label];
@@ -150,13 +177,12 @@ window.PPC_CHARTS = (function () {
       out.series = ["Current"];
     }
     if (tile.compare === "previous") {
-      const pr = previousRange(r), prev = inRange(filtered, pr);
+      const pr = previousRange(r, inherit ? (opts.range || "year") : tile.range), prev = inRange(filtered, pr);
       const pb = bucket(prev, dimKey);
-      const shift = DIMENSIONS[dimKey] && DIMENSIONS[dimKey].temporal; // line up previous period by position, not by date
-      const prevKeys = orderKeys(dimKey, [...pb.keys()]);
-      const curKeys = orderKeys(dimKey, keys);
+      const shift = DIMENSIONS[dimKey] && DIMENSIONS[dimKey].temporal; // line the earlier period up under the current one by date
+      const offset = Math.round((new Date(r.start.getFullYear(), r.start.getMonth(), r.start.getDate()) - new Date(pr.start.getFullYear(), pr.start.getMonth(), pr.start.getDate())) / DAY);
       pb.forEach((items, key) => {
-        const k = shift ? (curKeys[prevKeys.indexOf(key)] || null) : key;
+        const k = shift ? shiftKey(shift, key, offset) : key;
         if (k == null) return;
         const v = measure.calc(items); out.rows.push({ key: k, series: "Previous period", value: v, n: items.length, items, previous: true, prevKey: key });
         if (!keys.includes(k)) keys.push(k);
@@ -195,7 +221,7 @@ window.PPC_CHARTS = (function () {
     return { field: "label", type: "nominal", title: null, scale: { domain: domain.map(k => keyLabel(agg.dim, k)), range: rangeC }, legend: { orient: "right" } };
   }
   function values(agg) {
-    return agg.rows.map(r => ({ key: r.key, label: keyLabel(agg.dim, r.key), series: agg.breakdown ? keyLabel(agg.breakdown, r.series) : r.series, value: r.value, n: r.n, prevKey: r.prevKey || null }));
+    return agg.rows.map(r => ({ key: r.key, label: keyLabel(agg.dim, r.key), series: agg.breakdown ? keyLabel(agg.breakdown, r.series) : r.series, seriesKey: r.series, value: r.value, n: r.n, prevKey: r.prevKey || null }));
   }
   const BASE = { config: { font: "Raleway, system-ui, sans-serif", axis: { labelFontSize: 11, titleFontSize: 11, labelColor: "#4A4647", titleColor: "#6D6E70", gridColor: "#EFEFF0", domainColor: "#BCBDBF", ticks: false, labelPadding: 4 }, legend: { labelFontSize: 11, titleFontSize: 11, title: null, orient: "bottom", symbolSize: 70 }, view: { stroke: null }, background: "transparent" }, autosize: { type: "fit", contains: "padding" }, width: "container", height: "container" };
 
@@ -206,7 +232,13 @@ window.PPC_CHARTS = (function () {
     // Axis titles repeat the tile title, so they go everywhere except the scatter plot.
     if (tile.chart !== "scatter") ["x", "y"].forEach(k => { if (s.encoding[k]) s.encoding[k].title = null; });
     if (s.encoding.color && s.encoding.color.title) s.encoding.color.title = null;
-    if (!(opts && opts.compact)) return s;
+    if (!(opts && opts.compact)) {
+      if (s.mark && s.mark.type === "line") {
+        const hit = { mark: { type: "point", size: 700, opacity: 0, tooltip: true }, encoding: { x: s.encoding.x, y: s.encoding.y, color: s.encoding.color, tooltip: s.encoding.tooltip } };
+        s.layer = [{ mark: s.mark, encoding: s.encoding }, hit]; delete s.mark; delete s.encoding;
+      }
+      return s;
+    }
     s.config = JSON.parse(JSON.stringify(s.config));
     s.config.legend = { disable: true };
     s.config.axis = Object.assign(s.config.axis, { grid: false, domain: false, labelFontSize: 10, labelAngle: 0, labelOverlap: true, labelLimit: 70 });
@@ -233,8 +265,8 @@ window.PPC_CHARTS = (function () {
     const multi = agg.series.length > 1;
     const chart = tile.chart || "bar";
     // Bars on a date axis: evenly spaced columns, labelled as dates, instead of hairlines on a time scale.
-    if (temporal && ["bar", "barh", "stacked", "grouped"].includes(chart)) {
-      xField.type = "ordinal"; xField.sort = agg.keys.map(k => keyLabel(agg.dim, k)); delete xField.axis.format;
+    if (temporal && ["bar", "barh", "stacked", "grouped", "heatmap"].includes(chart)) {
+      xField.type = "ordinal"; xField.sort = agg.keys.map(k => temporal === "month" ? k + "-01" : k); delete xField.axis.format;
       xField.axis.labelExpr = temporal === "month" ? "timeFormat(timeParse(datum.value, '%Y-%m-01'), '%b %Y')" : "timeFormat(timeParse(datum.value, '%Y-%m-%d'), '%b %d')";
       tooltip[0] = { field: "label", title: dim.label, type: "nominal" };
     }
@@ -261,8 +293,10 @@ window.PPC_CHARTS = (function () {
       case "pie": case "donut":
         s.mark = { type: "arc", innerRadius: chart === "donut" ? 50 : 0, tooltip: true };
         s.config = Object.assign({}, s.config, { legend: Object.assign({}, s.config.legend, { orient: "right", labelLimit: 140 }) });
+        // The hover text must not read the label as a date, or the colours stop matching their slices.
+        tooltip[0] = { field: "label", title: dim ? dim.label : "Group", type: "nominal" };
         s.encoding = { theta: { field: "value", type: "quantitative", stack: true }, color: keyColorScale(agg), tooltip };
-        s.data.values = vals.filter(v => !v.prevKey && v.series !== "Previous period");
+        s.data.values = vals.filter(v => !v.prevKey && v.series !== "Previous period").map(v => Object.assign({}, v, { label: keyLabel(agg.dim, v.key) }));
         return s;
       case "heatmap": {
         const bd = DIMENSIONS[agg.breakdown];
@@ -306,12 +340,18 @@ window.PPC_CHARTS = (function () {
 
   // ---------- Custom renderers ----------
   function esc(s) { return String(s == null ? "" : s).replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c])); }
-  function fmt(v, unit) { if (v == null) return "–"; return (Number.isInteger(v) ? v : v.toFixed(1)) + (unit === "%" ? "%" : (unit || "")); }
+  function fmt(v, unit) {
+    if (v == null) return "–";
+    const n = Number.isInteger(v) ? v : v.toFixed(1);
+    if (unit === "%") return n + "%";
+    if (unit === " days" && Number(v) === 1) return n + " day";
+    return n + (unit || "");
+  }
 
   /** Sankey: mood on arrival (left) to mood at check-out (right), from visits with both. */
   function sankeySVG(rows, width, height) {
     const pairs = rows.filter(r => r.moodIn && r.moodOut);
-    if (!pairs.length) return `<div class="empty">No check-outs with a mood read in this range.</div>`;
+    if (!pairs.length) return `<div class="empty">No visits in this range have both an arrival and a check-out mood.</div>`;
     const L = D.MOODS, R = D.MOODS.concat();
     const flow = {}; pairs.forEach(r => { const k = r.moodIn + "|" + r.moodOut; flow[k] = (flow[k] || 0) + 1; });
     const lt = {}, rt = {}; pairs.forEach(r => { lt[r.moodIn] = (lt[r.moodIn] || 0) + 1; rt[r.moodOut] = (rt[r.moodOut] || 0) + 1; });
@@ -349,67 +389,93 @@ window.PPC_CHARTS = (function () {
     return `<table class="tile-table"><thead>${head}</thead><tbody>${body}</tbody></table>`;
   }
 
-  /** Change from the previous period, short: { text, dir } or null when not comparing. */
+  /** Size of a change, short: { text, dir, tone }. tone is good/bad when the measure has a good direction, else "". */
+  function changeOf(measure, unit, now, before) {
+    if (now == null || before == null) return null;
+    const diff = now - before;
+    if (Math.abs(diff) < 0.05) return { text: "No change", dir: "", tone: "" };
+    const dir = diff > 0 ? "up" : "down";
+    const text = unit === "%" ? fmt(Math.abs(Math.round(diff * 10) / 10), " pts") : before ? Math.round(Math.abs(diff) / Math.abs(before) * 100) + "%" : fmt(Math.abs(diff), unit);
+    return { text, dir, tone: measure.good ? (dir === measure.good ? "good" : "bad") : "" };
+  }
   function deltaOf(agg) {
     if (agg.compare !== "previous") return null;
-    if (!agg.previousN || agg.previousTotal == null || agg.total == null) return { text: "No earlier data", dir: "" };
-    const diff = agg.total - agg.previousTotal;
-    if (Math.abs(diff) < 0.05) return { text: "No change", dir: "" };
-    const text = agg.unit === "%" ? fmt(Math.abs(Math.round(diff * 10) / 10), " pts")
-      : agg.previousTotal ? Math.round(Math.abs(diff) / agg.previousTotal * 100) + "%" : fmt(Math.abs(diff), agg.unit);
-    return { text: (diff > 0 ? "▲ " : "▼ ") + text, dir: diff > 0 ? "up" : "down" };
+    if (!agg.previousN) return { text: "No earlier data", dir: "", tone: "" };
+    return changeOf(agg.measure, agg.unit, agg.total, agg.previousTotal) || { text: "No earlier data", dir: "", tone: "" };
+  }
+  /** The change as a small badge: a Lucide arrow, the size, and a tooltip saying what it is compared with. */
+  function deltaHTML(d) {
+    if (!d) return "";
+    const icon = window.PPC_ICON && d.dir ? window.PPC_ICON(d.dir === "up" ? "trending-up" : "trending-down", 14) : "";
+    return `<span class="delta ${d.tone || ""}" title="Compared with the period just before">${icon}<span>${esc(d.text)}</span></span>`;
   }
   function numberHTML(agg, tile) {
     const d = deltaOf(agg);
-    return `<div class="bignum"><div class="v">${fmt(agg.total, agg.unit)}</div>${d ? `<div class="delta ${d.dir}" title="Compared with the period just before">${esc(d.text)}</div>` : ""}</div>`;
+    return `<div class="bignum"><div class="v">${fmt(agg.total, agg.unit)}</div>${d ? deltaHTML(d) : ""}</div>`;
   }
 
-  /** One headline for a tile: { value, label, delta }. Used by the list layout's rows. */
+  /** One headline for a tile: { value, label, delta, key, series } (key and series say which records the headline stands for). */
   function takeaway(agg, tile) {
     const chart = tile.chart || "bar";
     const live = agg.rows.filter(r => !r.previous && !r.secondary);
-    if (chart === "number") return { value: fmt(agg.total, agg.unit), label: agg.unit === "%" ? "" : agg.measure.label.toLowerCase(), delta: deltaOf(agg) };
+    if (chart === "number") return { value: fmt(agg.total, agg.unit), label: agg.unit === "%" ? "" : agg.measure.label.toLowerCase(), delta: deltaOf(agg), key: null };
     if (chart === "sankey") {
       const hard = agg.current.filter(r => r.improved != null), ok = hard.filter(r => r.improved).length;
-      return hard.length ? { value: Math.round(100 * ok / hard.length) + "%", label: "red or blue who left green or yellow" } : { value: "–", label: "no check-outs yet" };
+      return hard.length ? { value: Math.round(100 * ok / hard.length) + "%", label: "red or blue who left green or yellow", key: null } : { value: "–", label: "no check-outs yet", key: null };
     }
-    if (!live.length) return { value: "–", label: "no records" };
+    if (!live.length) return { value: "–", label: "no records", key: null };
     const dim = DIMENSIONS[agg.dim];
     if (chart === "heatmap" || chart === "calendar") {
       const top = live.reduce((a, b) => (b.value || 0) > (a.value || 0) ? b : a);
       const where = chart === "calendar" ? new Date(top.key + "T12:00:00").toLocaleDateString([], { weekday: "short", month: "short", day: "numeric" }) : `${keyLabel(agg.dim, top.key)} · ${keyLabel(agg.breakdown, top.series)}`;
-      return { value: where, label: "busiest" };
+      return { value: where, label: "busiest", key: top.key, series: chart === "heatmap" ? top.series : null };
     }
     if (dim && dim.temporal) {
       // Latest period, and the change from the one before it.
       const byKey = new Map(); live.forEach(r => byKey.set(r.key, (byKey.get(r.key) || 0) + (r.value || 0)));
       const keys = [...byKey.keys()].sort(), last = keys[keys.length - 1], prev = keys[keys.length - 2];
       const v = byKey.get(last), p = prev != null ? byKey.get(prev) : null;
-      let delta = null;
-      if (p != null && v != null) { const diff = v - p; delta = Math.abs(diff) < 0.05 ? { text: "No change", dir: "" } : { text: (diff > 0 ? "▲ " : "▼ ") + (agg.unit === "%" ? fmt(Math.abs(Math.round(diff * 10) / 10), " pts") : p ? Math.round(Math.abs(diff) / p * 100) + "%" : fmt(Math.abs(diff), agg.unit)), dir: diff > 0 ? "up" : "down" }; }
-      return { value: fmt(Math.round(v * 10) / 10, agg.unit), label: "latest " + dim.label.toLowerCase(), delta };
+      return { value: fmt(Math.round(v * 10) / 10, agg.unit), label: "latest " + dim.label.toLowerCase(), delta: p != null ? changeOf(agg.measure, agg.unit, v, p) : null, key: last };
     }
     if (chart === "scatter") {
       const top = live.reduce((a, b) => (b.value || 0) > (a.value || 0) ? b : a);
-      return { value: keyLabel(agg.dim, top.key), label: "highest " + agg.measure.label.toLowerCase() };
+      return { value: keyLabel(agg.dim, top.key), label: "highest " + agg.measure.label.toLowerCase(), key: top.key };
     }
-    // Categories: the top one, as a share for counts or its rate for % measures.
+    // Categories: the top one, as a share for counts or its own value for rates and averages.
     const byKey = new Map(); live.forEach(r => byKey.set(r.key, (byKey.get(r.key) || 0) + (r.value || 0)));
     // Lists the chart already ranks (students, places, strategies) lead with their own first entry, so a rate
     // like "100%" from a single visit doesn't beat the student with the most visits.
     const ranked = dim && dim.sortByValue && agg.keys && agg.keys.length ? agg.keys.find(k => byKey.has(k)) : null;
     const [topKey, topVal] = ranked != null ? [ranked, byKey.get(ranked)] : [...byKey.entries()].sort((a, b) => b[1] - a[1])[0];
-    const sum = [...byKey.values()].reduce((a, b) => a + b, 0);
-    const rate = agg.unit === "%" || agg.unit === " min" || agg.unit === " days";
-    return { value: keyLabel(agg.dim, topKey), label: rate ? fmt(Math.round(topVal * 10) / 10, agg.unit) : (sum ? Math.round(100 * topVal / sum) + "% of " + agg.measure.label.toLowerCase() : "") };
+    const rate = !!agg.unit || tile.measure === "perStudent";
+    let label = "";
+    if (rate) label = fmt(Math.round(topVal * 10) / 10, agg.unit);
+    else {
+      // Shares are of everything in range, not of the rows left after "Show top N".
+      const denom = dim && dim.multi ? agg.totalN : (agg.total || 0);
+      const what = tile.dataset === "incident" ? "reports" : tile.measure === "students" ? "students" : "visits";
+      label = denom ? Math.round(100 * topVal / denom) + "% of " + what : "";
+    }
+    return { value: keyLabel(agg.dim, topKey), label, key: topKey };
   }
 
+  // A spreadsheet runs a cell that starts with = + - or @ as a formula, and the text here comes from what students typed.
+  const cell = v => { if (typeof v === "number") return String(v); let s = String(v == null ? "" : v); if (/^[=+\-@\t\r]/.test(s)) s = "'" + s; return `"${s.replace(/"/g, '""')}"`; };
+  const sheet = rows => "\uFEFF" + rows.map(r => r.map(cell).join(",")).join("\r\n") + "\r\n";
   function csv(agg) {
-    const dim = DIMENSIONS[agg.dim];
-    const rows = [[dim ? dim.label : "Group", "Series", agg.measure.label, "Records"]];
-    agg.rows.forEach(r => rows.push([keyLabel(agg.dim, r.key), r.series, r.value == null ? "" : r.value, r.n]));
-    return rows.map(r => r.map(c => `"${String(c).replace(/"/g, '""')}"`).join(",")).join("\n");
+    const dim = DIMENSIONS[agg.dim], withEarlier = agg.rows.some(r => r.prevKey);
+    const rows = [[dim ? dim.label : "Group", "Group", agg.measure.label, "Records"].concat(withEarlier ? ["Earlier date"] : [])];
+    agg.rows.forEach(r => rows.push([keyLabel(agg.dim, r.key), agg.breakdown ? keyLabel(agg.breakdown, r.series) : r.series, r.value == null ? "" : r.value, r.n].concat(withEarlier ? [r.prevKey || ""] : [])));
+    return sheet(rows);
   }
+  /** The flow chart's own numbers: how many visits went from each arrival mood to each check-out mood. */
+  function csvFlow(rows) {
+    const n = {}; rows.filter(r => r.moodIn && r.moodOut).forEach(r => { const k = r.moodIn + "|" + r.moodOut; n[k] = (n[k] || 0) + 1; });
+    const out = [["Mood on arrival", "Mood at check-out", "Visits"]];
+    D.MOODS.forEach(a => D.MOODS.forEach(b => { if (n[a + "|" + b]) out.push([a, b, n[a + "|" + b]]); }));
+    return sheet(out);
+  }
+  const csvFor = (agg, tile) => tile && tile.chart === "sankey" ? csvFlow(agg.current) : csv(agg);
 
-  return { DIMENSIONS, MEASURES, CHARTS, DATASETS, FILTERABLE, RANGE_LABELS, MOOD_COLOR, range, aggregate, spec, takeaway, sankeySVG, tableHTML, numberHTML, csv, fmt, esc, keyLabel };
+  return { DIMENSIONS, MEASURES, CHARTS, DATASETS, FILTERABLE, RANGE_LABELS, MOOD_COLOR, range, aggregate, spec, takeaway, sankeySVG, tableHTML, numberHTML, deltaHTML, csv, csvFor, fmt, esc, keyLabel };
 })();

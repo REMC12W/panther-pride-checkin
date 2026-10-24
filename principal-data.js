@@ -21,7 +21,9 @@ window.PPD = (function () {
   const monthKey = d => `${d.getFullYear()}-${pad(d.getMonth() + 1)}`;
   function weekStart(d) { const x = new Date(d); x.setHours(0, 0, 0, 0); x.setDate(x.getDate() - ((x.getDay() + 6) % 7)); return x; } // Monday
   const weekKey = d => dayKey(weekStart(d));
-  const gradeShort = g => { const m = String(g || "").match(/(\d+)/); return m ? m[1] + "th" : ""; };
+  // "6", "06", "6th", "Grade 6" -> "6th"; "K" -> "K"; anything else -> "" (shown as Unknown).
+  const ordinal = n => n + (n % 100 >= 11 && n % 100 <= 13 ? "th" : ({ 1: "st", 2: "nd", 3: "rd" }[n % 10] || "th"));
+  const gradeShort = g => { const s = String(g || "").trim(); const m = s.match(/(\d+)/); if (m) { const n = Number(m[1]); return n >= 1 && n <= 12 ? ordinal(n) : ""; } return /^(k|kindergarten)$/i.test(s.replace(/\s*grade$/i, "")) ? "K" : ""; };
   const splitList = s => String(s || "").split(",").map(x => x.trim()).filter(Boolean);
 
   // ---------- Normalize ----------
@@ -29,7 +31,8 @@ window.PPD = (function () {
     const ts = new Date(r.timestamp);
     const moodIn = MOODS.includes(r.moodGroup) ? r.moodGroup : "";
     const moodOut = MOODS.includes(r.outMoodGroup) ? r.outMoodGroup : "";
-    const minutes = r.minutes === "" || r.minutes == null ? null : Number(r.minutes);
+    const rawMin = r.minutes === "" || r.minutes == null ? null : Number(r.minutes);
+    const minutes = rawMin != null && rawMin >= 0 && rawMin <= 360 ? rawMin : null; // a hand-edited or clock-skewed cell must not wreck an average
     const hardIn = moodIn === "Red" || moodIn === "Blue";
     const alert = r.stationSuggested === "Staff first" || r.station === "Staff first";
     return {
@@ -41,33 +44,51 @@ window.PPD = (function () {
       station: r.station && r.station !== "Staff first" ? r.station : "", stationSuggested: r.stationSuggested || "", alert,
       basicNeeds: splitList(r.basicNeeds), checkedOut: !!r.checkoutTime, minutes: Number.isFinite(minutes) ? minutes : null,
       moodOut, wordOut: r.outMoodWord || "", helped: splitList(r.helped), checkedOutBy: /^staff/i.test(r.checkedOutBy || "") ? "Staff" : (r.checkoutTime ? "Student" : ""),
-      arrivedHard: hardIn, leftPleasant: moodOut ? !!PLEASANT[moodOut] : null, improved: moodOut && hardIn ? !!PLEASANT[moodOut] : null,
-      raw: r
+      arrivedHard: hardIn, leftPleasant: moodOut ? !!PLEASANT[moodOut] : null, improved: moodOut && hardIn ? !!PLEASANT[moodOut] : null
     };
   }
   function incidentFrom(r, grades) {
     const ts = new Date(r.timestamp);
-    const followedUp = !!r.reviewed;
-    const open = !followedUp || r.status === "Needs more follow-up";
+    // Followed up and still open are opposites: a report marked "Needs more follow-up" is open even though someone looked at it.
+    const followedUp = !!r.reviewed && r.status !== "Needs more follow-up";
+    const open = !followedUp;
     let days = null;
-    if (followedUp) { const m = String(r.reviewed).match(/(\d{4}-\d{2}-\d{2})/); if (m) days = Math.max(0, Math.round((new Date(m[1]) - ts) / 86400000)); }
+    if (r.reviewed) {
+      // Calendar days in the viewer's own time zone: the review stamp is a plain local date.
+      const m = String(r.reviewed).match(/(\d{4})-(\d{2})-(\d{2})/);
+      if (m) { const d = Math.round((new Date(+m[1], +m[2] - 1, +m[3]) - new Date(ts.getFullYear(), ts.getMonth(), ts.getDate())) / 86400000); if (d >= 0) days = d; }
+    }
     return {
       kind: "incident", ts, date: dayKey(ts), week: weekKey(ts), month: monthKey(ts), weekday: WEEKDAYS[ts.getDay()], hour: ts.getHours(),
       grade: gradeShort(r.grade) || (grades && grades[r.studentId]) || "", student: r.name || "", studentId: r.studentId || "",
       types: splitList(r.types), place: r.place || "", period: r.period || "", talk: r.talk === "Yes",
-      followedUp, open, action: r.action || "", status: r.status || (followedUp ? "Resolved" : "Open"), daysToFollowUp: days, raw: r
+      followedUp, open, action: r.action || "", status: r.status || (r.reviewed ? "Resolved" : "Open"), daysToFollowUp: days
     };
   }
   // Rows written while setting up or demoing the kiosk, not by students.
   const isTestRow = r => /^(SAMPLE DATA|Setup check)$/i.test(String(r.kiosk || "").trim()) || /\(sample\)\s*$/i.test(String(r.name || "")) || /^connection test/i.test(String(r.name || ""));
+  const SIXTY = 60000;
   function normalize(data) {
-    data = Object.assign({}, data, { checkins: (data.checkins || []).filter(r => !isTestRow(r)), incidents: (data.incidents || []).filter(r => !isTestRow(r)) });
+    // Setup rows, test rows and "Check Out (no check-in found)" rows (the script adds one when a check-out finds nothing to match) are not visits.
+    const isCheckOutOnly = r => /^check out/i.test(String(r.outcome || ""));
+    data = Object.assign({}, data, { checkins: (data.checkins || []).filter(r => !isTestRow(r) && !isCheckOutOnly(r)), incidents: (data.incidents || []).filter(r => !isTestRow(r)) });
     const grades = {};
     (data.incidents || []).forEach(r => { if (r.studentId && r.grade) grades[r.studentId] = gradeShort(r.grade); });
     (data.checkins || []).forEach(r => { if (r.studentId && r.grade) grades[r.studentId] = gradeShort(r.grade); });
-    const incTimes = new Set((data.incidents || []).map(r => r.timestamp));
-    const visits = (data.checkins || []).filter(r => r.timestamp && !(r.outcome === "Incident Report" && incTimes.has(r.timestamp))).map(r => visitFrom(r, grades));
+    // An incident also writes an "Incident Report" visit a moment later. Drop that visit when the same student has an incident within a minute.
+    const incByStudent = new Map();
+    (data.incidents || []).forEach(r => { const k = r.studentId || r.name; const t = new Date(r.timestamp).getTime(); if (!incByStudent.has(k)) incByStudent.set(k, []); incByStudent.get(k).push(t); });
+    const dup = r => r.outcome === "Incident Report" && (incByStudent.get(r.studentId || r.name) || []).some(t => Math.abs(t - new Date(r.timestamp).getTime()) <= SIXTY);
+    const visits = (data.checkins || []).filter(r => r.timestamp && !dup(r)).map(r => visitFrom(r, grades));
     const incidents = (data.incidents || []).filter(r => r.timestamp).map(r => incidentFrom(r, grades));
+    // Names: a student with and without an ID is one student; two students sharing a name get their ID tail so they stay apart.
+    const idsByName = new Map();
+    visits.concat(incidents).forEach(r => { if (r.student && r.studentId) { if (!idsByName.has(r.student)) idsByName.set(r.student, new Set()); idsByName.get(r.student).add(r.studentId); } });
+    visits.concat(incidents).forEach(r => {
+      const ids = idsByName.get(r.student); if (!ids) return;
+      if (ids.size === 1) { if (!r.studentId) r.studentId = [...ids][0]; }
+      else if (r.studentId) r.student = `${r.student} (${String(r.studentId).slice(-3)})`;
+    });
     return { visits, incidents, source: data.source || "live", email: data.email || "", sheetUrl: data.sheetUrl || "" };
   }
 
@@ -164,13 +185,28 @@ window.PPD = (function () {
   }
 
   // ---------- Live data ----------
+  const OLD_SCRIPT = /Bad token|Unknown request/;
+  const AUTH_ERROR = /sign-in|sign in|expired|can't open the|limited to|different app|not from Google|not verified/i;
+  const SETUP_MSG = "The dashboard isn't fully set up yet. Ask Ben to finish the update, then try again.";
+  /** An Error with .setup (old script), .auth (sign-in problem) or .network (couldn't reach the Sheet) so callers decide what to do. */
+  function scriptError(d) {
+    const m = String((d && d.error) || "");
+    const e = new Error(OLD_SCRIPT.test(m) ? SETUP_MSG : (m || "Something went wrong reading the Sheet."));
+    e.setup = OLD_SCRIPT.test(m); e.auth = !e.setup && AUTH_ERROR.test(m);
+    return e;
+  }
+  async function postScript(scriptUrl, body, extra) {
+    let res;
+    try { res = await fetch(scriptUrl, Object.assign({ method: "POST", headers: { "Content-Type": "text/plain;charset=utf-8" }, body: JSON.stringify(body), redirect: "follow" }, extra || {})); }
+    catch (err) { const e = new Error("We couldn't reach the Sheet. Check the Wi-Fi and try again."); e.network = true; throw e; }
+    try { return await res.json(); } catch (err) { throw new Error("The Sheet didn't answer properly. Try again in a moment."); }
+  }
   async function liveData(scriptUrl, idToken, days) {
-    const res = await fetch(scriptUrl, { method: "POST", headers: { "Content-Type": "text/plain;charset=utf-8" }, body: JSON.stringify({ type: "principalData", idToken, days: days || 365 }), redirect: "follow" });
-    const d = await res.json();
-    if (!d.ok) throw new Error(/Bad token|Unknown request/.test(d.error || "") ? "The script in the Sheet needs the new Code.gs deployed (Deploy → Manage deployments → New version)." : (d.error || "Could not load"));
+    const d = await postScript(scriptUrl, { type: "principalData", idToken, days: days || 365 });
+    if (!d.ok) throw scriptError(d);
     d.source = "live";
     return d;
   }
 
-  return { normalize, demoData, liveData, MOODS, WEEKDAYS, weekStart, dayKey, weekKey, monthKey };
+  return { normalize, demoData, liveData, postScript, scriptError, SETUP_MSG, gradeShort, MOODS, WEEKDAYS, weekStart, dayKey, weekKey, monthKey };
 })();

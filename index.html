@@ -1203,7 +1203,7 @@
     try {
       const res = await fetch(CFG.SCRIPT_URL, { method: "POST", headers: { "Content-Type": "text/plain;charset=utf-8" }, body: JSON.stringify({ type: "kioskSignIn", idToken: resp.credential, kiosk: CFG.KIOSK_NAME }), redirect: "follow" });
       const d = await res.json();
-      if (!d.ok) throw new Error(/Bad token|Unknown request/.test(d.error || "") ? "The script in the Sheet needs updating (paste the new Code.gs and deploy a new version)." : d.error);
+      if (!d.ok) throw new Error(/Bad token|Unknown request/.test(d.error || "") ? "The check-in script needs an update. Ask Ben to finish it, then try again." : d.error);
       localStorage.setItem(SESSION_KEY, JSON.stringify({ session: d.session, email: d.email, expires: d.expires }));
       await loadRoster(true);
       updateKioskPill(); openKioskSetup();

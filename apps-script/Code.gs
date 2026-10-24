@@ -440,7 +440,7 @@ function accessMap_() {
   const sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName(ACCESS_NAME);
   if (!sheet) return null;
   const map = {};
-  const yes = v => v === true || /^(yes|true|x|✓)$/i.test(String(v).trim());
+  const yes = v => v === true || /^(yes|y|true|1|x|✓|ok)$/i.test(String(v).trim());
   sheet.getDataRange().getValues().slice(1).forEach(r => {
     const e = String(r[0] || '').trim().toLowerCase();
     if (e) map[e] = { staff: yes(r[1]), principal: yes(r[2]), by: String(r[3] || ''), at: r[4] instanceof Date ? r[4].toISOString() : String(r[4] || '') };
@@ -457,31 +457,63 @@ function accessList_(data) {
 /** principal.html POSTs { type: 'accessSave', idToken, people: [{ email, staff, principal }] }. Replaces the list. */
 function accessSave_(data) {
   const who = principal_(data);
+  const before = accessMap_() || {};
   const seen = {}, rows = [];
   (Array.isArray(data.people) ? data.people : []).forEach(p => {
-    const e = String(p && p.email || '').trim().toLowerCase();
+    if (!p || (!p.staff && !p.principal)) return; // no access at all = not on the list (and a stray junk row can't block the save)
+    const e = String(p.email || '').trim().toLowerCase().replace(/\.+$/, '');
     if (!e || seen[e]) return;
     if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(e)) throw new Error('"' + e + '" is not an email address.');
-    if (!p.staff && !p.principal) return; // no access at all = not on the list
     seen[e] = true;
-    rows.push([e, p.staff ? 'Yes' : '', p.principal ? 'Yes' : '', who, new Date()]);
+    // Someone whose access didn't change keeps their original "Updated by" and date, so the list still says who added whom.
+    const old = before[e], same = old && !!old.staff === !!p.staff && !!old.principal === !!p.principal;
+    rows.push([e, p.staff ? 'Yes' : '', p.principal ? 'Yes' : '', same ? old.by : who, same && old.at ? new Date(old.at) : new Date()]);
   });
   if (rows.length > 500) throw new Error('The list is limited to 500 people.');
-  const ss = SpreadsheetApp.getActiveSpreadsheet();
-  let sheet = ss.getSheetByName(ACCESS_NAME);
-  if (!sheet) {
-    sheet = ss.insertSheet(ACCESS_NAME);
-    sheet.getRange(1, 1, 1, ACCESS_HEADERS.length).setValues([ACCESS_HEADERS]).setFontWeight('bold').setBackground('#d61f26').setFontColor('#ffffff');
-    sheet.setFrozenRows(1); sheet.setColumnWidth(1, 280);
-  }
-  if (sheet.getLastRow() > 1) sheet.getRange(2, 1, sheet.getLastRow() - 1, ACCESS_HEADERS.length).clearContent();
-  if (rows.length) sheet.getRange(2, 1, rows.length, ACCESS_HEADERS.length).setValues(rows);
-  return { ok: true, saved: rows.length };
+  return withLock_(() => {
+    const ss = SpreadsheetApp.getActiveSpreadsheet();
+    let sheet = ss.getSheetByName(ACCESS_NAME);
+    if (!sheet) {
+      sheet = ss.insertSheet(ACCESS_NAME);
+      sheet.getRange(1, 1, 1, ACCESS_HEADERS.length).setValues([ACCESS_HEADERS]).setFontWeight('bold').setBackground('#d61f26').setFontColor('#ffffff');
+      sheet.setFrozenRows(1); sheet.setColumnWidth(1, 280);
+    }
+    if (sheet.getLastRow() > 1) sheet.getRange(2, 1, sheet.getLastRow() - 1, ACCESS_HEADERS.length).clearContent();
+    if (rows.length) sheet.getRange(2, 1, rows.length, ACCESS_HEADERS.length).setValues(rows);
+    return { ok: true, saved: rows.length };
+  });
 }
 /** principal.html POSTs { type: 'principalData', idToken, days }: the same data as the staff dashboard, for allowed accounts only. */
 function principalData_(data) {
   principal_(data);
-  return dashboard_(data);
+  const d = dashboard_(data);
+  // Only the columns the principal page shows. The free-text story, who was involved, witnesses and notes stay in the Sheet.
+  d.incidents = d.incidents.map(r => {
+    const m = String(r.reviewed || '').match(/\d{4}-\d{2}-\d{2}/);
+    return { timestamp: r.timestamp, name: r.name, grade: r.grade, types: r.types, place: r.place, period: r.period, talk: r.talk,
+      reviewed: m ? m[0] : (r.reviewed ? 'Reviewed' : ''), studentId: r.studentId, action: r.action, status: r.status };
+  });
+  d.feedback = [];
+  return d;
+}
+
+/** Runs fn while holding the script lock, so two saves at the same moment can't interleave their writes. */
+function withLock_(fn) {
+  const lock = LockService.getScriptLock();
+  lock.waitLock(10000);
+  try { return fn(); } finally { lock.releaseLock(); }
+}
+/** Splits text into pieces of at most n characters without cutting an emoji (a surrogate pair) in half. */
+function chunk_(s, n) {
+  const out = [];
+  let i = 0;
+  while (i < s.length) {
+    let j = Math.min(i + n, s.length);
+    if (j < s.length) { const c = s.charCodeAt(j - 1); if (c >= 0xD800 && c <= 0xDBFF) j--; }
+    out.push(s.slice(i, j));
+    i = j;
+  }
+  return out.length ? out : [''];
 }
 
 const BOARDS_NAME = 'Dashboards';
@@ -515,17 +547,23 @@ function boardLoad_(data) {
 /** principal.html POSTs { type: 'boardSave', idToken, boards }. */
 function boardSave_(data) {
   const email = principal_(data);
-  const json = JSON.stringify(Array.isArray(data.boards) ? data.boards : []);
+  // A missing or empty list is a mistake, not a request to erase someone's boards.
+  if (!Array.isArray(data.boards) || !data.boards.length) throw new Error('Nothing was saved: the boards were missing or empty.');
+  const json = JSON.stringify(data.boards);
   if (json.length > 400000) throw new Error('These boards are too large to save. Delete some tiles or boards.');
-  const sheet = boardsSheet_();
-  let row = boardRow_(sheet, email);
-  if (!row) { sheet.appendRow([email, new Date(), '']); row = sheet.getLastRow(); }
-  const parts = json.match(/[\s\S]{1,45000}/g) || [''];
-  const width = Math.max(parts.length, sheet.getLastColumn() - 2, 1);
-  const vals = parts.concat(new Array(width - parts.length).fill(''));
-  sheet.getRange(row, 2).setValue(new Date());
-  sheet.getRange(row, 3, 1, width).setValues([vals]);
-  return { ok: true, saved: new Date().toISOString() };
+  return withLock_(() => {
+    const sheet = boardsSheet_();
+    let row = boardRow_(sheet, email);
+    if (!row) { sheet.appendRow([email, new Date(), '']); row = sheet.getLastRow(); }
+    const parts = chunk_(json, 45000);
+    const width = Math.max(parts.length, sheet.getLastColumn() - 2, 1);
+    const vals = parts.concat(new Array(width - parts.length).fill(''));
+    sheet.getRange(row, 2).setValue(new Date());
+    const cells = sheet.getRange(row, 3, 1, width);
+    cells.setNumberFormat('@'); // plain text, so a piece that starts with = or is all digits isn't turned into a formula or a number
+    cells.setValues([vals]);
+    return { ok: true, saved: new Date().toISOString() };
+  });
 }
 
 /** Opening the script URL in a browser: a plain page, no data. */
