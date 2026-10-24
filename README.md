@@ -19,7 +19,9 @@ A tap-through check-in kiosk for the Pride Center, rebuilt from the Google Slide
 | `principal.html` | Principal dashboard: build-your-own boards of charts over the check-in data. Demo data until `PRINCIPAL_DEMO` is false. Uses `principal-data.js`, `principal-charts.js`, `principal-app.js`, and the Vega chart library in `assets/vendor/`. |
 | `feedback.html` | Trial feedback portal. Switch off with `FEEDBACK_ENABLED` in `config.js`. |
 | `sw.js` | Service worker. Lets the kiosk open with no Wi-Fi and keeps files fresh when online. |
-| `assets/` | Panther logo and app icons. |
+| `ds.css` | Parchment Panthers Design System tokens (colors, Raleway type, buttons, corners) shared by every page. |
+| `icons.js` | Lucide icons bundled for offline use. In `config.js`, an item's `icon` is a Lucide icon name. |
+| `assets/` | District panther logo and app icons. |
 
 ## The flow
 

@@ -865,7 +865,7 @@ function buildSummary_(ss) {
   section('By reason', 'F', ['Drop In: I need a reset', 'Scheduled Break', 'Drop In: I have a need', 'Break', 'Defiance', 'Sickness']);
   section('By energy', 'G', ['Moving Fast', 'Moving Slow', 'Moving Ok']);
   section('By mood group', 'H', ['Red', 'Yellow', 'Blue', 'Green']);
-  section('By what happened', 'J', ['At Home', 'With my Teacher', 'With a friend', 'Just with myself', 'Not sure right now', 'Nothing happened']);
+  section('By what happened', 'J', ['At Home', 'With my Teacher', 'With a friend', 'Just with myself', 'Not sure', 'Not sure right now', 'Nothing happened']);
   section('By outcome', 'M', ['Check In', 'Incident Report', 'Basic Need']);
   section('By station', 'P', ['Red', 'Yellow', 'Blue', 'Green', 'Staff first']);
   section('Alert word picked (Station Suggested)', 'O', ['Staff first']);
