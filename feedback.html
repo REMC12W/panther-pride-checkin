@@ -232,7 +232,10 @@
     if (!CFG.SCRIPT_URL) msg = "Test mode: your feedback was saved on this device only.";
     else {
       try { await post(record); }
-      catch { const q = readJSON(QUEUE_KEY); q.push(record); writeJSON(QUEUE_KEY, q); msg = "Saved on this device. It will send when the connection is back."; }
+      catch (err) {
+        const q = readJSON(QUEUE_KEY); q.push(record); writeJSON(QUEUE_KEY, q);
+        msg = /sign|expired/i.test(err.message || "") ? "Saved on this device. It will send once a staff member signs in again (the iPad or the staff page)." : "Saved on this device. It will send when the connection is back.";
+      }
     }
     $("#thanksMsg").textContent = msg;
     $("#form").classList.add("hidden");

@@ -607,9 +607,17 @@
       if (d.sheetUrl) { $("#sheetLink").href = d.sheetUrl; $("#sheetLink").classList.remove("hidden"); }
       $("#status").textContent = `Updated ${new Date().toLocaleTimeString([], { hour: "numeric", minute: "2-digit" })} · refreshes every minute`;
       renderAll();
+      sendQueuedFeedback();
     } catch (err) {
       $("#status").className = "status-line err";
       $("#status").textContent = "Could not load: " + (err.message || err);
+    }
+  }
+  // Feedback that couldn't be sent from this browser (signed out, sign-in expired) goes now, with this sign-in.
+  async function sendQueuedFeedback() {
+    let q; try { q = JSON.parse(localStorage.getItem("ppc_feedback_queue") || "[]"); } catch { return; }
+    while (q.length) {
+      try { const d = await post(q[0]); if (!d.ok) break; q.shift(); localStorage.setItem("ppc_feedback_queue", JSON.stringify(q)); } catch { break; }
     }
   }
   function loadLocal() {

@@ -162,7 +162,7 @@ The sheet already exists: [Pride Center Check-Ins](https://docs.google.com/sprea
 1. In the Sheet, go to **Extensions → Apps Script**.
 2. Delete the sample code in `Code.gs` and paste in everything from `apps-script/Code.gs`.
 3. Dashboard access is `ALLOWED_DOMAIN` (any @parchmentschools.org Workspace account) plus the people in `ADMIN_EMAILS` (currently the principal, jeremy.andrick@parchmentschools.org, plus ben.tomlinson@kresa.org for setup). Everyone else is refused. To lock it to named people only, list them in `ADMIN_EMAILS` and set `ALLOWED_DOMAIN` to `''`.
-4. There is no shared secret in `config.js` any more. Every check-in, check-out, incident report, and feedback note needs a signed-in @parchmentschools.org staff account: the kiosk iPad's sign-in session, or a staff Google sign-in. Someone who finds the script URL can't add or read anything. (If an older copy of this script still has a `KIOSK_TOKEN` line, it is no longer used and can be deleted.)
+4. There is no shared secret in `config.js` any more. Every check-in, check-out, incident report, and feedback note needs a signed-in @parchmentschools.org staff account: the kiosk iPad's sign-in session, or a @parchmentschools.org staff Google sign-in on the staff page. (Accounts outside that domain, even ones with dashboard access, can read dashboards but can't add records.) Someone who finds the script URL can't add or read anything. (If an older copy of this script still has a `KIOSK_TOKEN` line, it is no longer used and can be deleted.)
 5. Click **Save**.
 
 ### 3. Run setup once

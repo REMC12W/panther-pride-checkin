@@ -1131,7 +1131,11 @@
       redirect: "follow"
     });
     const data = await res.json();
-    if (!data.ok) throw new Error(data.error || "Sheet rejected the check-in");
+    if (!data.ok) {
+      // The iPad's sign-in ran out or was revoked: show the sign-in pill. The record stays queued.
+      if (/not signed in|expired/i.test(data.error || "")) { try { localStorage.removeItem(SESSION_KEY); } catch {} roster = null; updateKioskPill(); }
+      throw new Error(data.error || "Sheet rejected the check-in");
+    }
   }
 
   async function save(record, status) {
@@ -1157,6 +1161,12 @@
     let q = readJSON(QUEUE_KEY);
     while (q.length) {
       try { await postToSheet(q[0]); q.shift(); writeJSON(QUEUE_KEY, q); }
+      catch { break; }
+    }
+    // Feedback written while the iPad was signed out waits in feedback.html's queue: send it too.
+    let fq = readJSON("ppc_feedback_queue");
+    while (fq.length && getSession()) {
+      try { await postToSheet(fq[0]); fq.shift(); writeJSON("ppc_feedback_queue", fq); }
       catch { break; }
     }
     updateBanner();

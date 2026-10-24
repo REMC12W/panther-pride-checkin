@@ -84,7 +84,7 @@ function doPost(e) {
     if (data.type === 'lookup') return json_(lookup_(data));
     if (data.type === 'roster') return json_(roster_(data));
     // A signed-in staff request the script doesn't know means Code.gs is out of date, not a kiosk token problem.
-    if (data.idToken && data.type && data.type !== 'checkin') return json_({ ok: false, error: 'Unknown request type: ' + data.type });
+    if (data.idToken && data.type && WRITE_TYPES_.indexOf(data.type) === -1) return json_({ ok: false, error: 'Unknown request type: ' + data.type });
     // Writing to the Sheet needs a signed-in staff member: a kiosk iPad signed in with a
     // @parchmentschools.org account (its session pass), or a staff Google sign-in. Nothing public.
     staffWriter_(data);
@@ -633,14 +633,14 @@ function kioskSession_(session) {
   return s;
 }
 
+const WRITE_TYPES_ = ['checkin', 'checkout', 'incident', 'feedback'];
+
 /** Who may add check-ins, check-outs, incident reports, and feedback. Throws if nobody signed in. */
 function staffWriter_(data) {
-  if (data.session) return kioskSession_(data.session).email;
-  if (data.idToken) {
-    try { return verifyIdToken_(String(data.idToken), true); }
-    catch (err) { return verifyIdToken_(String(data.idToken)); } // dashboard people outside KIOSK_DOMAIN, such as the setup account
-  }
-  throw new Error('Not signed in. Sign this iPad in with a @' + KIOSK_DOMAIN + ' staff account.');
+  let why = 'Not signed in. Sign this iPad in with a @' + KIOSK_DOMAIN + ' staff account.';
+  if (data.session) { try { return kioskSession_(data.session).email; } catch (err) { why = String(err.message || err); } }
+  if (data.idToken) return verifyIdToken_(String(data.idToken), true); // KIOSK_DOMAIN Workspace staff only
+  throw new Error(why);
 }
 
 function kioskStatus_(data) {
