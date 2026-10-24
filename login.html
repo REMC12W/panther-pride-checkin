@@ -74,7 +74,7 @@
   const show = id => ["signin", "routing", "none"].forEach(x => $("#" + x).classList.toggle("hidden", x !== id));
 
   const pending = sessionStorage.getItem("ppc_signin_msg");
-  if (pending) { $("#msg").textContent = /Bad token|Unknown request/.test(pending) ? "The script in the Sheet needs the new Code.gs deployed (Deploy → Manage deployments → New version)." : pending; sessionStorage.removeItem("ppc_signin_msg"); }
+  if (pending) { $("#msg").textContent = /Bad token|Unknown request/.test(pending) ? "The dashboard isn't fully set up yet. Ask Ben to finish the update, then try again." : pending; sessionStorage.removeItem("ppc_signin_msg"); }
 
   async function route(token) {
     show("routing");
@@ -83,7 +83,7 @@
       const res = await fetch(CFG.SCRIPT_URL, { method: "POST", headers: { "Content-Type": "text/plain;charset=utf-8" }, body: JSON.stringify({ type: "whoami", idToken: token }), redirect: "follow" });
       d = await res.json();
     } catch (err) { return fail("Couldn't reach the Sheet. Check the Wi-Fi and try again."); }
-    if (!d.ok) return fail(/Bad token|Unknown request/.test(d.error || "") ? "The script in the Sheet needs the new Code.gs deployed before this sign-in page works." : d.error);
+    if (!d.ok) return fail(/Bad token|Unknown request/.test(d.error || "") ? "The dashboard isn't fully set up yet. Ask Ben to finish the update, then try again." : d.error);
     sessionStorage.setItem("ppc_id_token", token); // the dashboards reuse this sign-in
     const can = ["principal", "staff"].filter(k => d[k]);
     // Straight through when there's one obvious place to go.
