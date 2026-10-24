@@ -4,17 +4,19 @@
  * Lives inside the Google Sheet (Extensions → Apps Script). One file, one
  * deployment (Web app, Execute as: Me, Who has access: Anyone).
  *
- * - A staff member on the approved list (the "Staff" tab) signs the iPad in with
- *   Google. The iPad then holds a session pass, and every check-in, check-out and
- *   incident report it POSTs must carry that pass. Without it nothing is saved,
- *   so the public KIOSK_TOKEN in config.js is never enough on its own.
+ * - An approved staff member signs the iPad in with Google. The iPad then holds a
+ *   session pass, and every check-in, check-out and incident report it POSTs must
+ *   carry that pass (or a staff Google sign-in). Without one nothing is saved;
+ *   there is no shared secret in config.js.
  * - The admin dashboard (staff.html on GitHub Pages) POSTs a Google ID token
  *   from "Sign in with Google". It is verified here on every request, and only
  *   people on the approved list get data back.
  *
- * Who is approved: any @ALLOWED_DOMAIN Google Workspace account listed in the
- * "Staff" tab of this Sheet, plus ADMIN_EMAILS (any domain, always allowed, so
- * an empty tab can never lock everyone out).
+ * Who is approved (one list for the iPad, the staff dashboard and the principal
+ * dashboard): PRINCIPAL_EMAILS and ADMIN_EMAILS, always; plus any @ALLOWED_DOMAIN
+ * Workspace account the principal has put on the Access tab (People & access on
+ * principal.html). Students have district accounts too, so the domain alone is
+ * never enough.
  */
 
 // ---- Settings ---------------------------------------------------------------
@@ -24,12 +26,9 @@
 const GOOGLE_CLIENT_ID = '680243392561-vod2q88igf1v8mr84uc7b4h075lv6g5p.apps.googleusercontent.com';
 
 // Approved staff must be real Google Workspace accounts on this domain (students have
-// domain accounts too, so the domain alone is never enough)...
+// domain accounts too, so the domain alone is never enough) AND be on the Access tab below.
 const ALLOWED_DOMAIN = 'parchmentschools.org';
-// ...AND be listed, one email per row, in this tab of the Sheet. setup() creates it.
-// Changes are picked up within a minute. Only people who can edit this Sheet can change it.
-const STAFF_NAME = 'Staff';
-// Always allowed, from any domain, even if the Staff tab is empty. Keeps the owner from
+// Always allowed, from any domain, even if the Access tab is empty. Keeps the owner from
 // ever being locked out.
 const ADMIN_EMAILS = ['ben.tomlinson@kresa.org'];
 
@@ -44,9 +43,13 @@ const ROSTER_SHEET_GID = 1679508098;
 // check-in data). Put that spreadsheet's ID here; leave empty to use the tab above.
 const ROSTER_SPREADSHEET_ID = '';
 
-// Must match KIOSK_TOKEN in the app's config.js. A first filter against junk POSTs;
-// the real gate is the iPad session above.
-const KIOSK_TOKEN = '7b4a5c379eb19ea01f851fea';
+// Principal dashboard owners. They can always open both dashboards and manage the Access list.
+const PRINCIPAL_EMAILS = ['jeremy.andrick@parchmentschools.org', 'ben.tomlinson@kresa.org'];
+// Everyone else must be on the Access tab, managed from principal.html ("People & access").
+// Anyone listed there (Staff dashboard or Principal dashboard) may sign in the kiosk iPad and
+// open the staff dashboard. Until the principal saves that list, only the owners and ADMIN_EMAILS can.
+const ACCESS_NAME = 'Access';
+const ACCESS_HEADERS = ['Email', 'Staff dashboard', 'Principal dashboard', 'Updated by', 'Updated'];
 
 const SHEET_NAME   = 'Check-Ins';
 const SUMMARY_NAME = 'Summary';
@@ -68,7 +71,14 @@ const COL_CHECKOUT_TIME = 17;
 function doPost(e) {
   try {
     const data = JSON.parse(e.postData.contents);
+    if (data.type === 'whoami') return json_(whoami_(data));
     if (data.type === 'dashboard') return json_(dashboard_(data));
+    if (data.type === 'principalAuth') return json_({ ok: true, email: principal_(data), owner: isOwner_(principal_(data)) });
+    if (data.type === 'accessList') return json_(accessList_(data));
+    if (data.type === 'accessSave') return json_(accessSave_(data));
+    if (data.type === 'principalData') return json_(principalData_(data));
+    if (data.type === 'boardLoad') return json_(boardLoad_(data));
+    if (data.type === 'boardSave') return json_(boardSave_(data));
     if (data.type === 'review') return json_(review_(data));
     if (data.type === 'staffCheckout') return json_(staffCheckout_(data));
     if (data.type === 'confirmVisit') return json_(confirmVisit_(data));
@@ -76,14 +86,11 @@ function doPost(e) {
     if (data.type === 'kioskStatus') return json_(kioskStatus_(data));
     if (data.type === 'lookup') return json_(lookup_(data));
     if (data.type === 'roster') return json_(roster_(data));
-    if (KIOSK_TOKEN && String(data.token || '') !== KIOSK_TOKEN) {
-      return json_({ ok: false, error: 'Bad token. KIOSK_TOKEN in config.js must match Code.gs.' });
-    }
-    if (data.type && data.type !== 'checkin' && data.type !== 'checkout' && data.type !== 'incident') {
-      return json_({ ok: false, error: 'Unknown request type: ' + data.type });
-    }
-    // Student data is saved only from an iPad that an approved staff member signed in.
-    kioskSession_(data.session);
+    // A signed-in staff request the script doesn't know means Code.gs is out of date.
+    if (data.idToken && data.type && WRITE_TYPES_.indexOf(data.type) === -1) return json_({ ok: false, error: 'Unknown request type: ' + data.type });
+    // Writing to the Sheet needs an approved staff member: a kiosk iPad signed in with an
+    // approved account (its session pass), or an approved staff Google sign-in. Nothing public.
+    staffWriter_(data);
     if (data.type === 'checkout') return json_(checkout_(data));
     if (data.type === 'incident') return json_(incident_(data));
     const sheet = getSheet_();
@@ -283,6 +290,30 @@ function review_(data) {
  * Verifies a Google ID token from "Sign in with Google" and returns the email.
  * Throws with a message staff.html shows on the sign-in page.
  */
+/** Checks a Google ID token is genuine, for this app, current, and verified. Returns { email, hd }. No role check. */
+function tokenInfo_(idToken) {
+  if (!GOOGLE_CLIENT_ID) throw new Error('Sign-in is not set up: GOOGLE_CLIENT_ID is empty in Code.gs.');
+  if (!idToken) throw new Error('Please sign in.');
+  const res = UrlFetchApp.fetch('https://oauth2.googleapis.com/tokeninfo?id_token=' + encodeURIComponent(idToken), { muteHttpExceptions: true });
+  if (res.getResponseCode() !== 200) throw new Error('Your sign-in expired. Please sign in again.');
+  const info = JSON.parse(res.getContentText());
+  if (info.aud !== GOOGLE_CLIENT_ID) throw new Error('Sign-in token was issued for a different app.');
+  if (info.iss !== 'https://accounts.google.com' && info.iss !== 'accounts.google.com') throw new Error('Sign-in token is not from Google.');
+  if (Number(info.exp) * 1000 < Date.now()) throw new Error('Your sign-in expired. Please sign in again.');
+  if (String(info.email_verified) !== 'true') throw new Error('This Google account is not verified.');
+  return { email: String(info.email || '').toLowerCase(), hd: info.hd };
+}
+
+/** login.html POSTs { type: 'whoami', idToken }: which pages this person may open. Never throws for a valid sign-in. */
+function whoami_(data) {
+  const t = tokenInfo_(String(data.idToken || ''));
+  const staff = isAdmin_(t.email, t.hd);
+  const access = accessMap_() || {};
+  const principal = staff && (isOwner_(t.email) || !!(access[t.email] && access[t.email].principal));
+  const kiosk = !!t.hd && kioskAllowed_(t.email, t.hd);
+  return { ok: true, email: t.email, staff, principal, kiosk, listStarted: !!accessMap_() };
+}
+
 function verifyIdToken_(idToken, forKiosk) {
   if (!GOOGLE_CLIENT_ID) throw new Error('Sign-in is not set up: GOOGLE_CLIENT_ID is empty in Code.gs.');
   if (!idToken) throw new Error('Please sign in.');
@@ -296,62 +327,39 @@ function verifyIdToken_(idToken, forKiosk) {
   const email = String(info.email || '').toLowerCase();
   if (!staffAllowed_(email, info.hd)) {
     throw new Error(email + (forKiosk ? ' can\'t sign in this iPad.' : ' can\'t open the dashboard.') +
-      ' Only @' + ALLOWED_DOMAIN + ' staff on the approved list can. Ask the Pride Center to add you.');
+      ' Only approved @' + ALLOWED_DOMAIN + ' staff can. Ask the principal to add you under People & access.');
   }
   return email;
 }
 
 /**
- * The one approved list, for both the iPad and the dashboard: ADMIN_EMAILS, or an
- * @ALLOWED_DOMAIN Workspace account (hd claim, when we have one) that is listed in the
- * Staff tab. Checked at every sign-in and on every iPad request, so removing a row
- * takes effect within a minute.
+ * The one approved list, for the iPad, the staff dashboard and the principal dashboard:
+ * PRINCIPAL_EMAILS and ADMIN_EMAILS always; otherwise an @ALLOWED_DOMAIN Workspace account
+ * (hd claim, when we have one) that the principal put on the Access tab with either box ticked.
+ * Checked at every sign-in and on every iPad request, so removing someone takes effect at once.
  */
 function staffAllowed_(email, hd) {
   email = String(email || '').toLowerCase();
   if (!email) return false;
   if (ADMIN_EMAILS.map(x => String(x).toLowerCase()).indexOf(email) !== -1) return true;
+  if (isOwner_(email)) return true;
   const domain = String(ALLOWED_DOMAIN || '').toLowerCase();
   if (!domain || !email.endsWith('@' + domain)) return false;
+  // Must be a real Workspace account on that domain: Google sets hd only for those. A personal
+  // Google account that merely uses an @parchmentschools.org address is refused.
   if (hd !== undefined && String(hd || '').toLowerCase() !== domain) return false;
-  return staffList_().indexOf(email) !== -1;
+  const access = accessMap_() || {};
+  return !!(access[email] && (access[email].staff || access[email].principal));
 }
-
-/** Emails in the Staff tab, lowercased, cached for a minute. */
-function staffList_() {
-  const cache = CacheService.getScriptCache();
-  const hit = cache.get('staff_v1');
-  if (hit) return JSON.parse(hit);
-  const sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName(STAFF_NAME);
-  const list = [];
-  if (sheet && sheet.getLastRow() > 1) {
-    sheet.getRange(2, 1, sheet.getLastRow() - 1, 1).getValues().forEach(r => {
-      const v = String(r[0] || '').trim().toLowerCase();
-      if (v && v.indexOf('@') !== -1) list.push(v);
-    });
-  }
-  try { cache.put('staff_v1', JSON.stringify(list), 60); } catch (err) {}
-  return list;
-}
-
-/** Creates and formats the Staff tab (the approved list). Safe to re-run. */
-function formatStaff_() {
-  const ss = SpreadsheetApp.getActiveSpreadsheet();
-  let sheet = ss.getSheetByName(STAFF_NAME);
-  if (!sheet) sheet = ss.insertSheet(STAFF_NAME);
-  if (!sheet.getRange('A1').getValue()) sheet.getRange(1, 1, 1, 2).setValues([['Staff Email', 'Name (optional)']]);
-  sheet.getRange(1, 1, 1, 2).setFontWeight('bold').setBackground('#d61f26').setFontColor('#ffffff');
-  sheet.setFrozenRows(1);
-  sheet.setColumnWidth(1, 300); sheet.setColumnWidth(2, 220);
-  sheet.getRange('A1').setNote('The approved list. One @' + ALLOWED_DOMAIN + ' staff Google account per row. ' +
-    'Only these people can sign in the Pride Center iPad or open the staff dashboard. ' +
-    'Delete a row to remove someone. Changes are picked up within a minute.');
-}
+// Older names, kept for the login page and the kiosk sign-in: same list.
+function isAdmin_(email, hd) { return staffAllowed_(email, hd); }
+function kioskAllowed_(email, hd) { return staffAllowed_(email, hd); }
 
 /** Recent check-ins, oldest first, with check-out columns. */
 function checkinRows_(days) {
   const cutoff = new Date(Date.now() - days * 86400000);
   const values = getSheet_().getDataRange().getValues();
+  let roster = {}; try { roster = rosterMap_(); } catch (err) {} // grade per student, for the principal dashboard
   const rows = [];
   for (let i = 1; i < values.length; i++) {
     const r = values[i];
@@ -363,10 +371,153 @@ function checkinRows_(days) {
       stationSuggested: r[14], station: r[15],
       checkoutTime: r[16] instanceof Date ? r[16].toISOString() : '',
       minutes: r[17] === '' ? '' : Number(r[17]),
-      outEnergy: r[18], outMoodGroup: r[19], outMoodWord: r[20], helped: r[21], checkedOutBy: r[22] || '', studentId: String(r[23] || ''), confirmed: String(r[24] || '')
+      outEnergy: r[18], outMoodGroup: r[19], outMoodWord: r[20], helped: r[21], checkedOutBy: r[22] || '', studentId: String(r[23] || ''), confirmed: String(r[24] || ''),
+      grade: roster[String(r[23] || '')] ? gradeLabel_(roster[String(r[23] || '')].grade) : ''
     });
   }
   return rows;
+}
+
+// ---- Principal dashboard: allowlist, data, saved boards -----------------------
+
+function isOwner_(email) { return PRINCIPAL_EMAILS.map(x => String(x).toLowerCase()).indexOf(String(email || '').toLowerCase()) !== -1; }
+
+/** Verifies the sign-in and checks principal access (owners, or Principal dashboard on the Access tab). Returns the email. */
+function principal_(data) {
+  const email = verifyIdToken_(String(data.idToken || ''));
+  const access = accessMap_() || {};
+  if (!isOwner_(email) && !(access[email] && access[email].principal)) throw new Error(email + " can't open the principal dashboard. Ask the principal to add you under People & access.");
+  return email;
+}
+
+/** The Access tab as { email: { staff, principal } }, or null if the principal hasn't saved a list yet. */
+function accessMap_() {
+  const sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName(ACCESS_NAME);
+  if (!sheet) return null;
+  const map = {};
+  const yes = v => v === true || /^(yes|y|true|1|x|✓|ok)$/i.test(String(v).trim());
+  sheet.getDataRange().getValues().slice(1).forEach(r => {
+    const e = String(r[0] || '').trim().toLowerCase();
+    if (e) map[e] = { staff: yes(r[1]), principal: yes(r[2]), by: String(r[3] || ''), at: r[4] instanceof Date ? r[4].toISOString() : String(r[4] || '') };
+  });
+  return map;
+}
+/** principal.html POSTs { type: 'accessList', idToken }. */
+function accessList_(data) {
+  principal_(data);
+  const map = accessMap_();
+  return { ok: true, started: !!map, owners: PRINCIPAL_EMAILS, admins: ADMIN_EMAILS, domain: ALLOWED_DOMAIN,
+    people: Object.keys(map || {}).sort().map(e => Object.assign({ email: e }, map[e])) };
+}
+/** principal.html POSTs { type: 'accessSave', idToken, people: [{ email, staff, principal }] }. Replaces the list. */
+function accessSave_(data) {
+  const who = principal_(data);
+  const before = accessMap_() || {};
+  const seen = {}, rows = [];
+  (Array.isArray(data.people) ? data.people : []).forEach(p => {
+    if (!p || (!p.staff && !p.principal)) return; // no access at all = not on the list (and a stray junk row can't block the save)
+    const e = String(p.email || '').trim().toLowerCase().replace(/\.+$/, '');
+    if (!e || seen[e]) return;
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(e)) throw new Error('"' + e + '" is not an email address.');
+    seen[e] = true;
+    // Someone whose access didn't change keeps their original "Updated by" and date, so the list still says who added whom.
+    const old = before[e], same = old && !!old.staff === !!p.staff && !!old.principal === !!p.principal;
+    rows.push([e, p.staff ? 'Yes' : '', p.principal ? 'Yes' : '', same ? old.by : who, same && old.at ? new Date(old.at) : new Date()]);
+  });
+  if (rows.length > 500) throw new Error('The list is limited to 500 people.');
+  return withLock_(() => {
+    const ss = SpreadsheetApp.getActiveSpreadsheet();
+    let sheet = ss.getSheetByName(ACCESS_NAME);
+    if (!sheet) {
+      sheet = ss.insertSheet(ACCESS_NAME);
+      sheet.getRange(1, 1, 1, ACCESS_HEADERS.length).setValues([ACCESS_HEADERS]).setFontWeight('bold').setBackground('#d61f26').setFontColor('#ffffff');
+      sheet.setFrozenRows(1); sheet.setColumnWidth(1, 280);
+    }
+    if (sheet.getLastRow() > 1) sheet.getRange(2, 1, sheet.getLastRow() - 1, ACCESS_HEADERS.length).clearContent();
+    if (rows.length) sheet.getRange(2, 1, rows.length, ACCESS_HEADERS.length).setValues(rows);
+    return { ok: true, saved: rows.length };
+  });
+}
+/** principal.html POSTs { type: 'principalData', idToken, days }: the same data as the staff dashboard, for allowed accounts only. */
+function principalData_(data) {
+  principal_(data);
+  const d = dashboard_(data);
+  // Only the columns the principal page shows. The free-text story, who was involved, witnesses and notes stay in the Sheet.
+  d.incidents = d.incidents.map(r => {
+    const m = String(r.reviewed || '').match(/\d{4}-\d{2}-\d{2}/);
+    return { timestamp: r.timestamp, name: r.name, grade: r.grade, types: r.types, place: r.place, period: r.period, talk: r.talk,
+      reviewed: m ? m[0] : (r.reviewed ? 'Reviewed' : ''), studentId: r.studentId, action: r.action, status: r.status };
+  });
+  return d;
+}
+
+/** Runs fn while holding the script lock, so two saves at the same moment can't interleave their writes. */
+function withLock_(fn) {
+  const lock = LockService.getScriptLock();
+  lock.waitLock(10000);
+  try { return fn(); } finally { lock.releaseLock(); }
+}
+/** Splits text into pieces of at most n characters without cutting an emoji (a surrogate pair) in half. */
+function chunk_(s, n) {
+  const out = [];
+  let i = 0;
+  while (i < s.length) {
+    let j = Math.min(i + n, s.length);
+    if (j < s.length) { const c = s.charCodeAt(j - 1); if (c >= 0xD800 && c <= 0xDBFF) j--; }
+    out.push(s.slice(i, j));
+    i = j;
+  }
+  return out.length ? out : [''];
+}
+
+const BOARDS_NAME = 'Dashboards';
+function boardsSheet_() {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  let sheet = ss.getSheetByName(BOARDS_NAME);
+  if (!sheet) {
+    sheet = ss.insertSheet(BOARDS_NAME);
+    sheet.appendRow(['Email', 'Updated', 'Boards (JSON, do not edit)']);
+    sheet.getRange(1, 1, 1, 3).setFontWeight('bold').setBackground('#d61f26').setFontColor('#ffffff');
+    sheet.setFrozenRows(1);
+    sheet.setColumnWidth(3, 500);
+  }
+  return sheet;
+}
+function boardRow_(sheet, email) {
+  const vals = sheet.getRange(1, 1, Math.max(1, sheet.getLastRow()), 1).getValues();
+  for (let i = 1; i < vals.length; i++) if (String(vals[i][0]).toLowerCase() === email) return i + 1;
+  return 0;
+}
+/** principal.html POSTs { type: 'boardLoad', idToken } and gets back that person's boards. */
+function boardLoad_(data) {
+  const email = principal_(data);
+  const sheet = boardsSheet_();
+  const row = boardRow_(sheet, email);
+  if (!row) return { ok: true, boards: [] };
+  // Long layouts are split across cells C, D, E… (a cell holds 50,000 characters).
+  const cells = sheet.getRange(row, 3, 1, Math.max(1, sheet.getLastColumn() - 2)).getValues()[0];
+  try { return { ok: true, boards: JSON.parse(cells.join('')) || [] }; } catch (err) { return { ok: true, boards: [] }; }
+}
+/** principal.html POSTs { type: 'boardSave', idToken, boards }. */
+function boardSave_(data) {
+  const email = principal_(data);
+  // A missing or empty list is a mistake, not a request to erase someone's boards.
+  if (!Array.isArray(data.boards) || !data.boards.length) throw new Error('Nothing was saved: the boards were missing or empty.');
+  const json = JSON.stringify(data.boards);
+  if (json.length > 400000) throw new Error('These boards are too large to save. Delete some tiles or boards.');
+  return withLock_(() => {
+    const sheet = boardsSheet_();
+    let row = boardRow_(sheet, email);
+    if (!row) { sheet.appendRow([email, new Date(), '']); row = sheet.getLastRow(); }
+    const parts = chunk_(json, 45000);
+    const width = Math.max(parts.length, sheet.getLastColumn() - 2, 1);
+    const vals = parts.concat(new Array(width - parts.length).fill(''));
+    sheet.getRange(row, 2).setValue(new Date());
+    const cells = sheet.getRange(row, 3, 1, width);
+    cells.setNumberFormat('@'); // plain text, so a piece that starts with = or is all digits isn't turned into a formula or a number
+    cells.setValues([vals]);
+    return { ok: true, saved: new Date().toISOString() };
+  });
 }
 
 /** Opening the script URL in a browser: a plain page, no data. */
@@ -429,6 +580,16 @@ function kioskSession_(session) {
   if (s.exp < Date.now()) { props.deleteProperty('kiosk_' + sha_(String(session))); throw new Error('iPad sign-in expired.'); }
   if (!staffAllowed_(s.email)) { props.deleteProperty('kiosk_' + sha_(String(session))); throw new Error('iPad not signed in.'); }
   return s;
+}
+
+const WRITE_TYPES_ = ['checkin', 'checkout', 'incident'];
+
+/** Who may add check-ins, check-outs and incident reports. Throws if nobody approved is signed in. */
+function staffWriter_(data) {
+  let why = 'iPad not signed in. Sign this iPad in with an approved @' + ALLOWED_DOMAIN + ' staff account.';
+  if (data.session) { try { return kioskSession_(data.session).email; } catch (err) { why = String(err.message || err); } }
+  if (data.idToken) return verifyIdToken_(String(data.idToken), true); // approved staff only
+  throw new Error(why);
 }
 
 function kioskStatus_(data) {
@@ -599,12 +760,6 @@ function refreshRoster() {
   Logger.log(n + ' students in the roster. Cache: ' + (cached ? Math.round(cached.length / 1024) + ' KB' : 'too large, reading the Sheet each time'));
 }
 
-/** Run from the editor after editing the Staff tab, so the change applies right away. */
-function refreshStaff() {
-  CacheService.getScriptCache().remove('staff_v1');
-  Logger.log(staffList_().length + ' approved staff in the Staff tab (plus ADMIN_EMAILS).');
-}
-
 /** Run from the editor to sign every iPad out (for example, if one is lost). */
 function signOutAllKiosks() {
   const props = PropertiesService.getScriptProperties();
@@ -634,7 +789,6 @@ function setup() {
   const ss = SpreadsheetApp.getActiveSpreadsheet();
 
   formatRoster_();
-  formatStaff_();
   let sheet = ss.getSheetByName(SHEET_NAME);
   if (!sheet) sheet = ss.insertSheet(SHEET_NAME);
   if (sheet.getLastRow() === 0) sheet.appendRow(HEADERS);
@@ -781,8 +935,8 @@ function testInsert() {
     postData: { contents: JSON.stringify({
       timestamp: new Date().toISOString(), name: 'Test Student', referral: 'Self Referred', reason: 'Drop In: I need a reset',
       energy: 'Moving Fast', moodGroup: 'Red', moodWord: 'Frustrated', happened: 'With a friend',
-      need: '', basicNeeds: '', outcome: 'Check In', kiosk: 'Editor test', token: KIOSK_TOKEN
+      need: '', basicNeeds: '', outcome: 'Check In', kiosk: 'Editor test'
     }) }
   };
-  Logger.log(doPost(fake).getContent());
+  Logger.log(doPost(fake).getContent()); // expect "Not signed in": check-ins need a signed-in staff member now
 }

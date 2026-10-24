@@ -530,6 +530,8 @@
       return;
     }
     if (idToken) { openDash(); load(); return; }
+    // One sign-in page for everyone: it sends people back here if they have staff access.
+    if (CFG.SCRIPT_URL) { location.replace("login.html?next=staff"); return; }
     const s = document.createElement("script");
     s.src = "https://accounts.google.com/gsi/client"; s.async = true;
     s.onload = () => {
@@ -553,7 +555,7 @@
   function signOut(msg) {
     idToken = ""; sessionStorage.removeItem("ppc_id_token");
     if (msg) sessionStorage.setItem("ppc_signin_msg", msg);
-    location.reload();
+    location.replace(CFG.SCRIPT_URL ? "login.html?next=staff" : location.href);
   }
   function openDash() {
     $("#gate").classList.add("hidden");
@@ -579,7 +581,7 @@
     try {
       const d = await post({ type: "dashboard", days: Math.max(win(), 14) });
       if (!d.ok) {
-        if (/token|sign|expired|authorized|domain/i.test(d.error || "")) return signOut(d.error);
+        if (/token|sign|expired|authorized|domain|can't open|ask the principal/i.test(d.error || "")) return signOut(d.error);
         throw new Error(d.error || "Could not load");
       }
       data = d;
@@ -764,7 +766,7 @@
     }
     try {
       const d = await post({ type: "confirmVisit", timestamp: r.timestamp, name: r.name, result });
-      if (!d.ok) throw new Error(/Bad token|Unknown request/.test(d.error || "") ? "The script in the Sheet needs updating to save confirmations (paste the new Code.gs and deploy a new version)." : d.error);
+      if (!d.ok) throw new Error(/Bad token|Unknown request/.test(d.error || "") ? "Saving this needs an update to the dashboard's script. Ask Ben to finish the update, then try again." : d.error);
       load();
     } catch (err) { btn.disabled = false; btn.innerHTML = result === "Confirmed" ? window.PPC_ICON("check", 14) + " Confirm" : "Not them"; alert("Couldn't save: " + (err.message || err)); }
   }
@@ -1138,7 +1140,7 @@
         $("#coDlg").close(); loadLocal(); return;
       }
       const d = await post(Object.assign({ type: "staffCheckout" }, rec));
-      if (!d.ok) throw new Error(/Bad token/.test(d.error || "") ? "The script in the Sheet needs updating to save staff check-outs (paste the new Code.gs and deploy a new version)." : d.error);
+      if (!d.ok) throw new Error(/Bad token/.test(d.error || "") ? "Saving this needs an update to the dashboard's script. Ask Ben to finish the update, then try again." : d.error);
       $("#coDlg").close(); load();
     } catch (err) {
       $("#coErr").textContent = "Couldn't save: " + (err.message || err);
