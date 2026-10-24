@@ -1,11 +1,13 @@
 /* Principal dashboard: data layer.
  *
  * Two sources, one shape:
- *  - Demo: made-up students generated here, the same every time (seeded), for a
- *    whole school year. Nothing is read from or written to the Sheet.
- *  - Live: the Sheet, through the script's "dashboard" route with Google sign-in.
- * Switch with PRINCIPAL_DEMO in config.js. Everything on the page reads the
- * normalized tables below (visits, incidents), never the raw rows.
+ *  - Sample: made-up students generated here, the same every time (seeded), for this
+ *    school year and the one before, so "vs previous period" has something to compare.
+ *    Nothing is read from or written to the Sheet.
+ *  - Live: the Sheet, through the script's "principalData" route with Google sign-in.
+ *    Setup and "(sample)" test rows in the Sheet are left out.
+ * The page has a Sample / Live switch; PRINCIPAL_DEMO in config.js sets the default.
+ * Everything on the page reads the normalized tables below (visits, incidents), never the raw rows.
  */
 window.PPD = (function () {
   const MOODS = ["Red", "Yellow", "Blue", "Green"];
@@ -56,7 +58,10 @@ window.PPD = (function () {
       followedUp, open, action: r.action || "", status: r.status || (followedUp ? "Resolved" : "Open"), daysToFollowUp: days, raw: r
     };
   }
+  // Rows written while setting up or demoing the kiosk, not by students.
+  const isTestRow = r => /^(SAMPLE DATA|Setup check)$/i.test(String(r.kiosk || "").trim()) || /\(sample\)\s*$/i.test(String(r.name || "")) || /^connection test/i.test(String(r.name || ""));
   function normalize(data) {
+    data = Object.assign({}, data, { checkins: (data.checkins || []).filter(r => !isTestRow(r)), incidents: (data.incidents || []).filter(r => !isTestRow(r)) });
     const grades = {};
     (data.incidents || []).forEach(r => { if (r.studentId && r.grade) grades[r.studentId] = gradeShort(r.grade); });
     (data.checkins || []).forEach(r => { if (r.studentId && r.grade) grades[r.studentId] = gradeShort(r.grade); });
@@ -93,15 +98,18 @@ window.PPD = (function () {
       return { id: String(100100 + i * 7), name: `${f} ${LAST[i % LAST.length]}.`, grade, type, home,
         rate: { regular: .55, occasional: .22, rare: .07, scheduled: .5 }[type], hours: [pick([8, 9, 10]), pick([9, 11, 13]), pick([12, 13, 14])],
         selfP: .35 + rnd() * .5, works: STRATS.filter(() => rnd() < .45).concat([pick(STRATS)]), helpP: .45 + rnd() * .45, needP: rnd() < .3 ? .25 : 0,
-        incP: rnd() < .35 ? .07 : .01 };
+        incP: rnd() < .45 ? .12 : .03 };
     });
     const byId = {}; students.forEach(s => { byId[s.id] = s; });
-    const start = new Date(now.getFullYear(), 7, 25); if (start > now) start.setFullYear(start.getFullYear() - 1); // school year starts Aug 25
+    // This school year (starts Aug 25) and the one before it, so comparisons with an earlier period have data.
+    const start = new Date(now.getFullYear(), 7, 25); if (start > now) start.setFullYear(start.getFullYear() - 1);
+    start.setFullYear(start.getFullYear() - 1);
+    const summer = d => (d.getMonth() === 5 && d.getDate() > 12) || d.getMonth() === 6 || (d.getMonth() === 7 && d.getDate() < 25);
     const checkins = [], incidents = [];
     const iso = d => d.toISOString();
     for (let d = new Date(start); d <= now; d.setDate(d.getDate() + 1)) {
       const wd = d.getDay(); if (wd === 0 || wd === 6) continue;
-      const m = d.getMonth(); if ((m === 11 && d.getDate() > 19) || (m === 0 && d.getDate() < 5) || (m === 2 && d.getDate() >= 23 && d.getDate() < 30)) continue; // breaks
+      const m = d.getMonth(); if (summer(d) || (m === 11 && d.getDate() > 19) || (m === 0 && d.getDate() < 5) || (m === 2 && d.getDate() >= 23 && d.getDate() < 30)) continue; // breaks
       const seasonal = 1 + .25 * Math.sin((d - start) / 86400000 / 40) + (wd === 1 || wd === 5 ? .15 : 0);
       students.forEach(s => {
         if (rnd() > s.rate * .8 * seasonal) return;
@@ -135,8 +143,9 @@ window.PPD = (function () {
         if (rnd() < s.incP) {
           const ti = new Date(+t + 2 * 60000);
           const types = [pick(ITYPES)]; if (rnd() < .3) types.push(pick(ITYPES.filter(x => x !== types[0])));
-          const inc = { timestamp: iso(ti), name: s.name, studentId: s.id, grade: s.grade + " Grade", types: types.join(", "), place: weighted([["Hallway", .25], ["Classroom", .2], ["Cafeteria", .15], ["Bus/Bus Stop", .12], ["Outside", .1], ["Bathroom", .08], ["Gym", .05], ["Stairwell", .03], ["Library", .02]]),
-            period: pick(PERIODS), story: "Made-up example.", who: "", witness: "", talk: rnd() < .5 ? "Yes" : "Not right now", kiosk: "Demo" };
+          // Most incidents at unstructured times; the rest spread across every period so each filter value has data.
+          const inc = { timestamp: iso(ti), name: s.name, studentId: s.id, grade: s.grade + " Grade", types: types.join(", "), place: weighted([["Hallway", .22], ["Classroom", .18], ["Cafeteria", .15], ["Bus/Bus Stop", .11], ["Outside", .09], ["Bathroom", .08], ["Gym", .06], ["Stairwell", .06], ["Library", .05]]),
+            period: rnd() < .45 ? weighted([["Lunch", .35], ["Passing Time", .3], ["Recess", .15], ["Before School", .1], ["Breakfast", .1]]) : PERIODS[incidents.length % PERIODS.length], story: "Made-up example.", who: "", witness: "", talk: rnd() < .5 ? "Yes" : "Not right now", kiosk: "Demo" };
           const ageDays = (now - ti) / 86400000;
           if (ageDays > 1 && rnd() < .85) {
             const after = Math.min(ageDays, Math.floor(rnd() * 4));

@@ -16,7 +16,7 @@ A tap-through check-in kiosk for the Pride Center, rebuilt from the Google Slide
 | `config.js` | The only file you edit: script URLs, kiosk name, timers, basic-needs list. |
 | `apps-script/Code.gs` | Backend that lives inside the Google Sheet. Verifies dashboard sign-ins. |
 | `apps-script/appsscript.json` | Optional manifest (sets the Michigan time zone). |
-| `principal.html` | Principal dashboard: build-your-own boards of charts over the check-in data. Demo data until `PRINCIPAL_DEMO` is false. Uses `principal-data.js`, `principal-charts.js`, `principal-app.js`, and the Vega chart library in `assets/vendor/`. |
+| `principal.html` | Principal dashboard: build-your-own boards of charts over the check-in data. Sample or live data. Uses `principal-data.js`, `principal-charts.js`, `principal-research.js`, `principal-app.js`, and the Vega chart library in `assets/vendor/`. |
 | `feedback.html` | Trial feedback portal. Switch off with `FEEDBACK_ENABLED` in `config.js`. |
 | `sw.js` | Service worker. Lets the kiosk open with no Wi-Fi and keeps files fresh when online. |
 | `ds.css` | Parchment Panthers Design System tokens (colors, Raleway type, buttons, corners) shared by every page. |
@@ -265,7 +265,7 @@ If the iPad isn't signed in or can't reach the script, there is no name list: th
 
 **Drill-down.** Tap any bar, slice, cell, table row, or big number to see the visits or reports behind it, with names. From a student's row, "Compare to everyone" adds a tile for that student.
 
-**Boards.** Tabs across the top. Each board has a grid layout (drag a tile by its ⠿ handle to move it, drag the corner to resize) or a list layout (arrows to reorder, half or full width). The board is **locked** by default so a finger scrolling an iPad never moves a tile; tap **Locked** to edit, then lock again. The Board menu renames, duplicates, prints (clean two-column layout for a PDF or packet), copies a **share link** that another leader can open to add the board to their own page, restores the starters, or deletes.
+**Boards.** Tabs across the top. **Grid layout** is a dashboard: drag a tile by its handle to move it, drag the corner to resize. **List layout** is a report: one row per tile, a headline on the left (the top item, the latest value, the busiest time) and a small chart on the right, with arrows to reorder. Tap a headline to see the records behind it. The board is **locked** by default so a finger scrolling an iPad never moves a tile; tap **Locked** to edit, then lock again. The Board menu renames, duplicates, prints (clean two-column layout for a PDF or packet), copies a **share link** that another leader can open to add the board to their own page, restores the starters, or deletes.
 
 **Exports.** Every tile's menu has **Download numbers** (CSV of exactly what the chart shows) and **Copy as image** (paste into a slide or email).
 
@@ -273,7 +273,29 @@ If the iPad isn't signed in or can't reach the script, there is no name list: th
 
 **Staff dashboard lockdown.** Until the principal saves the list for the first time, the staff dashboard keeps its old rule: any @parchmentschools.org staff account. The first save shows a warning and then limits the staff dashboard to the people on the list (plus the owners and `ADMIN_EMAILS`). Removing someone takes effect on their next page load.
 
-**Data and privacy.** With `PRINCIPAL_DEMO: true` in `config.js` (the default), the page shows made-up students for a whole school year and never reads the Sheet; boards save in the browser. With `PRINCIPAL_DEMO: false`, the page asks for the same Google sign-in as the staff page, loads the last year from the Sheet through the script, and saves each person's boards to a **Dashboards** tab in the Sheet (one row per signed-in email), so boards follow them to any device. Switching to live needs the current `Code.gs` deployed (it adds the `boardLoad` and `boardSave` routes and the grade on each check-in).
+**Sample or Live.** The header has a **Sample / Live** switch, remembered per browser. Sample is a made-up school year (this year and the one before, so "vs previous period" has data) with every grade, place, period, and incident type represented. Live reads the Sheet through the script with the same Google sign-in as the staff page and leaves out setup and "(sample)" test rows. `PRINCIPAL_DEMO` in `config.js` only sets which one opens first. Boards save to a **Dashboards** tab in the Sheet (one row per signed-in email) in both modes, so they follow the person to any device. Grades on live rows come from the **Roster** tab; until it has students, the grade chips say so instead of filtering everything away. Live needs the current `Code.gs` deployed (it adds the `boardLoad` and `boardSave` routes and the grade on each check-in).
+
+### Research library
+
+Each starter board opens with a one-line **research notice** that reads the board's own numbers (same date range and grade chips) and points at the culture-and-climate card that fits, for example "71% of 441 visits arrived red or blue → Teach the feeling words". **Research library** in the header holds all 13 cards, filterable by topic. A card says when to reach for it, what the research found, what to try this month, and where it comes from. Tap a card's **Pin to board** to keep it on a board.
+
+| Topic | Card |
+|---|---|
+| Belonging | Make sure every student is known |
+| Teacher–student relationships | Greet students at the door |
+| Discipline | Try empathic discipline |
+| Restorative practices | Repair harm with restorative talks |
+| Unstructured time | Put adults where incidents happen |
+| Bullying prevention | Run a whole-school bullying response |
+| Emotion regulation | Teach the feeling words |
+| Routines | Give mornings a soft landing |
+| Basic needs | Meet basic needs first |
+| Tier 2 support | Start Check-In/Check-Out |
+| Follow-up | Close the loop within 48 hours |
+| Student voice | Bring students into the data |
+| Schoolwide systems | Re-teach schoolwide expectations |
+
+The cards summarize published studies and cite them (Allen et al. 2018, Roorda et al. 2011, Okonofua et al. 2016, Ttofi & Farrington 2011, Durlak et al. 2011, Bradshaw et al. 2010, and others). They are a starting point for staff conversations, not a diagnosis of any student, and the school team should read the sources before acting on them. The cards and the rules that match them live in `principal-research.js`.
 
 ## Trial feedback portal
 

@@ -8,7 +8,7 @@
  * - POSTs (check-ins to the Apps Script) are never touched; index.html queues
  *   them in localStorage when offline.
  */
-const VERSION = "ppc-shell-v7";
+const VERSION = "ppc-shell-v8";
 const SHELL = [
   "./",
   "index.html",
@@ -20,6 +20,7 @@ const SHELL = [
   "principal-data.js",
   "principal-charts.js",
   "principal-app.js",
+  "principal-research.js",
   "assets/vendor/vega.min.js",
   "assets/vendor/vega-lite.min.js",
   "assets/vendor/vega-embed.min.js",
