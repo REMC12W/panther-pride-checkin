@@ -4,11 +4,17 @@
  * Lives inside the Google Sheet (Extensions → Apps Script). One file, one
  * deployment (Web app, Execute as: Me, Who has access: Anyone).
  *
- * - The kiosk POSTs check-ins, check-outs, incident reports, and feedback,
- *   each carrying KIOSK_TOKEN.
+ * - A staff member on the approved list (the "Staff" tab) signs the iPad in with
+ *   Google. The iPad then holds a session pass, and every check-in, check-out and
+ *   incident report it POSTs must carry that pass. Without it nothing is saved,
+ *   so the public KIOSK_TOKEN in config.js is never enough on its own.
  * - The admin dashboard (staff.html on GitHub Pages) POSTs a Google ID token
  *   from "Sign in with Google". It is verified here on every request, and only
- *   ALLOWED_DOMAIN Workspace accounts, plus anyone in ADMIN_EMAILS, get data back.
+ *   people on the approved list get data back.
+ *
+ * Who is approved: any @ALLOWED_DOMAIN Google Workspace account listed in the
+ * "Staff" tab of this Sheet, plus ADMIN_EMAILS (any domain, always allowed, so
+ * an empty tab can never lock everyone out).
  */
 
 // ---- Settings ---------------------------------------------------------------
@@ -17,17 +23,15 @@
 // GOOGLE_CLIENT_ID in config.js (README step 5).
 const GOOGLE_CLIENT_ID = '680243392561-vod2q88igf1v8mr84uc7b4h075lv6g5p.apps.googleusercontent.com';
 
-// Who may open the staff dashboard: any Google Workspace account on this domain...
+// Approved staff must be real Google Workspace accounts on this domain (students have
+// domain accounts too, so the domain alone is never enough)...
 const ALLOWED_DOMAIN = 'parchmentschools.org';
-// ...plus these specific people from any domain.
+// ...AND be listed, one email per row, in this tab of the Sheet. setup() creates it.
+// Changes are picked up within a minute. Only people who can edit this Sheet can change it.
+const STAFF_NAME = 'Staff';
+// Always allowed, from any domain, even if the Staff tab is empty. Keeps the owner from
+// ever being locked out.
 const ADMIN_EMAILS = ['ben.tomlinson@kresa.org'];
-
-// Who may sign in the kiosk iPad to start student check-in (turns on badge / ID lookup).
-// ONLY Google accounts on this domain are accepted. Checked on every lookup, not just at sign-in.
-const KIOSK_DOMAIN = 'parchmentschools.org';
-// Optional: narrow it further to specific people on that domain, e.g.
-//   const KIOSK_ACCOUNTS = ['pridecenter@parchmentschools.org'];
-const KIOSK_ACCOUNTS = [];
 
 // How long an iPad stays signed in before a staff member must sign it in again.
 const KIOSK_SESSION_DAYS = 30;
@@ -40,8 +44,8 @@ const ROSTER_SHEET_GID = 1679508098;
 // check-in data). Put that spreadsheet's ID here; leave empty to use the tab above.
 const ROSTER_SPREADSHEET_ID = '';
 
-// Must match KIOSK_TOKEN in the app's config.js. Check-ins without it are rejected.
-// Leave empty to accept any POST (not recommended once the app is live).
+// Must match KIOSK_TOKEN in the app's config.js. A first filter against junk POSTs;
+// the real gate is the iPad session above.
 const KIOSK_TOKEN = '7b4a5c379eb19ea01f851fea';
 
 const SHEET_NAME   = 'Check-Ins';
@@ -74,10 +78,13 @@ function doPost(e) {
     if (KIOSK_TOKEN && String(data.token || '') !== KIOSK_TOKEN) {
       return json_({ ok: false, error: 'Bad token. KIOSK_TOKEN in config.js must match Code.gs.' });
     }
+    if (data.type && data.type !== 'checkin' && data.type !== 'checkout' && data.type !== 'incident') {
+      return json_({ ok: false, error: 'Unknown request type: ' + data.type });
+    }
+    // Student data is saved only from an iPad that an approved staff member signed in.
+    kioskSession_(data.session);
     if (data.type === 'checkout') return json_(checkout_(data));
-    if (data.type === 'feedback') return json_(feedback_(data));
     if (data.type === 'incident') return json_(incident_(data));
-    if (data.type && data.type !== 'checkin') return json_({ ok: false, error: 'Unknown request type: ' + data.type });
     const sheet = getSheet_();
     const ts = data.timestamp ? new Date(data.timestamp) : new Date();
     const tz = Session.getScriptTimeZone();
@@ -218,50 +225,6 @@ function incidentRows_(days) {
   return rows;
 }
 
-// ---- Trial feedback (feedback.html) -----------------------------------------
-
-const FEEDBACK_NAME = 'Feedback';
-const FEEDBACK_HEADERS = ['Timestamp', 'Date', 'Role', 'Tried', 'Rating', 'What worked', 'What to change', 'Anything else', 'Contact', 'Device', 'Came from', 'Kiosk'];
-
-function feedback_(data) {
-  const ss = SpreadsheetApp.getActiveSpreadsheet();
-  let sheet = ss.getSheetByName(FEEDBACK_NAME);
-  if (!sheet) {
-    sheet = ss.insertSheet(FEEDBACK_NAME);
-    sheet.appendRow(FEEDBACK_HEADERS);
-    sheet.getRange(1, 1, 1, FEEDBACK_HEADERS.length).setFontWeight('bold').setBackground('#d61f26').setFontColor('#ffffff');
-    sheet.setFrozenRows(1);
-    sheet.getRange('A:A').setNumberFormat('yyyy-mm-dd h:mm am/pm');
-    sheet.getRange('B:B').setNumberFormat('yyyy-mm-dd');
-    [6, 7, 8].forEach(c => sheet.setColumnWidth(c, 320));
-    sheet.getRange('F:H').setWrap(true);
-  }
-  const ts = data.timestamp ? new Date(data.timestamp) : new Date();
-  const tz = Session.getScriptTimeZone();
-  sheet.appendRow([
-    ts, new Date(Utilities.formatDate(ts, tz, 'yyyy/MM/dd')),
-    data.role || '', data.tried || '', data.rating === '' ? '' : Number(data.rating) || '',
-    data.worked || '', data.change || '', data.ideas || '', data.contact || '',
-    data.device || '', data.version || '', data.kiosk || ''
-  ]);
-  return { ok: true };
-}
-
-/** Recent feedback entries, newest first. */
-function feedbackRows_(days) {
-  const cutoff = new Date(Date.now() - days * 86400000);
-  const sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName(FEEDBACK_NAME);
-  if (!sheet) return [];
-  const values = sheet.getDataRange().getValues();
-  const rows = [];
-  for (let i = values.length - 1; i >= 1; i--) {
-    const r = values[i];
-    if (!(r[0] instanceof Date) || r[0] < cutoff) continue;
-    rows.push({ timestamp: r[0].toISOString(), role: r[2], tried: r[3], rating: r[4], worked: r[5], change: r[6], ideas: r[7], contact: r[8], device: r[9] });
-  }
-  return rows;
-}
-
 // ---- Admin dashboard: Google sign-in verified on every request ---------------
 
 /** staff.html POSTs { type: 'dashboard', idToken, days }. */
@@ -274,8 +237,7 @@ function dashboard_(data) {
     days: days,
     sheetUrl: SpreadsheetApp.getActiveSpreadsheet().getUrl(),
     checkins: checkinRows_(days),
-    incidents: incidentRows_(days),
-    feedback: feedbackRows_(days)
+    incidents: incidentRows_(days)
   };
 }
 
@@ -316,21 +278,58 @@ function verifyIdToken_(idToken, forKiosk) {
   if (Number(info.exp) * 1000 < Date.now()) throw new Error('Your sign-in expired. Please sign in again.');
   if (String(info.email_verified) !== 'true') throw new Error('This Google account is not verified.');
   const email = String(info.email || '').toLowerCase();
-  if (forKiosk) {
-    if (!kioskAllowed_(email, info.hd)) throw new Error(email + ' can\'t sign in this iPad. Use a @' + KIOSK_DOMAIN + ' staff account.');
-    return email;
+  if (!staffAllowed_(email, info.hd)) {
+    throw new Error(email + (forKiosk ? ' can\'t sign in this iPad.' : ' can\'t open the dashboard.') +
+      ' Only @' + ALLOWED_DOMAIN + ' staff on the approved list can. Ask the Pride Center to add you.');
   }
-  if (!isAdmin_(email, info.hd)) throw new Error(email + ' can\'t open the dashboard. Use a @' + ALLOWED_DOMAIN + ' staff account.');
   return email;
 }
 
-function isAdmin_(email, hd) {
+/**
+ * The one approved list, for both the iPad and the dashboard: ADMIN_EMAILS, or an
+ * @ALLOWED_DOMAIN Workspace account (hd claim, when we have one) that is listed in the
+ * Staff tab. Checked at every sign-in and on every iPad request, so removing a row
+ * takes effect within a minute.
+ */
+function staffAllowed_(email, hd) {
   email = String(email || '').toLowerCase();
   if (!email) return false;
   if (ADMIN_EMAILS.map(x => String(x).toLowerCase()).indexOf(email) !== -1) return true;
   const domain = String(ALLOWED_DOMAIN || '').toLowerCase();
-  // Domain accounts must be real Workspace accounts on that domain (hd claim), not just a matching address.
-  return !!domain && email.endsWith('@' + domain) && String(hd || '').toLowerCase() === domain;
+  if (!domain || !email.endsWith('@' + domain)) return false;
+  if (hd !== undefined && String(hd || '').toLowerCase() !== domain) return false;
+  return staffList_().indexOf(email) !== -1;
+}
+
+/** Emails in the Staff tab, lowercased, cached for a minute. */
+function staffList_() {
+  const cache = CacheService.getScriptCache();
+  const hit = cache.get('staff_v1');
+  if (hit) return JSON.parse(hit);
+  const sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName(STAFF_NAME);
+  const list = [];
+  if (sheet && sheet.getLastRow() > 1) {
+    sheet.getRange(2, 1, sheet.getLastRow() - 1, 1).getValues().forEach(r => {
+      const v = String(r[0] || '').trim().toLowerCase();
+      if (v && v.indexOf('@') !== -1) list.push(v);
+    });
+  }
+  try { cache.put('staff_v1', JSON.stringify(list), 60); } catch (err) {}
+  return list;
+}
+
+/** Creates and formats the Staff tab (the approved list). Safe to re-run. */
+function formatStaff_() {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  let sheet = ss.getSheetByName(STAFF_NAME);
+  if (!sheet) sheet = ss.insertSheet(STAFF_NAME);
+  if (!sheet.getRange('A1').getValue()) sheet.getRange(1, 1, 1, 2).setValues([['Staff Email', 'Name (optional)']]);
+  sheet.getRange(1, 1, 1, 2).setFontWeight('bold').setBackground('#d61f26').setFontColor('#ffffff');
+  sheet.setFrozenRows(1);
+  sheet.setColumnWidth(1, 300); sheet.setColumnWidth(2, 220);
+  sheet.getRange('A1').setNote('The approved list. One @' + ALLOWED_DOMAIN + ' staff Google account per row. ' +
+    'Only these people can sign in the Pride Center iPad or open the staff dashboard. ' +
+    'Delete a row to remove someone. Changes are picked up within a minute.');
 }
 
 /** Recent check-ins, oldest first, with check-out columns. */
@@ -405,15 +404,6 @@ function kioskSignIn_(data) {
   return { ok: true, session: session, email: email, expires: new Date(exp).toISOString() };
 }
 
-/** Only KIOSK_DOMAIN Workspace accounts (and KIOSK_ACCOUNTS, if listed) may run the kiosk. */
-function kioskAllowed_(email, hd) {
-  email = String(email || '').toLowerCase();
-  const domain = String(KIOSK_DOMAIN || '').toLowerCase();
-  if (!domain || !email.endsWith('@' + domain)) return false;
-  if (hd !== undefined && String(hd || '').toLowerCase() !== domain) return false; // must be a Workspace account on that domain
-  return !KIOSK_ACCOUNTS.length || KIOSK_ACCOUNTS.map(x => String(x).toLowerCase()).indexOf(email) !== -1;
-}
-
 function kioskSession_(session) {
   if (!session) throw new Error('iPad not signed in.');
   const props = PropertiesService.getScriptProperties();
@@ -421,7 +411,7 @@ function kioskSession_(session) {
   if (!raw) throw new Error('iPad not signed in.');
   const s = JSON.parse(raw);
   if (s.exp < Date.now()) { props.deleteProperty('kiosk_' + sha_(String(session))); throw new Error('iPad sign-in expired.'); }
-  if (!kioskAllowed_(s.email)) { props.deleteProperty('kiosk_' + sha_(String(session))); throw new Error('iPad not signed in.'); }
+  if (!staffAllowed_(s.email)) { props.deleteProperty('kiosk_' + sha_(String(session))); throw new Error('iPad not signed in.'); }
   return s;
 }
 
@@ -505,6 +495,12 @@ function refreshRoster() {
   Logger.log(Object.keys(rosterMap_()).length + ' students in the roster.');
 }
 
+/** Run from the editor after editing the Staff tab, so the change applies right away. */
+function refreshStaff() {
+  CacheService.getScriptCache().remove('staff_v1');
+  Logger.log(staffList_().length + ' approved staff in the Staff tab (plus ADMIN_EMAILS).');
+}
+
 /** Run from the editor to sign every iPad out (for example, if one is lost). */
 function signOutAllKiosks() {
   const props = PropertiesService.getScriptProperties();
@@ -534,6 +530,7 @@ function setup() {
   const ss = SpreadsheetApp.getActiveSpreadsheet();
 
   formatRoster_();
+  formatStaff_();
   let sheet = ss.getSheetByName(SHEET_NAME);
   if (!sheet) sheet = ss.insertSheet(SHEET_NAME);
   if (sheet.getLastRow() === 0) sheet.appendRow(HEADERS);

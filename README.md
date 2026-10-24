@@ -11,11 +11,10 @@ A tap-through check-in kiosk for the Pride Center, rebuilt from the Google Slide
 | File | What it is |
 |---|---|
 | `index.html` | The student kiosk. Open this on the iPad. |
-| `staff.html` | Admin dashboard behind "Sign in with Google". In test mode, shows device-only data. |
+| `staff.html` | Admin dashboard behind "Sign in with Google", for staff on the approved list. In test mode, shows device-only data. |
 | `config.js` | The only file you edit: script URLs, kiosk name, timers, basic-needs list. |
-| `apps-script/Code.gs` | Backend that lives inside the Google Sheet. Verifies dashboard sign-ins. |
+| `apps-script/Code.gs` | Backend that lives inside the Google Sheet. Verifies every sign-in against the approved list. |
 | `apps-script/appsscript.json` | Optional manifest (sets the Michigan time zone). |
-| `feedback.html` | Trial feedback portal. Switch off with `FEEDBACK_ENABLED` in `config.js`. |
 | `sw.js` | Service worker. Lets the kiosk open with no Wi-Fi and keeps files fresh when online. |
 | `ds.css` | Parchment Panthers Design System tokens (colors, Raleway type, buttons, corners) shared by every page. |
 | `icons.js` | Lucide icons bundled for offline use. In `config.js`, an item's `icon` is a Lucide icon name. |
@@ -43,6 +42,18 @@ Matches the hyperlinks in the current PowerPoint deck.
 
 Every check-in is saved the moment the end screen appears. If Wi-Fi drops, it's kept on the iPad and synced automatically when the connection returns. If a student walks away mid-flow, the app returns to the start after two minutes so nobody sees their answers.
 
+## Who can enter data
+
+Nothing about a student is saved unless an approved staff member has signed the iPad in. The approved list is the **Staff** tab in the Google Sheet: one @parchmentschools.org staff Google account per row (the principal, Pride Center staff, anyone who should run the iPad or see the dashboard). The same list gates both the kiosk iPad and the admin dashboard. Students also have @parchmentschools.org accounts, so being on the domain is never enough on its own.
+
+- **Not signed in?** The iPad start screen shows "Check-in is off" with a staff sign-in button instead of Get Started. Students can't begin.
+- **Signed in?** The iPad holds its own pass for about 30 days (`KIOSK_SESSION_DAYS`) and sends it with every check-in, check-out and incident report. The script refuses anything without a valid pass, so the public kiosk token in `config.js` can't be used to add rows.
+- **Taken off the list?** The pass stops working within a minute, on the next save or lookup, and the iPad locks again.
+- **Lost Wi-Fi?** Check-ins wait on the iPad and send when it's back. If the iPad was signed out or expired meanwhile, they still wait; the lock screen says how many and they go out as soon as someone signs in.
+- `ADMIN_EMAILS` in `Code.gs` (ben.tomlinson@kresa.org) is always allowed, from any domain, so an empty Staff tab can never lock everyone out.
+
+Only people who can edit the Sheet can change the list. Keep the Sheet unshared and send additions to its owner. After editing the tab you can run **refreshStaff** in Apps Script to apply it right away instead of within a minute.
+
 ## Setup (about 15 minutes, one time)
 
 ### 1. Open the Google Sheet
@@ -53,7 +64,7 @@ The sheet already exists: [Pride Center Check-Ins](https://docs.google.com/sprea
 
 1. In the Sheet, go to **Extensions → Apps Script**.
 2. Delete the sample code in `Code.gs` and paste in everything from `apps-script/Code.gs`.
-3. Dashboard access is `ALLOWED_DOMAIN` (any @parchmentschools.org Workspace account) plus the people in `ADMIN_EMAILS` (currently ben.tomlinson@kresa.org). Everyone else is refused. To lock it to named people only, list them in `ADMIN_EMAILS` and set `ALLOWED_DOMAIN` to `''`.
+3. Access is the **Staff** tab (see "Who can enter data" above): @`ALLOWED_DOMAIN` Workspace accounts listed there, plus `ADMIN_EMAILS` (currently ben.tomlinson@kresa.org). Everyone else is refused, on the iPad and on the dashboard.
 4. `KIOSK_TOKEN` must match `config.js`. They already match in this repo.
 5. Click **Save**.
 
@@ -61,7 +72,7 @@ The sheet already exists: [Pride Center Check-Ins](https://docs.google.com/sprea
 
 1. In the function dropdown next to the Run button, pick **setup**, then click **Run**.
 2. Google asks you to authorize. Choose your account, click **Advanced → Go to (project name)**, then **Allow**. This is normal for a script you wrote yourself.
-3. Back in the Sheet you now have a **Check-Ins** tab with headers and a **Summary** tab with live counts. Incident Reports and Feedback tabs appear on their first entry.
+3. Back in the Sheet you now have a **Check-Ins** tab with headers, a **Summary** tab with live counts, a **Roster** tab, and an empty **Staff** tab. Add the approved staff emails to the Staff tab now. The Incident Reports tab appears on its first entry.
 
 Optional: run **testInsert** the same way to add a fake row and confirm it works. Delete that row afterward.
 
@@ -75,7 +86,7 @@ Optional: run **testInsert** the same way to add a fake row and confirm it works
 SCRIPT_URL: "https://script.google.com/macros/s/AKfy.../exec",
 ```
 
-"Anyone" lets the iPad post without a login. Nobody can read data through this URL without a verified Google sign-in (step 5). Opening it in a browser shows a plain notice page.
+"Anyone" lets the iPad reach the script without the student logging in; the iPad's own staff pass (step 7) is what the script checks before saving anything. Nobody can read data through this URL without a verified Google sign-in (step 5). Opening it in a browser shows a plain notice page.
 
 ### 5. Set up "Sign in with Google" for the dashboard
 
@@ -92,7 +103,7 @@ The dashboard at `staff.html` uses Google's own sign-in. You need one OAuth Clie
 
 If Cloud Console is locked down in your district, ask your Google Workspace admin to create the Web application client with that origin, or to allow you to. Nothing else in the setup needs the console.
 
-How it works: the sign-in button gives the browser a Google ID token. `staff.html` sends it with every data request, and `Code.gs` verifies it with Google, checks that the account is a @parchmentschools.org Workspace account or listed in `ADMIN_EMAILS`, and only then returns data. Tokens expire after an hour, at which point the page asks you to sign in again.
+How it works: the sign-in button gives the browser a Google ID token. `staff.html` sends it with every data request, and `Code.gs` verifies it with Google, checks that the account is a @parchmentschools.org Workspace account on the Staff tab (or listed in `ADMIN_EMAILS`), and only then returns data. Tokens expire after an hour, at which point the page asks you to sign in again.
 
 ### 6. Publish the config
 
@@ -108,11 +119,12 @@ GitHub Pages updates in about a minute. The yellow "test mode" banner disappears
 
 1. Open the kiosk URL in Safari.
 2. Tap **Share → Add to Home Screen**. It becomes a full-screen app with the panther icon.
-3. To lock the iPad to the app, enable **Settings → Accessibility → Guided Access**, open the app, then triple-click the top button.
+3. On the start screen tap **Staff: Sign In This iPad** and sign in with an approved @parchmentschools.org account. The start screen then shows Get Started. Do this before Guided Access, since the sign-in opens a Google popup.
+4. To lock the iPad to the app, enable **Settings → Accessibility → Guided Access**, open the app, then triple-click the top button.
 
 ## Admin dashboard
 
-Open `staff.html` and sign in with a @parchmentschools.org staff account (or an account listed in `ADMIN_EMAILS`). It is built around what staff act on, top to bottom:
+Open `staff.html` and sign in with a @parchmentschools.org staff account on the Staff tab (or an account listed in `ADMIN_EMAILS`). It is built around what staff act on, top to bottom:
 
 1. **Needs attention.** Safety first: incident reports where the student said they were not safe, students who picked a staff-first word today, then unreviewed incident reports, students who checked out still red or blue, and up to three patterns from the last 7 days (3+ drop-in visits, or 2+ red/blue arrivals; scheduled breaks don't count). Incident reports clear with **Mark reviewed**, which writes your email, the date, and an optional note into the Sheet. Other items clear with **Done** on that computer.
 2. **In the room now.** Checked in within 3 hours and not checked out, with station, feeling word, basic needs, and minutes in the room. **Check out** lets staff check a student out with their own read of how the student seems (color, optional word, what helped). These are saved with "Staff: <email>" in the Checked Out By column; kiosk check-outs say "Student". Staff who aren't comfortable assigning a mood can choose **Check out, skip the read**, which records only the time the student left; those visits count toward time in the room but are left out of the mood-change numbers and never raise a "left still red or blue" alert. Check-out stays optional either way.
@@ -123,7 +135,7 @@ Open `staff.html` and sign in with a @parchmentschools.org staff account (or an 
 7. **What's behind the visits, what to keep stocked, what helped.**
 8. **Referral, reason, energy, and station.** Station bars use the station colors and show how often students went where the app suggested.
 9. **Visit log** with student search. Tap a name to see that student's visits and a row of mood dots, oldest to newest.
-10. **Incident reports** (unreviewed first) and **trial feedback** (collapsed).
+10. **Incident reports** (unreviewed first).
 
 The **Today** button in the header (with today's check-in count) slides out a timeline of the day: every check-in, check-out, and incident report in order, grouped by hour, with chips for feeling word, reason, station, basic needs, minutes in the room, and what helped, plus a "Now" line. Filter it to check-ins, check-outs, items that need a staff member, or basic needs. Tap a name to jump to that student's history. Esc or a click outside closes it.
 
@@ -137,33 +149,29 @@ Students can scan their badge (or type their student ID) instead of typing a nam
 
 **Roster.** The roster is a **Roster** tab in the main Sheet ([open it](https://docs.google.com/spreadsheets/d/1CefuY4Uq8CgEqR6PQteZO4W02puMwbYvrsCOxdRQIgw/edit?gid=1679508098#gid=1679508098)); `ROSTER_SHEET_GID` in `Code.gs` points at it. Columns: Student ID, First Name, Last Name, Grade. Running `setup` formats it: frozen header, IDs kept as text, a 6/7/8 grade dropdown, and instructions in a note on the Student ID header. Header names are matched loosely (Student Number, ID, Preferred Name, Surname, Grade Level all work), so a pasted export works too. Changes are picked up within 10 minutes, or right away after running **refreshRoster**. Anyone given edit access to fill in the roster can also see every other tab (check-ins, incident reports). To avoid that, set `ROSTER_SPREADSHEET_ID` to a separate spreadsheet and share only that. The roster never goes in this public repository.
 
-**iPad sign-in.** Lookups only work on an iPad that a staff member has signed in, so nobody can pull names from the roster with the public kiosk token. On the start screen, tap **"Badge scanning is off. Staff: sign in this iPad"** (or tap the panther on the start screen 5 times) and sign in with Google. The script checks the account and gives the iPad its own pass for `KIOSK_SESSION_DAYS` (30). Students never see a login. **Only @parchmentschools.org staff accounts can sign an iPad in** (`KIOSK_DOMAIN` in `Code.gs` and `config.js`); the domain is re-checked on every lookup. `KIOSK_ACCOUNTS` can narrow it to specific people. Because Parchment accounts are outside the kresa.org Google Workspace that owns the sign-in app, its OAuth consent screen must be set to **External** (Google Cloud Console → Google Auth Platform → Audience → Make external, publishing status In production). To sign every iPad out, for example if one goes missing, run **signOutAllKiosks** in Apps Script. Sign the iPad in before turning on Guided Access, since the sign-in opens a Google popup.
+**iPad sign-in.** The same staff sign-in that unlocks check-in (see "Who can enter data") turns on roster lookups, so nobody can pull names from the roster with the public kiosk token. Tap **Staff: Sign In This iPad** on the locked start screen, or tap the panther on the start screen 5 times to open iPad Setup at any time (to see who it's signed in as, or sign it out). The list is re-checked on every lookup and save. Because Parchment accounts are outside the kresa.org Google Workspace that owns the sign-in app, its OAuth consent screen must be set to **External** (Google Cloud Console → Google Auth Platform → Audience → Make external, publishing status In production). To sign every iPad out, for example if one goes missing, run **signOutAllKiosks** in Apps Script. Sign the iPad in before turning on Guided Access, since the sign-in opens a Google popup.
 
-If the iPad isn't signed in, is offline, or an ID isn't on the roster, the student is asked to type their name and the ID is still saved with the visit.
+If the iPad is offline, or an ID isn't on the roster, the student is asked to type their name and the ID is still saved with the visit.
 
 **Is this you?** After a badge or ID matches the roster, the kiosk shows the student's name and grade with "Yes, that's me" and "No, that's not me." No sends them back to scan their own badge or type their name. Typed names skip this screen.
 
 **Staff confirm.** On the dashboard, each student under "In the room now" has **✓ Confirm** and **Not them**. Confirm records "Confirmed · your email · time" in the Staff Confirmed column. Not them flags the visit in the Sheet, the visit log, and the Today timeline, and puts a "Check-in not by this student" item in Needs attention so someone fixes the name. Flagged visits are not deleted and still count in the charts until the name is corrected.
 
-## Trial feedback portal
-
-`feedback.html` is a one-minute form for anyone trialing the app: who they are, what they tried, a five-face rating, what worked, what to change, anything else, and optional contact. Responses land in a **Feedback** tab in the Sheet and at the bottom of the admin dashboard. A "Provide feedback during trial" button floats in the bottom-right corner of every kiosk screen and the staff dashboard while `FEEDBACK_ENABLED` is true in `config.js`. Feedback records which screen it was started from, and the back link returns there. Set it to false when the trial ends.
-
 ## Offline and updates
 
-The kiosk registers a service worker. After the first successful load, the app opens even with no Wi-Fi, and check-ins made offline are queued on the iPad and synced when the connection returns. When online, every file is revalidated on open, so a `config.js` change reaches the iPad the next time the app is opened, not a day later. The version number in the bottom-left corner of the kiosk comes from `APP_VERSION` in `index.html`; bump it when you change the app so staff can tell which version an iPad is running.
+The kiosk registers a service worker. After the first successful load, the app opens even with no Wi-Fi, and check-ins made offline are queued on the iPad and synced when the connection returns (and, if the iPad was signed out meanwhile, as soon as staff sign it in again). When online, every file is revalidated on open, so a `config.js` change reaches the iPad the next time the app is opened, not a day later. The version number in the bottom-left corner of the kiosk comes from `APP_VERSION` in `index.html`; bump it when you change the app so staff can tell which version an iPad is running.
 
 ## Test mode
 
-With `SCRIPT_URL` empty, the kiosk saves check-ins in the browser on that device only, and `staff.html` shows them. Good for a first look and for training staff before the Sheet is connected.
+With `SCRIPT_URL` empty, the kiosk saves check-ins in the browser on that device only, and `staff.html` shows them. The iPad lock is off in test mode. Good for a first look and for training staff before the Sheet is connected.
 
 ## Privacy notes
 
 - **Sample data:** rows whose Kiosk column says `SAMPLE DATA` (names end in "(sample)") are demo rows for staff to explore. Run **deleteSampleData** in Apps Script to remove them all; real rows are untouched.
 - Student names are stored only in the district Google Sheet. Nothing goes to any other service.
 - The kiosk keeps a copy of the last 500 check-ins in the iPad browser's local storage so nothing is lost offline. Clear Safari website data on the iPad if you ever retire it.
-- The dashboard login is Google's own "Sign in with Google", verified by the script on every request. There is no password or PIN to manage. `ALLOWED_DOMAIN` and the optional `ADMIN_EMAILS` list in `Code.gs` control who gets in.
-- The repo is public (GitHub Pages needs that on a free plan). It contains no student data. The script URLs and the kiosk token in `config.js` are visible to anyone who reads the repo; the token stops casual junk rows, not a determined person. The kiosk URL only accepts check-ins, and the dashboard URL requires a district sign-in.
+- Both logins are Google's own "Sign in with Google", verified by the script on every request. There is no password or PIN to manage. The Staff tab in the Sheet (plus `ADMIN_EMAILS` in `Code.gs`) controls who gets in.
+- The repo is public (GitHub Pages needs that on a free plan). It contains no student data. The script URLs and the kiosk token in `config.js` are visible to anyone who reads the repo; the token alone saves nothing, because every check-in must also carry the pass of an iPad that an approved staff member signed in. Reading data requires an approved district sign-in.
 
 ## Customizing
 
