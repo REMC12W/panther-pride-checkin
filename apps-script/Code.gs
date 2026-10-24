@@ -87,6 +87,8 @@ function doPost(e) {
     if (data.type === 'kioskStatus') return json_(kioskStatus_(data));
     if (data.type === 'lookup') return json_(lookup_(data));
     if (data.type === 'roster') return json_(roster_(data));
+    // A signed-in staff request the script doesn't know means Code.gs is out of date, not a kiosk token problem.
+    if (data.idToken && data.type && data.type !== 'checkin') return json_({ ok: false, error: 'Unknown request type: ' + data.type });
     if (KIOSK_TOKEN && String(data.token || '') !== KIOSK_TOKEN) {
       return json_({ ok: false, error: 'Bad token. KIOSK_TOKEN in config.js must match Code.gs.' });
     }
