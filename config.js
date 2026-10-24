@@ -9,11 +9,10 @@ window.PPC_CONFIG = {
   // Admin dashboard sign-in (staff.html). A Google OAuth "Web application" Client ID
   // from Google Cloud Console (README step 5). Must also be set in Code.gs.
   GOOGLE_CLIENT_ID: "680243392561-vod2q88igf1v8mr84uc7b4h075lv6g5p.apps.googleusercontent.com",
-  // Staff dashboard: @parchmentschools.org accounts, plus the people listed in ADMIN_EMAILS
-  // in Code.gs. The script enforces it; this only labels the sign-in page.
+  // Who can sign in: @parchmentschools.org staff listed in the Sheet's "Staff" tab, plus
+  // ADMIN_EMAILS in Code.gs. The script enforces it; these only label the sign-in pages
+  // and hint Google which accounts to offer. Must match ALLOWED_DOMAIN in Code.gs.
   ALLOWED_DOMAIN: "parchmentschools.org",
-  // Only staff Google accounts on this domain can sign in the kiosk iPad to start check-in.
-  // Must match KIOSK_DOMAIN in Code.gs.
   KIOSK_DOMAIN: "parchmentschools.org",
 
   // A label for this device so staff can tell kiosks apart in the Sheet.
@@ -117,10 +116,6 @@ window.PPC_CONFIG = {
     "5th Hour", "6th Hour", "7th Hour", "8th Hour", "Passing Time", "Other",
   ],
   // Grade is no longer asked: it comes from the roster.
-
-  // Trial feedback portal (feedback.html). Shows a small "Give feedback" link on the
-  // kiosk start screen and the admin dashboard. Set to false when the trial ends.
-  FEEDBACK_ENABLED: true,
 
   // How many days of check-ins the staff dashboard loads.
   DASHBOARD_DAYS: 14,

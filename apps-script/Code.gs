@@ -4,11 +4,19 @@
  * Lives inside the Google Sheet (Extensions → Apps Script). One file, one
  * deployment (Web app, Execute as: Me, Who has access: Anyone).
  *
- * - The kiosk POSTs check-ins, check-outs, incident reports, and feedback,
- *   each carrying the iPad's staff sign-in session (see kioskSignIn_).
+ * - An approved staff member signs the iPad in with Google. The iPad then holds a
+ *   session pass, and every check-in, check-out and incident report it POSTs must
+ *   carry that pass (or a staff Google sign-in). Without one nothing is saved;
+ *   there is no shared secret in config.js.
  * - The admin dashboard (staff.html on GitHub Pages) POSTs a Google ID token
  *   from "Sign in with Google". It is verified here on every request, and only
- *   ALLOWED_DOMAIN Workspace accounts, plus anyone in ADMIN_EMAILS, get data back.
+ *   people on the approved list get data back.
+ *
+ * Who is approved (one list for the iPad, the staff dashboard and the principal
+ * dashboard): PRINCIPAL_EMAILS and ADMIN_EMAILS, always; plus any @ALLOWED_DOMAIN
+ * Workspace account the principal has put on the Access tab (People & access on
+ * principal.html). Students have district accounts too, so the domain alone is
+ * never enough.
  */
 
 // ---- Settings ---------------------------------------------------------------
@@ -17,17 +25,12 @@
 // GOOGLE_CLIENT_ID in config.js (README step 5).
 const GOOGLE_CLIENT_ID = '680243392561-vod2q88igf1v8mr84uc7b4h075lv6g5p.apps.googleusercontent.com';
 
-// Who may open the staff dashboard: any Google Workspace account on this domain...
+// Approved staff must be real Google Workspace accounts on this domain (students have
+// domain accounts too, so the domain alone is never enough) AND be on the Access tab below.
 const ALLOWED_DOMAIN = 'parchmentschools.org';
-// ...plus these specific people from any domain.
+// Always allowed, from any domain, even if the Access tab is empty. Keeps the owner from
+// ever being locked out.
 const ADMIN_EMAILS = ['ben.tomlinson@kresa.org'];
-
-// Who may sign in the kiosk iPad (turns on the roster name list students pick their name from).
-// ONLY Google accounts on this domain are accepted. Checked on every lookup, not just at sign-in.
-const KIOSK_DOMAIN = 'parchmentschools.org';
-// Optional: narrow it further to specific people on that domain, e.g.
-//   const KIOSK_ACCOUNTS = ['pridecenter@parchmentschools.org'];
-const KIOSK_ACCOUNTS = [];
 
 // How long an iPad stays signed in before a staff member must sign it in again.
 const KIOSK_SESSION_DAYS = 30;
@@ -42,9 +45,9 @@ const ROSTER_SPREADSHEET_ID = '';
 
 // Principal dashboard owners. They can always open both dashboards and manage the Access list.
 const PRINCIPAL_EMAILS = ['jeremy.andrick@parchmentschools.org', 'ben.tomlinson@kresa.org'];
-// Everyone else is on the Access tab, managed from principal.html ("People & access").
-// Until the principal saves that list for the first time (the tab doesn't exist yet), the staff
-// dashboard keeps the old rule: any ALLOWED_DOMAIN Workspace account. After that, only listed people.
+// Everyone else must be on the Access tab, managed from principal.html ("People & access").
+// Anyone listed there (Staff dashboard or Principal dashboard) may sign in the kiosk iPad and
+// open the staff dashboard. Until the principal saves that list, only the owners and ADMIN_EMAILS can.
 const ACCESS_NAME = 'Access';
 const ACCESS_HEADERS = ['Email', 'Staff dashboard', 'Principal dashboard', 'Updated by', 'Updated'];
 
@@ -83,15 +86,13 @@ function doPost(e) {
     if (data.type === 'kioskStatus') return json_(kioskStatus_(data));
     if (data.type === 'lookup') return json_(lookup_(data));
     if (data.type === 'roster') return json_(roster_(data));
-    // A signed-in staff request the script doesn't know means Code.gs is out of date, not a kiosk token problem.
+    // A signed-in staff request the script doesn't know means Code.gs is out of date.
     if (data.idToken && data.type && WRITE_TYPES_.indexOf(data.type) === -1) return json_({ ok: false, error: 'Unknown request type: ' + data.type });
-    // Writing to the Sheet needs a signed-in staff member: a kiosk iPad signed in with a
-    // @parchmentschools.org account (its session pass), or a staff Google sign-in. Nothing public.
+    // Writing to the Sheet needs an approved staff member: a kiosk iPad signed in with an
+    // approved account (its session pass), or an approved staff Google sign-in. Nothing public.
     staffWriter_(data);
     if (data.type === 'checkout') return json_(checkout_(data));
-    if (data.type === 'feedback') return json_(feedback_(data));
     if (data.type === 'incident') return json_(incident_(data));
-    if (data.type && data.type !== 'checkin') return json_({ ok: false, error: 'Unknown request type: ' + data.type });
     const sheet = getSheet_();
     const ts = data.timestamp ? new Date(data.timestamp) : new Date();
     const tz = Session.getScriptTimeZone();
@@ -236,50 +237,6 @@ function incidentRows_(days) {
   return rows;
 }
 
-// ---- Trial feedback (feedback.html) -----------------------------------------
-
-const FEEDBACK_NAME = 'Feedback';
-const FEEDBACK_HEADERS = ['Timestamp', 'Date', 'Role', 'Tried', 'Rating', 'What worked', 'What to change', 'Anything else', 'Contact', 'Device', 'Came from', 'Kiosk'];
-
-function feedback_(data) {
-  const ss = SpreadsheetApp.getActiveSpreadsheet();
-  let sheet = ss.getSheetByName(FEEDBACK_NAME);
-  if (!sheet) {
-    sheet = ss.insertSheet(FEEDBACK_NAME);
-    sheet.appendRow(FEEDBACK_HEADERS);
-    sheet.getRange(1, 1, 1, FEEDBACK_HEADERS.length).setFontWeight('bold').setBackground('#d61f26').setFontColor('#ffffff');
-    sheet.setFrozenRows(1);
-    sheet.getRange('A:A').setNumberFormat('yyyy-mm-dd h:mm am/pm');
-    sheet.getRange('B:B').setNumberFormat('yyyy-mm-dd');
-    [6, 7, 8].forEach(c => sheet.setColumnWidth(c, 320));
-    sheet.getRange('F:H').setWrap(true);
-  }
-  const ts = data.timestamp ? new Date(data.timestamp) : new Date();
-  const tz = Session.getScriptTimeZone();
-  sheet.appendRow([
-    ts, new Date(Utilities.formatDate(ts, tz, 'yyyy/MM/dd')),
-    data.role || '', data.tried || '', data.rating === '' ? '' : Number(data.rating) || '',
-    safe_(data.worked), safe_(data.change), safe_(data.ideas), safe_(data.contact),
-    data.device || '', data.version || '', data.kiosk || ''
-  ]);
-  return { ok: true };
-}
-
-/** Recent feedback entries, newest first. */
-function feedbackRows_(days) {
-  const cutoff = new Date(Date.now() - days * 86400000);
-  const sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName(FEEDBACK_NAME);
-  if (!sheet) return [];
-  const values = sheet.getDataRange().getValues();
-  const rows = [];
-  for (let i = values.length - 1; i >= 1; i--) {
-    const r = values[i];
-    if (!(r[0] instanceof Date) || r[0] < cutoff) continue;
-    rows.push({ timestamp: r[0].toISOString(), role: r[2], tried: r[3], rating: r[4], worked: r[5], change: r[6], ideas: r[7], contact: r[8], device: r[9] });
-  }
-  return rows;
-}
-
 // ---- Admin dashboard: Google sign-in verified on every request ---------------
 
 /** staff.html POSTs { type: 'dashboard', idToken, days }. */
@@ -292,8 +249,7 @@ function dashboard_(data) {
     days: days,
     sheetUrl: SpreadsheetApp.getActiveSpreadsheet().getUrl(),
     checkins: checkinRows_(days),
-    incidents: incidentRows_(days),
-    feedback: feedbackRows_(days)
+    incidents: incidentRows_(days)
   };
 }
 
@@ -369,32 +325,35 @@ function verifyIdToken_(idToken, forKiosk) {
   if (Number(info.exp) * 1000 < Date.now()) throw new Error('Your sign-in expired. Please sign in again.');
   if (String(info.email_verified) !== 'true') throw new Error('This Google account is not verified.');
   const email = String(info.email || '').toLowerCase();
-  if (forKiosk) {
-    // Must be a real Workspace account on KIOSK_DOMAIN: Google sets hd only for those. A personal
-    // Google account that merely uses an @parchmentschools.org address has no hd and is refused.
-    if (!info.hd || !kioskAllowed_(email, info.hd)) throw new Error(email + ' can\'t sign in this iPad. Use a @' + KIOSK_DOMAIN + ' staff account.');
-    return email;
+  if (!staffAllowed_(email, info.hd)) {
+    throw new Error(email + (forKiosk ? ' can\'t sign in this iPad.' : ' can\'t open the dashboard.') +
+      ' Only approved @' + ALLOWED_DOMAIN + ' staff can. Ask the principal to add you under People & access.');
   }
-  if (!isAdmin_(email, info.hd)) throw new Error(email + (accessMap_() ? ' can\'t open the dashboard. Ask the principal to add you under People & access.' : ' can\'t open the dashboard. Use a @' + ALLOWED_DOMAIN + ' staff account.'));
   return email;
 }
 
-function isAdmin_(email, hd) {
+/**
+ * The one approved list, for the iPad, the staff dashboard and the principal dashboard:
+ * PRINCIPAL_EMAILS and ADMIN_EMAILS always; otherwise an @ALLOWED_DOMAIN Workspace account
+ * (hd claim, when we have one) that the principal put on the Access tab with either box ticked.
+ * Checked at every sign-in and on every iPad request, so removing someone takes effect at once.
+ */
+function staffAllowed_(email, hd) {
   email = String(email || '').toLowerCase();
   if (!email) return false;
   if (ADMIN_EMAILS.map(x => String(x).toLowerCase()).indexOf(email) !== -1) return true;
   if (isOwner_(email)) return true;
-  const access = accessMap_();
-  if (access) {
-    // The principal's list decides. Listed people must sign in with a Workspace account on their own
-    // email's domain (Google sets hd), so a personal Google account using that address is refused.
-    const workspace = !!hd && email.endsWith('@' + String(hd).toLowerCase());
-    return workspace && !!(access[email] && (access[email].staff || access[email].principal));
-  }
   const domain = String(ALLOWED_DOMAIN || '').toLowerCase();
-  // Domain accounts must be real Workspace accounts on that domain (hd claim), not just a matching address.
-  return !!domain && email.endsWith('@' + domain) && String(hd || '').toLowerCase() === domain;
+  if (!domain || !email.endsWith('@' + domain)) return false;
+  // Must be a real Workspace account on that domain: Google sets hd only for those. A personal
+  // Google account that merely uses an @parchmentschools.org address is refused.
+  if (hd !== undefined && String(hd || '').toLowerCase() !== domain) return false;
+  const access = accessMap_() || {};
+  return !!(access[email] && (access[email].staff || access[email].principal));
 }
+// Older names, kept for the login page and the kiosk sign-in: same list.
+function isAdmin_(email, hd) { return staffAllowed_(email, hd); }
+function kioskAllowed_(email, hd) { return staffAllowed_(email, hd); }
 
 /** Recent check-ins, oldest first, with check-out columns. */
 function checkinRows_(days) {
@@ -489,7 +448,6 @@ function principalData_(data) {
     return { timestamp: r.timestamp, name: r.name, grade: r.grade, types: r.types, place: r.place, period: r.period, talk: r.talk,
       reviewed: m ? m[0] : (r.reviewed ? 'Reviewed' : ''), studentId: r.studentId, action: r.action, status: r.status };
   });
-  d.feedback = [];
   return d;
 }
 
@@ -613,15 +571,6 @@ function kioskSignIn_(data) {
   return { ok: true, session: session, email: email, expires: new Date(exp).toISOString() };
 }
 
-/** Only KIOSK_DOMAIN Workspace accounts (and KIOSK_ACCOUNTS, if listed) may run the kiosk. */
-function kioskAllowed_(email, hd) {
-  email = String(email || '').toLowerCase();
-  const domain = String(KIOSK_DOMAIN || '').toLowerCase();
-  if (!domain || !email.endsWith('@' + domain)) return false;
-  if (hd !== undefined && String(hd || '').toLowerCase() !== domain) return false; // must be a Workspace account on that domain
-  return !KIOSK_ACCOUNTS.length || KIOSK_ACCOUNTS.map(x => String(x).toLowerCase()).indexOf(email) !== -1;
-}
-
 function kioskSession_(session) {
   if (!session) throw new Error('iPad not signed in.');
   const props = PropertiesService.getScriptProperties();
@@ -629,17 +578,17 @@ function kioskSession_(session) {
   if (!raw) throw new Error('iPad not signed in.');
   const s = JSON.parse(raw);
   if (s.exp < Date.now()) { props.deleteProperty('kiosk_' + sha_(String(session))); throw new Error('iPad sign-in expired.'); }
-  if (!kioskAllowed_(s.email)) { props.deleteProperty('kiosk_' + sha_(String(session))); throw new Error('iPad not signed in.'); }
+  if (!staffAllowed_(s.email)) { props.deleteProperty('kiosk_' + sha_(String(session))); throw new Error('iPad not signed in.'); }
   return s;
 }
 
-const WRITE_TYPES_ = ['checkin', 'checkout', 'incident', 'feedback'];
+const WRITE_TYPES_ = ['checkin', 'checkout', 'incident'];
 
-/** Who may add check-ins, check-outs, incident reports, and feedback. Throws if nobody signed in. */
+/** Who may add check-ins, check-outs and incident reports. Throws if nobody approved is signed in. */
 function staffWriter_(data) {
-  let why = 'Not signed in. Sign this iPad in with a @' + KIOSK_DOMAIN + ' staff account.';
+  let why = 'iPad not signed in. Sign this iPad in with an approved @' + ALLOWED_DOMAIN + ' staff account.';
   if (data.session) { try { return kioskSession_(data.session).email; } catch (err) { why = String(err.message || err); } }
-  if (data.idToken) return verifyIdToken_(String(data.idToken), true); // KIOSK_DOMAIN Workspace staff only
+  if (data.idToken) return verifyIdToken_(String(data.idToken), true); // approved staff only
   throw new Error(why);
 }
 

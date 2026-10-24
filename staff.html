@@ -154,7 +154,7 @@
   .pill i { width: 10px; height: 10px; border-radius: 50%; display: inline-block; }
   .arrow { color: var(--ink-3); margin: 0 4px; }
 
-  /* Incidents + feedback */
+  /* Incidents */
   .inc { border: 1px solid var(--line); border-radius: var(--radius-md); padding: 12px 14px; background: var(--panel); }
   .inc + .inc { margin-top: 10px; }
   .inc .meta { color: var(--ink-3); font-size: 0.82rem; }
@@ -231,12 +231,6 @@
   .co-foot button:disabled { opacity: 0.45; cursor: default; }
   .co-err { color: var(--st-critical); font-size: 0.86rem; margin-top: 8px; min-height: 1em; }
 
-  .fb-btn { display: none; position: fixed; right: 16px; bottom: max(16px, env(safe-area-inset-bottom)); z-index: 40; box-shadow: var(--shadow-md); }
-  /* Phones: a full-width strip on the bottom edge instead of a chip floating over content */
-  @media (max-width: 640px) {
-    .fb-btn { left: 0; right: 0; bottom: 0; justify-content: center; border-radius: 0; box-shadow: none; padding: 12px 16px; padding-bottom: max(12px, env(safe-area-inset-bottom)); }
-  }
-  .fb-btn.show { display: inline-flex; }
 
   /* Staff confirm */
   .idc { display: flex; gap: 6px; margin-top: 6px; flex-wrap: wrap; align-items: center; }
@@ -305,7 +299,7 @@
       <img src="assets/parchment-logo.png" alt="">
       <div class="eyebrow">Parchment School District</div>
       <h2>Pride Center Staff</h2>
-      <p id="gateText">Sign in with your @parchmentschools.org staff Google account to see check-ins, incident reports, and feedback.</p>
+      <p id="gateText">Sign in with your @parchmentschools.org staff Google account to see check-ins and incident reports. Only staff on the Pride Center's approved list can open this page.</p>
       <div class="gsi" id="gsiBtn"></div>
       <p class="small" id="gateMsg"></p>
     </div>
@@ -430,14 +424,6 @@
       <p class="sub">Open reports first. Tap <b>Follow up</b> after an adult has talked with the student.</p>
       <div id="incList"></div>
     </section>
-
-    <!-- 8. Feedback -->
-    <section>
-      <details class="panel">
-        <summary><span class="chev"><i data-icon="chevron-right" data-size="18"></i></span> Trial Feedback <span class="sub" id="fbCount" style="display:inline"></span></summary>
-        <div id="fbList" style="margin-top:12px"></div>
-      </details>
-    </section>
   </div>
 </main>
 
@@ -503,18 +489,16 @@
 </dialog>
 
 <div class="tip" id="tip"></div>
-<a class="btn btn-dark btn-sm fb-btn" id="feedbackLink" href="feedback.html?from=staff" aria-label="Provide Feedback During Trial"><i data-icon="message-square-text" data-size="16"></i>Provide Feedback During Trial</a>
 
 <script src="icons.js"></script>
 <script src="config.js"></script>
 <script>
 (function () {
   const CFG = Object.assign({ SCRIPT_URL: "", GOOGLE_CLIENT_ID: "", ALLOWED_DOMAIN: "parchmentschools.org", DASHBOARD_DAYS: 14 }, window.PPC_CONFIG || {});
-  document.getElementById("feedbackLink").classList.toggle("show", !!CFG.FEEDBACK_ENABLED);
   const $ = s => document.querySelector(s);
   const TEST = !CFG.SCRIPT_URL;
   let idToken = sessionStorage.getItem("ppc_id_token") || "";
-  let data = { checkins: [], incidents: [], feedback: [] };
+  let data = { checkins: [], incidents: [] };
 
   // Mood meter quadrants, in the validated order.
   const MOODS = ["Red", "Yellow", "Blue", "Green"];
@@ -534,7 +518,6 @@
   const isOpen = r => !r.reviewed || r.status === "Needs more follow-up";
   // A student tapped an alert word (config.js STAFF_FIRST_WORDS). Older rows stored it as the station.
   const needsStaff = r => (r.stationSuggested === "Staff first" || r.station === "Staff first") && r.outcome !== "Incident Report";
-  const FACES = { 1: "frown", 2: "annoyed", 3: "meh", 4: "smile", 5: "laugh" };
   const DISMISS_KEY = "ppc_dismissed";
 
   // ---------- Sign-in ----------
@@ -607,23 +590,14 @@
       if (d.sheetUrl) { $("#sheetLink").href = d.sheetUrl; $("#sheetLink").classList.remove("hidden"); }
       $("#status").textContent = `Updated ${new Date().toLocaleTimeString([], { hour: "numeric", minute: "2-digit" })} · refreshes every minute`;
       renderAll();
-      sendQueuedFeedback();
     } catch (err) {
       $("#status").className = "status-line err";
       $("#status").textContent = "Could not load: " + (err.message || err);
     }
   }
-  // Feedback that couldn't be sent from this browser (signed out, sign-in expired) goes now, with this sign-in.
-  async function sendQueuedFeedback() {
-    let q; try { q = JSON.parse(localStorage.getItem("ppc_feedback_queue") || "[]"); } catch { return; }
-    while (q.length) {
-      try { const d = await post(q[0]); if (!d.ok) break; q.shift(); localStorage.setItem("ppc_feedback_queue", JSON.stringify(q)); } catch { break; }
-    }
-  }
   function loadLocal() {
-    let raw = [], fb = [];
+    let raw = [];
     try { raw = JSON.parse(localStorage.getItem("ppc_local") || "[]"); } catch {}
-    try { fb = JSON.parse(localStorage.getItem("ppc_feedback_local") || "[]"); } catch {}
     const ins = raw.filter(r => r.type !== "checkout" && r.type !== "incident").map(r => Object.assign({}, r));
     raw.filter(r => r.type === "checkout").forEach(c => {
       const key = who(c);
@@ -637,7 +611,7 @@
     ins.forEach(r => { if (confirms[r.timestamp]) r.confirmed = confirms[r.timestamp]; });
     let reviews = {}; try { reviews = JSON.parse(localStorage.getItem("ppc_local_reviews") || "{}"); } catch {}
     const incs = raw.filter(r => r.type === "incident").map(r => Object.assign({}, r, reviews[r.timestamp] || {}));
-    data = { checkins: ins, incidents: incs, feedback: fb };
+    data = { checkins: ins, incidents: incs };
     $("#status").textContent = "Test mode: showing check-ins saved on this device only.";
     renderAll();
   }
@@ -683,7 +657,6 @@
     if (picked.length) $("#station").insertAdjacentHTML("beforeend", `<div class="empty">${Math.round(100 * picked.filter(r => r.station === r.stationSuggested).length / picked.length)}% went to the suggested station.</div>`);
     renderLog(inWin);
     renderIncidents(data.incidents || []);
-    renderFeedback(data.feedback || []);
     renderTimeline();
   }
 
@@ -1029,21 +1002,6 @@
       $("#fuErr").textContent = "Couldn't save: " + (err.message || err);
     }
   });
-
-  // 10. Feedback
-  function renderFeedback(rows) {
-    rows = rows.slice().sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
-    const rated = rows.filter(r => Number(r.rating));
-    const avg = rated.length ? (rated.reduce((s, r) => s + Number(r.rating), 0) / rated.length).toFixed(1) : null;
-    $("#fbCount").textContent = rows.length ? `· ${rows.length} response${rows.length === 1 ? "" : "s"}${avg ? `, average ${avg} of 5` : ""}` : "· none yet";
-    $("#fbList").innerHTML = rows.length ? rows.map(r => `
-      <div class="inc">
-        <div class="meta">${esc(when(r.timestamp))} · <b>${esc(r.role || "Unknown")}</b>${r.tried ? " · " + esc(r.tried) : ""}</div>
-        <div>${r.rating ? `<span style="color:var(--psd-maroon);vertical-align:-4px" title="${esc(r.rating)} of 5">${window.PPC_ICON(FACES[r.rating] || "meh", 20)}</span> ` : ""}${r.worked ? `<b>Worked:</b> ${esc(r.worked)}` : ""}</div>
-        ${r.change ? `<div><b>Change:</b> ${esc(r.change)}</div>` : ""}${r.ideas ? `<div><b>Else:</b> ${esc(r.ideas)}</div>` : ""}
-        ${r.contact ? `<div class="meta">Contact: ${esc(r.contact)}</div>` : ""}
-      </div>`).join("") : `<div class="empty">No feedback yet.</div>`;
-  }
 
   // ---------- Today timeline ----------
   let tlFilter = "all";
