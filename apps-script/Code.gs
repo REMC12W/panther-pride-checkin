@@ -87,6 +87,8 @@ function doPost(e) {
     if (data.type === 'kioskStatus') return json_(kioskStatus_(data));
     if (data.type === 'lookup') return json_(lookup_(data));
     if (data.type === 'roster') return json_(roster_(data));
+    // A signed-in staff request the script doesn't know means Code.gs is out of date, not a kiosk token problem.
+    if (data.idToken && data.type && data.type !== 'checkin') return json_({ ok: false, error: 'Unknown request type: ' + data.type });
     if (KIOSK_TOKEN && String(data.token || '') !== KIOSK_TOKEN) {
       return json_({ ok: false, error: 'Bad token. KIOSK_TOKEN in config.js must match Code.gs.' });
     }
@@ -863,7 +865,7 @@ function buildSummary_(ss) {
   section('By reason', 'F', ['Drop In: I need a reset', 'Scheduled Break', 'Drop In: I have a need', 'Break', 'Defiance', 'Sickness']);
   section('By energy', 'G', ['Moving Fast', 'Moving Slow', 'Moving Ok']);
   section('By mood group', 'H', ['Red', 'Yellow', 'Blue', 'Green']);
-  section('By what happened', 'J', ['At Home', 'With my Teacher', 'With a friend', 'Just with myself', 'Not sure right now', 'Nothing happened']);
+  section('By what happened', 'J', ['At Home', 'With my Teacher', 'With a friend', 'Just with myself', 'Not sure', 'Not sure right now', 'Nothing happened']);
   section('By outcome', 'M', ['Check In', 'Incident Report', 'Basic Need']);
   section('By station', 'P', ['Red', 'Yellow', 'Blue', 'Green', 'Staff first']);
   section('Alert word picked (Station Suggested)', 'O', ['Staff first']);

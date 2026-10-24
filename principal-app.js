@@ -4,6 +4,8 @@
   const CFG = Object.assign({ SCRIPT_URL: "", GOOGLE_CLIENT_ID: "", ALLOWED_DOMAIN: "", PRINCIPAL_DEMO: true, PRINCIPAL_EMAILS: [] }, window.PPC_CONFIG || {});
   const DEMO = !!CFG.PRINCIPAL_DEMO || !CFG.SCRIPT_URL;
   const $ = s => document.querySelector(s);
+  // Lucide icons from icons.js (the design system uses no emoji).
+  const IC = (name, size, label) => window.PPC_ICON ? window.PPC_ICON(name, size, label) : "";
   const esc = C.esc;
   const STORE_KEY = "ppc_principal_v1";
   const uid = () => Math.random().toString(36).slice(2, 9);
@@ -145,7 +147,7 @@
   // ---------- Render ----------
   function renderAll() { renderTabs(); renderToolbar(); renderBoard(); }
   function renderTabs() {
-    $("#tabs").innerHTML = state.boards.map(b => `<button class="tab ${b.id === state.active ? "on" : ""}" data-id="${b.id}">${esc(b.name)}</button>`).join("") + `<button class="tab add" id="addBoard">+ New board</button>`;
+    $("#tabs").innerHTML = state.boards.map(b => `<button class="tab ${b.id === state.active ? "on" : ""}" data-id="${b.id}">${esc(b.name)}</button>`).join("") + `<button class="tab add" id="addBoard">${IC("plus", 16)}New board</button>`;
     $("#tabs").querySelectorAll("[data-id]").forEach(b => b.addEventListener("click", () => { state.active = b.dataset.id; persist(); renderAll(); }));
     $("#addBoard").addEventListener("click", () => { const name = prompt("Name the new board:", "New board"); if (!name) return; const b = { id: uid(), name, layout: "grid", tiles: [] }; state.boards.push(b); state.active = b.id; persist(); renderAll(); });
   }
@@ -160,7 +162,7 @@
     $("#gradeFilter").innerHTML = grades.map(g => `<button type="button" class="btn sm ${state.grades.includes(g) ? "on" : ""}" data-g="${g}">${g}</button>`).join("");
     $("#gradeFilter").querySelectorAll("[data-g]").forEach(b => b.addEventListener("click", () => { const g = b.dataset.g; state.grades = state.grades.includes(g) ? state.grades.filter(x => x !== g) : state.grades.concat(g); persist(); renderAll(); }));
     $("#layoutSel").value = board().layout || "grid";
-    $("#lockBtn").textContent = state.locked ? "🔒 Locked" : "🔓 Editing layout";
+    $("#lockBtn").innerHTML = state.locked ? IC("lock", 16) + "Locked" : IC("lock-open", 16) + "Editing layout";
     $("#lockBtn").classList.toggle("on", !state.locked);
     $("#printTitle").textContent = `Pride Center · ${board().name} · ${C.RANGE_LABELS[state.range] || ""}${state.grades.length ? " · Grades " + state.grades.join(", ") : ""}`;
   }
@@ -198,9 +200,9 @@
       d.className = "tile" + (b.layout === "list" && t.w <= 6 ? " half" : "");
       d.dataset.id = t.id; d.dataset.w = String(t.w || 6);
       if (b.layout !== "list") { d.style.gridColumn = `span ${Math.min(12, Math.max(2, t.w || 6))}`; d.style.gridRow = `span ${Math.max(2, t.h || 4)}`; }
-      d.innerHTML = `<div class="head"><span class="grip" title="Drag to move">⠿</span><h3>${esc(tileTitle(t))}<span class="sub">${esc(tileSub(t))}</span></h3>
-        <span class="order"><button type="button" data-mv="-1" title="Move up">↑</button><button type="button" data-mv="1" title="Move down">↓</button><button type="button" data-half title="Half or full width">${t.w <= 6 ? "⇔" : "⇤"}</button></span>
-        <div class="menu"><button type="button" class="kebab" aria-label="Tile menu">⋯</button><ul>
+      d.innerHTML = `<div class="head"><span class="grip" title="Drag to move">${IC("grip-vertical", 18)}</span><h3>${esc(tileTitle(t))}<span class="sub">${esc(tileSub(t))}</span></h3>
+        <span class="order"><button type="button" data-mv="-1" title="Move up" aria-label="Move up">${IC("arrow-up", 16)}</button><button type="button" data-mv="1" title="Move down" aria-label="Move down">${IC("arrow-down", 16)}</button><button type="button" data-half title="Half or full width" aria-label="Half or full width">${IC(t.w <= 6 ? "arrow-right" : "arrow-left", 16)}</button></span>
+        <div class="menu"><button type="button" class="kebab" aria-label="Tile menu">${IC("ellipsis", 18)}</button><ul>
           <li><button type="button" data-act="edit">Edit…</button></li><li><button type="button" data-act="dup">Duplicate</button></li>
           <li><button type="button" data-act="csv">Download numbers (CSV)</button></li><li><button type="button" data-act="img">Copy as image</button></li>
           <li><button type="button" data-act="drill">See the records</button></li><li><button type="button" data-act="del">Delete</button></li></ul></div></div>
@@ -209,7 +211,7 @@
       wireTile(d, t, i);
       renderTile(d, t);
     });
-    const add = document.createElement("button"); add.type = "button"; add.className = "add-tile"; add.textContent = "+ Add tile"; add.addEventListener("click", openGallery); el.appendChild(add);
+    const add = document.createElement("button"); add.type = "button"; add.className = "add-tile"; add.innerHTML = IC("plus", 18) + "Add tile"; add.addEventListener("click", openGallery); el.appendChild(add);
   }
 
   async function renderTile(d, t) {
@@ -414,7 +416,7 @@
       ? `Only the people below can open the staff dashboard or this page. Changes apply on their next page load.`
       : `<b>Right now any @${esc(acc.domain || "district")} staff account can open the staff dashboard.</b> Saving this list limits it to the people below.`)
       + ` Each person signs in with their school Google account.`;
-    const fixed = owners.map(e => `<tr><td>${esc(e)}</td><td class="c">✓</td><td class="c">✓</td><td class="fixed">Owner</td></tr>`).join("");
+    const fixed = owners.map(e => `<tr><td>${esc(e)}</td><td class="c">${IC("check", 18, "Yes")}</td><td class="c">${IC("check", 18, "Yes")}</td><td class="fixed">Owner</td></tr>`).join("");
     $("#accRows").innerHTML = fixed + acc.people.filter(p => !owners.includes(p.email)).map((p, i) => `<tr data-i="${i}"><td>${esc(p.email)}</td>
       <td class="c"><input type="checkbox" data-k="staff" ${p.staff ? "checked" : ""} aria-label="Staff dashboard for ${esc(p.email)}"></td>
       <td class="c"><input type="checkbox" data-k="principal" ${p.principal ? "checked" : ""} aria-label="Principal dashboard for ${esc(p.email)}"></td>

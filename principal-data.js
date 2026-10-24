@@ -158,7 +158,7 @@ window.PPD = (function () {
   async function liveData(scriptUrl, idToken, days) {
     const res = await fetch(scriptUrl, { method: "POST", headers: { "Content-Type": "text/plain;charset=utf-8" }, body: JSON.stringify({ type: "principalData", idToken, days: days || 365 }), redirect: "follow" });
     const d = await res.json();
-    if (!d.ok) throw new Error(d.error || "Could not load");
+    if (!d.ok) throw new Error(/Bad token|Unknown request/.test(d.error || "") ? "The script in the Sheet needs the new Code.gs deployed (Deploy → Manage deployments → New version)." : (d.error || "Could not load"));
     d.source = "live";
     return d;
   }

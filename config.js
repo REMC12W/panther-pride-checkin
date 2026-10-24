@@ -15,8 +15,8 @@ window.PPC_CONFIG = {
   // Staff dashboard: @parchmentschools.org accounts, plus the people listed in ADMIN_EMAILS
   // in Code.gs. The script enforces it; this only labels the sign-in page.
   ALLOWED_DOMAIN: "parchmentschools.org",
-  // Only staff Google accounts on this domain can sign in the kiosk iPad. Signing it in turns on
-  // the roster name list students pick their name from. Must match KIOSK_DOMAIN in Code.gs.
+  // Only staff Google accounts on this domain can sign in the kiosk iPad to start check-in.
+  // Must match KIOSK_DOMAIN in Code.gs.
   KIOSK_DOMAIN: "parchmentschools.org",
 
   // A label for this device so staff can tell kiosks apart in the Sheet.
@@ -43,19 +43,20 @@ window.PPC_CONFIG = {
   // Basic needs a student can request after tapping "I have a basic need".
   // Add, remove, or reorder freely. Students can pick more than one.
   // Avoid commas in labels: picks are stored comma-separated in the Sheet.
+  // icon = a Lucide icon name (see icons.js); the design system uses no emoji.
   BASIC_NEEDS: [
-    { icon: "🍎", label: "Food or a snack" },
-    { icon: "💧", label: "Water or a drink" },
-    { icon: "🧥", label: "Clothing or shoes" },
-    { icon: "🧼", label: "Hygiene items" },
-    { icon: "🩷", label: "Period products" },
-    { icon: "✏️", label: "School supplies" },
-    { icon: "😴", label: "Rest or a quiet spot" },
-    { icon: "🩹", label: "Nurse or medical help" },
-    { icon: "💬", label: "Talk to a counselor or trusted adult" },
-    { icon: "🎒", label: "Backpack" },
-    { icon: "🔌", label: "Charger or tech help" },
-    { icon: "❓", label: "Something else" },
+    { icon: "apple", label: "Food or a snack" },
+    { icon: "glass-water", label: "Water or a drink" },
+    { icon: "shirt", label: "Clothing or shoes" },
+    { icon: "droplets", label: "Hygiene items" },
+    { icon: "package", label: "Period products" },
+    { icon: "pencil", label: "School supplies" },
+    { icon: "moon", label: "Rest or a quiet spot" },
+    { icon: "stethoscope", label: "Nurse or medical help" },
+    { icon: "message-circle", label: "Talk to a counselor or trusted adult" },
+    { icon: "backpack", label: "Backpack" },
+    { icon: "plug-zap", label: "Charger or tech help" },
+    { icon: "circle-help", label: "Something else" },
   ],
 
   // Regulation stations, color-coded to the mood meter quadrants. The app suggests
@@ -67,10 +68,8 @@ window.PPC_CONFIG = {
     { color: "Green",  label: "Green station",  hint: "Keep it steady" },
   ],
 
-  // Alert words. When a student taps one, the staff page shows it under "Needs attention"
-  // ("Staff should go to this student"). On the iPad nothing changes: the student goes on to
-  // the station picker like any other word, since an adult is already with them.
-  // Words a student types with "Type my own word" never raise an alert.
+  // Alert words: the staff page shows "Staff should go to this student". On the iPad the student
+  // goes on to the station picker like any word. Typed words never alert.
   STAFF_FIRST_WORDS: [
     "Enraged", "Livid", "Fuming", "Panicked", "Frightened",
     "Despair", "Hopeless", "Desolate", "Despondent", "Depressed",
@@ -78,49 +77,49 @@ window.PPC_CONFIG = {
 
   // Check-out: what helped. Students can pick more than one.
   WHAT_HELPED: [
-    { icon: "🫁", label: "Breathing" },
-    { icon: "🚶", label: "Moving my body" },
-    { icon: "🎧", label: "Music" },
-    { icon: "📓", label: "Writing or drawing" },
-    { icon: "🤫", label: "Quiet time alone" },
-    { icon: "💬", label: "Talking to a staff member" },
-    { icon: "🧸", label: "Fidget or weighted item" },
-    { icon: "🍎", label: "Snack or water" },
-    { icon: "🎲", label: "A game or puzzle" },
-    { icon: "❓", label: "Something else" },
-    { icon: "🤷", label: "Nothing really helped" },
+    { icon: "wind", label: "Breathing" },
+    { icon: "footprints", label: "Moving my body" },
+    { icon: "music", label: "Music" },
+    { icon: "notebook-pen", label: "Writing or drawing" },
+    { icon: "volume-x", label: "Quiet time alone" },
+    { icon: "message-circle", label: "Talking to a staff member" },
+    { icon: "hand", label: "Fidget or weighted item" },
+    { icon: "apple", label: "Snack or water" },
+    { icon: "puzzle", label: "A game or puzzle" },
+    { icon: "circle-help", label: "Something else" },
+    { icon: "circle-minus", label: "Nothing really helped" },
   ],
 
   // Incident report: what happened (multi-select) and where (single).
   INCIDENT_TYPES: [
-    { icon: "😠", label: "Someone was mean to me" },
-    { icon: "👊", label: "Someone hit or pushed me" },
-    { icon: "😨", label: "Someone threatened me" },
-    { icon: "📱", label: "Something happened online" },
-    { icon: "🚫", label: "Someone touched me in a way I didn't like" },
-    { icon: "👀", label: "I saw something happen to someone else" },
-    { icon: "🎒", label: "Something was taken or broken" },
-    { icon: "⚠️", label: "Something unsafe" },
-    { icon: "❓", label: "Something else" },
+    { icon: "frown", label: "Someone was mean to me" },
+    { icon: "hand", label: "Someone hit or pushed me" },
+    { icon: "triangle-alert", label: "Someone threatened me" },
+    { icon: "smartphone", label: "Something happened online" },
+    { icon: "shield-alert", label: "Someone touched me in a way I didn't like" },
+    { icon: "eye", label: "I saw something happen to someone else" },
+    { icon: "package-x", label: "Something was taken or broken" },
+    { icon: "triangle-alert", label: "Something unsafe" },
+    { icon: "circle-help", label: "Something else" },
   ],
   // Where and when, matching the district "Student Incident Report" Google Form.
   INCIDENT_PLACES: [
-    { icon: "🏫", label: "Classroom" },
-    { icon: "🚪", label: "Hallway" },
-    { icon: "🚌", label: "Bus/Bus Stop" },
-    { icon: "🌳", label: "Outside" },
-    { icon: "🏀", label: "Gym" },
-    { icon: "🍽️", label: "Cafeteria" },
-    { icon: "🚻", label: "Bathroom" },
-    { icon: "🪜", label: "Stairwell" },
-    { icon: "📚", label: "Library" },
-    { icon: "❓", label: "Other" },
+    { icon: "school", label: "Classroom" },
+    { icon: "door-open", label: "Hallway" },
+    { icon: "bus", label: "Bus/Bus Stop" },
+    { icon: "trees", label: "Outside" },
+    { icon: "dumbbell", label: "Gym" },
+    { icon: "utensils", label: "Cafeteria" },
+    { icon: "toilet", label: "Bathroom" },
+    { icon: "footprints", label: "Stairwell" },
+    { icon: "library", label: "Library" },
+    { icon: "circle-help", label: "Other" },
   ],
   INCIDENT_PERIODS: [
     "Before School", "Breakfast", "1st Hour", "2nd Hour", "3rd Hour", "4th Hour", "Lunch", "Recess",
     "5th Hour", "6th Hour", "7th Hour", "8th Hour", "Passing Time", "Other",
   ],
-  // Grade is no longer asked: the script fills it in from the roster.
+  // Grade is no longer asked: it comes from the roster.
 
   // Trial feedback portal (feedback.html). Shows a small "Give feedback" link on the
   // kiosk start screen and the admin dashboard. Set to false when the trial ends.
