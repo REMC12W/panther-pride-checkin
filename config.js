@@ -67,8 +67,8 @@ window.PPC_CONFIG = {
     { color: "Green",  label: "Green station",  hint: "Keep it steady" },
   ],
 
-  // Mood words that mean a staff member should come to the student before any
-  // station. The app shows "a staff member is coming to you" instead of the picker.
+  // Alert words: the staff page shows "Staff should go to this student". On the iPad the student
+  // goes on to the station picker like any word. Typed words never alert.
   STAFF_FIRST_WORDS: [
     "Enraged", "Livid", "Fuming", "Panicked", "Frightened",
     "Despair", "Hopeless", "Desolate", "Despondent", "Depressed",
@@ -105,7 +105,7 @@ window.PPC_CONFIG = {
   INCIDENT_PLACES: [
     { icon: "school", label: "Classroom" },
     { icon: "door-open", label: "Hallway" },
-    { icon: "bus", label: "Bus" },
+    { icon: "bus", label: "Bus/Bus Stop" },
     { icon: "trees", label: "Outside" },
     { icon: "dumbbell", label: "Gym" },
     { icon: "utensils", label: "Cafeteria" },
@@ -115,10 +115,10 @@ window.PPC_CONFIG = {
     { icon: "circle-help", label: "Other" },
   ],
   INCIDENT_PERIODS: [
-    "1st Hour", "2nd Hour", "3rd Hour", "4th Hour", "Lunch", "Recess", "SEL", "WIN",
-    "6th Hour", "7th Hour", "8th Hour", "Passing Time", "Other",
+    "Before School", "Breakfast", "1st Hour", "2nd Hour", "3rd Hour", "4th Hour", "Lunch", "Recess",
+    "5th Hour", "6th Hour", "7th Hour", "8th Hour", "Passing Time", "Other",
   ],
-  INCIDENT_GRADES: ["6th Grade", "7th Grade", "8th Grade"],
+  // Grade is no longer asked: it comes from the roster.
 
   // How many days of check-ins the staff dashboard loads.
   DASHBOARD_DAYS: 14,
