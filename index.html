@@ -107,6 +107,10 @@
   #start .lock .held { font-weight: 600; }
   #start .lock .held:empty { display: none; }
   #start .lock .btn { background: var(--psd-white); color: var(--psd-maroon); border-color: var(--psd-white); }
+  #start .lock .btn[hidden] { display: none; }
+  #start .lock-acts { display: flex; flex-direction: column; align-items: inherit; gap: var(--space-2); }
+  #start .lock .btn#lockSignIn.alt { background: transparent; color: var(--psd-white); border-color: rgba(255,255,255,0.7); }
+  @media (max-width: 700px) { #start .lock-acts { align-items: center; } }
   @media (max-width: 700px) { #start .lock h2 { justify-content: center; } }
   @media (max-width: 700px) { #start { align-items: center; } #start .mark { opacity: .25; } #start .copy { text-align: center; align-items: center; } }
   @media (orientation: portrait) and (min-width: 701px) { #start { align-items: flex-end; padding-bottom: calc(12vh + var(--dock, 0px)); } }
@@ -389,7 +393,7 @@
         <h2><i data-icon="lock" data-size="22"></i>Check-in is off</h2>
         <p>A Pride Center staff member needs to sign this iPad in before students can check in.</p>
         <p class="held" id="lockHeld"></p>
-        <button class="btn btn-outline" type="button" id="lockSignIn">Staff: Sign In This iPad</button>
+        <div class="lock-acts"><button class="btn btn-outline" type="button" id="lockQuick" hidden></button><button class="btn btn-outline" type="button" id="lockSignIn">Staff: Sign In This iPad</button></div>
       </div>
     </div>
   </section>
@@ -590,7 +594,7 @@
 <script src="config.js"></script>
 <script>
 (function () {
-  const APP_VERSION = "2026.10.25-a11y.1";
+  const APP_VERSION = "2026.10.25-a11y.2";
   const CFG = Object.assign({
     SCRIPT_URL: "", KIOSK_NAME: "Kiosk", KIOSK_DOMAIN: "",
     RESET_SECONDS: 8, IDLE_SECONDS: 120,
@@ -1299,8 +1303,23 @@
   // Locked whenever the app is connected to a Sheet and no approved staff member has signed in.
   // Test mode (no SCRIPT_URL) is never locked.
   function isLocked() { return !!CFG.SCRIPT_URL && !getSession(); }
+  // Someone who just signed in on the login page or a dashboard (same browser tab) can sign this
+  // device in with one tap instead of Google's sign-in again. The script still checks the account.
+  function dashToken() {
+    try {
+      const t = sessionStorage.getItem("ppc_id_token"); if (!t) return null;
+      const b = t.split(".")[1].replace(/-/g, "+").replace(/_/g, "/");
+      const p = JSON.parse(atob(b + "=".repeat((4 - b.length % 4) % 4)));
+      return p.email && p.exp * 1000 > Date.now() + 60000 ? { token: t, email: p.email } : null;
+    } catch (e) { return null; }
+  }
   function updateLock() {
     document.body.classList.toggle("locked", isLocked());
+    const q = isLocked() && CFG.GOOGLE_CLIENT_ID ? dashToken() : null;
+    $("#lockQuick").hidden = !q;
+    if (q) $("#lockQuick").textContent = "Sign in as " + q.email;
+    $("#lockSignIn").textContent = q ? "Use a different account" : "Staff: Sign In This iPad";
+    $("#lockSignIn").classList.toggle("alt", !!q);
     if (isLocked() && current !== "start" && current !== "kiosk") reset();
     updateBanner();
   }
@@ -1335,6 +1354,7 @@
     } catch (err) { $("#kioskMsg").textContent = "Couldn't sign in: " + (err.message || err); }
   }
   $("#lockSignIn").addEventListener("click", openKioskSetup);
+  $("#lockQuick").addEventListener("click", () => { const q = dashToken(); if (!q) return updateLock(); openKioskSetup(); kioskCredential({ credential: q.token }); });
   $("#kioskBack").addEventListener("click", reset);
   $("#kioskSignOut").addEventListener("click", () => { try { localStorage.removeItem(SESSION_KEY); } catch {} roster = null; updateLock(); openKioskSetup(); });
   // Staff can also open setup by tapping the panther logo 5 times quickly.
