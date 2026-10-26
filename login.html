@@ -40,12 +40,18 @@
     <h1>Panther Pride Center</h1>
 
     <section id="signin">
-      <p>Staff sign-in. Use your school Google account and you'll go straight to the pages you have access to.</p>
+      <p>Staff sign-in. Use your school Google account to open the pages you have access to.</p>
       <div id="gsiBtn"></div>
       <div class="msg" id="msg" role="status"></div>
     </section>
 
     <section id="routing" class="hidden"><p>Checking your access…</p></section>
+    <section id="choose" class="hidden">
+      <p>Signed in as <span class="who" id="whoChoose"></span></p>
+      <p>Where would you like to go?</p>
+      <div class="choices" id="chooseChoices"></div>
+      <button class="btn btn-ghost btn-sm switch" id="switch1" type="button"><i data-icon="log-out" data-size="16"></i>Use a different account</button>
+    </section>
 
     <section id="none" class="hidden">
       <p>Signed in as <span class="who" id="whoNone"></span></p>
@@ -65,13 +71,14 @@
   const $ = s => document.querySelector(s);
   const esc = s => String(s == null ? "" : s).replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
   const PAGES = {
-    principal: { href: "principal.html", label: "Principal dashboard", hint: "Your boards, charts, and People & access" },
-    staff: { href: "staff.html", label: "Staff dashboard", hint: "Needs attention, who's in the room, incident follow-ups" },
+    principal: { href: "principal.html", label: "Principal dashboard", hint: "Your boards, charts, and People & access", icon: "activity" },
+    staff: { href: "staff.html", label: "Staff dashboard", hint: "Needs attention, who's in the room, incident follow-ups", icon: "users" },
     kiosk: { href: "index.html", label: "Student check-in kiosk", hint: "Sign in a Pride Center iPad so students can pick their name", icon: "smartphone" },
   };
   // ?next=staff or ?next=principal: where the person was trying to go.
   const next = new URLSearchParams(location.search).get("next");
-  const show = id => ["signin", "routing", "none"].forEach(x => $("#" + x).classList.toggle("hidden", x !== id));
+  const show = id => ["signin", "routing", "choose", "none"].forEach(x => $("#" + x).classList.toggle("hidden", x !== id));
+  const link = k => `<a href="${PAGES[k].href}"><span class="ic">${window.PPC_ICON ? PPC_ICON(PAGES[k].icon, 22) : ""}</span><span>${esc(PAGES[k].label)}<small>${esc(PAGES[k].hint)}</small></span></a>`;
 
   const pending = sessionStorage.getItem("ppc_signin_msg");
   if (pending) { $("#msg").textContent = /Bad token|Unknown request/.test(pending) ? "The dashboard isn't fully set up yet. Ask Ben to finish the update, then try again." : pending; sessionStorage.removeItem("ppc_signin_msg"); }
@@ -85,17 +92,23 @@
     } catch (err) { return fail("Couldn't reach the Sheet. Check the Wi-Fi and try again."); }
     if (!d.ok) return fail(/Bad token|Unknown request/.test(d.error || "") ? "The dashboard isn't fully set up yet. Ask Ben to finish the update, then try again." : d.error);
     sessionStorage.setItem("ppc_id_token", token); // the dashboards reuse this sign-in
-    const can = ["principal", "staff"].filter(k => d[k]);
-    // Straight through when there's one obvious place to go.
+    const can = ["principal", "staff", "kiosk"].filter(k => d[k]);
+    // Straight through when the person was already heading somewhere they can open.
     if (next && can.includes(next)) return location.replace(PAGES[next].href);
-    // Otherwise the most specific page: the principal dashboard (it links to the staff page), then staff.
-    if (can.length) return location.replace(PAGES[can[0]].href);
+    // One dashboard only: go there. More than one place: let them pick.
+    const dash = can.filter(k => k !== "kiosk");
+    if (dash.length === 1 && can.length === 1) return location.replace(PAGES[dash[0]].href);
+    if (dash.length) {
+      $("#whoChoose").textContent = d.email;
+      $("#chooseChoices").innerHTML = can.map(link).join("");
+      return show("choose");
+    }
     sessionStorage.removeItem("ppc_id_token");
     $("#whoNone").textContent = d.email;
     $("#noneMsg").textContent = d.kiosk
       ? "You don't have access to the dashboards yet. Ask the principal to add you under People & access. You can still set up the check-in iPad."
       : "This account doesn't have access. Sign in with your @" + (CFG.KIOSK_DOMAIN || CFG.ALLOWED_DOMAIN || "school") + " Google account, or ask the principal to add you.";
-    $("#noneChoices").innerHTML = d.kiosk ? `<a href="${PAGES.kiosk.href}">${window.PPC_ICON ? PPC_ICON(PAGES.kiosk.icon, 22) : ""}<span>${esc(PAGES.kiosk.label)}<small>${esc(PAGES.kiosk.hint)}</small></span></a>` : "";
+    $("#noneChoices").innerHTML = d.kiosk ? link("kiosk") : "";
     show("none");
   }
   function fail(m) { sessionStorage.removeItem("ppc_id_token"); $("#msg").textContent = m; show("signin"); renderButton(); }
@@ -112,6 +125,7 @@
     document.head.appendChild(s);
   }
   const switchAccount = () => { sessionStorage.removeItem("ppc_id_token"); $("#msg").textContent = ""; show("signin"); renderButton(); };
+  $("#switch1").addEventListener("click", switchAccount);
   $("#switch2").addEventListener("click", switchAccount);
 
   // Already signed in on this tab? Route straight away.
