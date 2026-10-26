@@ -34,6 +34,20 @@
   .ctl { display: inline-flex; align-items: center; gap: 6px; font-size: 14px; font-weight: 700; padding: 8px 14px; border: 1px solid var(--border-2); border-radius: var(--radius-sm); background: var(--panel); color: var(--fg-1); text-decoration: none; cursor: pointer; transition: background var(--duration-fast) var(--ease-standard); }
   .ctl:hover { background: var(--psd-gray-100); color: var(--fg-1); }
   select.ctl { font-weight: 600; }
+  /* Account menu: same pop-up as the principal dashboard's */
+  .popmenu { position: fixed; margin: 0; padding: 6px; list-style: none; background: var(--panel); border: 1px solid var(--line); border-radius: var(--radius-md); box-shadow: var(--shadow-md); z-index: 40; min-width: 210px; display: none; }
+  .popmenu.open { display: block; }
+  .popmenu li:has(> .hidden) { display: none; }
+  .popmenu li button, .popmenu li a { display: flex; align-items: center; gap: 8px; width: 100%; min-height: 44px; text-align: left; border: 0; background: none; padding: 10px 12px; border-radius: var(--radius-sm); font: inherit; font-size: 14px; font-weight: 600; color: var(--fg-1); text-decoration: none; white-space: nowrap; cursor: pointer; }
+  .popmenu li button:hover, .popmenu li a:hover { background: var(--surface-tint); }
+  /* When the header can't fit on one line, Account stays top right next to the logo and the other controls move to a second row. */
+  @media (max-width: 1199px) {
+    body header > div:first-child { order: 0; flex-basis: 0; flex: 1 1 0; min-width: 0; }
+    #acctBtn { order: 1; }
+    header::after { content: ""; order: 2; flex-basis: 100%; height: 0; }
+    header .spacer { display: none; }
+    #helpBtn, #controls > :not(#acctBtn) { order: 3; }
+  }
   @media (max-width: 640px) {
     header { position: static; padding: 10px 16px 12px; gap: 8px; }
     header > div:first-child { flex-basis: 100%; }
@@ -289,8 +303,13 @@
     </select>
     <button class="ctl" id="refresh" type="button"><i data-icon="refresh-cw" data-size="16"></i>Refresh</button>
     <button class="ctl" id="csv" type="button"><i data-icon="download" data-size="16"></i>CSV</button>
-    <a class="ctl hidden" id="sheetLink" href="#" target="_blank" rel="noopener"><i data-icon="external-link" data-size="16"></i>Open Sheet</a>
+    <button class="ctl" id="acctBtn" type="button" aria-haspopup="true" aria-expanded="false" aria-controls="acctMenu"><i data-icon="users" data-size="16"></i>Account<i data-icon="chevron-down" data-size="16"></i></button>
   </div>
+  <ul id="acctMenu" class="popmenu">
+    <li><a id="sheetLink" class="hidden" href="#" target="_blank" rel="noopener noreferrer"><i data-icon="external-link" data-size="16"></i>Open the Google Sheet</a></li>
+    <li><a id="principalLink" class="hidden" href="principal.html"><i data-icon="activity" data-size="16"></i>Principal dashboard</a></li>
+    <li><button type="button" id="signOutBtn"><i data-icon="log-out" data-size="16"></i>Sign out</button></li>
+  </ul>
 </header>
 
 <main>
@@ -557,6 +576,27 @@
     if (msg) sessionStorage.setItem("ppc_signin_msg", msg);
     location.replace(CFG.SCRIPT_URL ? "login.html?next=staff" : location.href);
   }
+  // Account menu (top right), opened under its button like the principal dashboard's.
+  const acctBtn = $("#acctBtn"), acctMenu = $("#acctMenu");
+  function closeAcct() { acctMenu.classList.remove("open"); acctBtn.setAttribute("aria-expanded", "false"); }
+  acctBtn.addEventListener("click", e => {
+    e.stopPropagation();
+    if (acctMenu.classList.contains("open")) return closeAcct();
+    acctMenu.classList.add("open"); acctBtn.setAttribute("aria-expanded", "true");
+    const r = acctBtn.getBoundingClientRect();
+    acctMenu.style.top = (r.bottom + 4) + "px";
+    acctMenu.style.left = Math.max(8, Math.min(window.innerWidth - acctMenu.offsetWidth - 8, r.right - acctMenu.offsetWidth)) + "px";
+    const f = [...acctMenu.querySelectorAll("button, a")].find(x => x.offsetParent); if (f) f.focus();
+  });
+  document.addEventListener("click", e => { if (!acctMenu.contains(e.target)) closeAcct(); });
+  document.addEventListener("keydown", e => { if (e.key === "Escape" && acctMenu.classList.contains("open")) { closeAcct(); acctBtn.focus(); } });
+  $("#signOutBtn").addEventListener("click", () => signOut());
+  // People who can also open the principal dashboard get a link to it (asked once per page load).
+  let principalChecked = false;
+  async function showPrincipalLink() {
+    if (principalChecked || TEST) return; principalChecked = true;
+    try { const w = await post({ type: "whoami" }); if (w.ok && w.principal) $("#principalLink").classList.remove("hidden"); } catch {}
+  }
   function openDash() {
     $("#gate").classList.add("hidden");
     $("#dash").classList.remove("hidden");
@@ -585,8 +625,8 @@
         throw new Error(d.error || "Could not load");
       }
       data = d;
-      $("#who").innerHTML = `Signed in as ${esc(d.email)} <button type="button" id="signout">Sign out</button>`;
-      $("#signout").addEventListener("click", () => signOut());
+      $("#who").textContent = "Signed in as " + d.email;
+      showPrincipalLink();
       if (d.sheetUrl) { $("#sheetLink").href = d.sheetUrl; $("#sheetLink").classList.remove("hidden"); }
       $("#status").textContent = `Updated ${new Date().toLocaleTimeString([], { hour: "numeric", minute: "2-digit" })} · refreshes every minute`;
       renderAll();
