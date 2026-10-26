@@ -95,9 +95,16 @@
     const can = ["principal", "staff", "kiosk"].filter(k => d[k]);
     // Straight through when the person was already heading somewhere they can open.
     if (next && can.includes(next)) return location.replace(PAGES[next].href);
-    // One dashboard only: go there. More than one place: let them pick.
     const dash = can.filter(k => k !== "kiosk");
-    if (dash.length === 1 && can.length === 1) return location.replace(PAGES[dash[0]].href);
+    // People the principal listed under People & access go straight to their dashboard: the principal
+    // dashboard if they have it, otherwise the staff one. Kiosk-only people go to the kiosk, where
+    // this sign-in can sign the device in with one tap. The kiosk is also in every dashboard's Account menu.
+    const owner = (CFG.PRINCIPAL_EMAILS || []).map(e => String(e).toLowerCase()).includes(String(d.email || "").toLowerCase());
+    if (!owner) {
+      if (dash.length) return location.replace(PAGES[dash[0]].href);
+      if (d.kiosk) return location.replace(PAGES.kiosk.href);
+    }
+    // The owners (the principal and the setup admin) pick where to go.
     if (dash.length) {
       $("#whoChoose").textContent = d.email;
       $("#chooseChoices").innerHTML = can.map(link).join("");
