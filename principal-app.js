@@ -274,6 +274,8 @@
   document.querySelectorAll("#sourceSwitch [data-src]").forEach(b => b.addEventListener("click", () => switchTo(b.dataset.src)));
 
   // ---------- Sign-in (live only) ----------
+  // The kiosk opens in place of this page, so Back on a check-in iPad can't return to a dashboard.
+  document.querySelectorAll('a[href="index.html"]').forEach(a => a.addEventListener("click", e => { e.preventDefault(); location.replace(a.href); }));
   function start() {
     state = loadLocal() || defaultState();
     state.boards = cleanBoards(state.boards); if (!state.boards.length) state.boards = starterBoards();
@@ -803,14 +805,16 @@
       + ` Each person signs in with their school Google account.`;
     const fixed = owners.map(e => `<tr><td>${esc(e)}</td><td class="c">${IC("check", 18, "Yes")}</td><td class="c">${IC("check", 18, "Yes")}</td><td class="c">${IC("check", 18, "Yes")}</td><td class="fixed">Owner</td></tr>`).join("");
     $("#accRows").innerHTML = fixed + acc.people.filter(p => !owners.includes(p.email)).map((p, i) => `<tr data-i="${i}"><td>${esc(p.email)}</td>
-      <td class="c"><input type="checkbox" data-k="staff" ${p.staff ? "checked" : ""} aria-label="Staff dashboard for ${esc(p.email)}"></td>
+      <td class="c">${p.principal
+        ? `<input type="checkbox" checked disabled title="Comes with principal access" aria-label="Staff dashboard for ${esc(p.email)}, comes with principal access">`
+        : `<input type="checkbox" data-k="staff" ${p.staff ? "checked" : ""} aria-label="Staff dashboard for ${esc(p.email)}">`}</td>
       <td class="c"><input type="checkbox" data-k="principal" ${p.principal ? "checked" : ""} aria-label="Principal dashboard for ${esc(p.email)}"></td>
       <td class="c">${(p.staff || p.principal)
         ? `<input type="checkbox" checked disabled title="Included with dashboard access" aria-label="Check-in iPad for ${esc(p.email)}, included with dashboard access">`
         : `<input type="checkbox" data-k="kiosk" ${p.kiosk ? "checked" : ""} aria-label="Check-in iPad for ${esc(p.email)}">`}</td>
       <td><button type="button" class="btn sm" data-rm="${i}">Remove</button></td></tr>`).join("");
     const list = acc.people.filter(p => !owners.includes(p.email));
-    // A dashboard box includes the iPad, so redraw to show that when one changes.
+    // Principal access includes the staff dashboard, and either dashboard includes the iPad, so redraw when one changes.
     $("#accRows").querySelectorAll("input[data-k]").forEach(cb => cb.addEventListener("change", () => { list[Number(cb.closest("tr").dataset.i)][cb.dataset.k] = cb.checked; if (cb.dataset.k !== "kiosk") renderAccess(); }));
     $("#accRows").querySelectorAll("[data-rm]").forEach(b => b.addEventListener("click", () => { const p = list[Number(b.dataset.rm)]; acc.people = acc.people.filter(x => x !== p); renderAccess(); }));
   }
@@ -951,4 +955,5 @@
   let rt; window.addEventListener("resize", () => { clearTimeout(rt); rt = setTimeout(() => { if (tables) renderBoard(); }, 250); });
 
   start();
+  if (!window.PPC_CONFIG) showBanner("The settings file (config.js) couldn't be read, so the principal dashboard can't load live data. Fix the typo in config.js on GitHub, then reload.");
 })();

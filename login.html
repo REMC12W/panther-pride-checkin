@@ -68,6 +68,7 @@
 <script>
 (function () {
   const CFG = Object.assign({ SCRIPT_URL: "", GOOGLE_CLIENT_ID: "" }, window.PPC_CONFIG || {});
+  const CONFIG_OK = !!window.PPC_CONFIG;
   const $ = s => document.querySelector(s);
   const esc = s => String(s == null ? "" : s).replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
   const PAGES = {
@@ -92,6 +93,8 @@
     } catch (err) { return fail("Couldn't reach the Sheet. Check the Wi-Fi and try again."); }
     if (!d.ok) return fail(/Bad token|Unknown request/.test(d.error || "") ? "The dashboard isn't fully set up yet. Ask Ben to finish the update, then try again." : d.error);
     sessionStorage.setItem("ppc_id_token", token); // the dashboards reuse this sign-in
+    // A staff dashboard sign-in saved on this computer for someone else ends now.
+    try { const sp = JSON.parse(localStorage.getItem("ppc_staff_pass") || "null"); if (sp && String(sp.email || "").toLowerCase() !== String(d.email || "").toLowerCase()) localStorage.removeItem("ppc_staff_pass"); } catch (e) {}
     const can = ["principal", "staff", "kiosk"].filter(k => d[k]);
     // Straight through when the person was already heading somewhere they can open.
     if (next && can.includes(next)) return location.replace(PAGES[next].href);
@@ -101,17 +104,25 @@
     if (can.length) {
       $("#whoChoose").textContent = d.email;
       $("#chooseChoices").innerHTML = can.map(link).join("");
+      // The kiosk opens in place of this page, so Back on a check-in iPad can't return here.
+      $("#chooseChoices").querySelectorAll('a[href="index.html"]').forEach(a => a.addEventListener("click", e => { e.preventDefault(); location.replace(a.href); }));
       return show("choose");
     }
     sessionStorage.removeItem("ppc_id_token");
-    $("#whoNone").textContent = d.email;
-    $("#noneMsg").textContent = "This account doesn't have access. Sign in with your @" + (CFG.KIOSK_DOMAIN || CFG.ALLOWED_DOMAIN || "school") + " Google account, or ask the principal to add you.";
+    $("#whoNone").textContent = d.email + (d.workspace ? " (Google Workspace: " + d.workspace + ")" : " (personal Google account)");
+    const domain = CFG.KIOSK_DOMAIN || CFG.ALLOWED_DOMAIN || "school";
+    // The script says why (see whoami_ in Code.gs), so the person knows what to do next.
+    $("#noneMsg").textContent =
+      d.reason === "personal" ? "This is a personal Google account. Sign in with the Google account your district gave you (usually @" + domain + "), using Use a different account below." :
+      d.reason === "no-list" ? "People & access hasn't been set up yet. Ask the principal to add you there." :
+      "This account isn't on the principal's People & access list. If you have more than one Google account, make sure you signed in with the school one (@" + domain + "); otherwise ask the principal to add this address.";
     $("#noneChoices").innerHTML = "";
     show("none");
   }
   function fail(m) { sessionStorage.removeItem("ppc_id_token"); $("#msg").textContent = m; show("signin"); renderButton(); }
 
   function renderButton() {
+    if (!CONFIG_OK) { $("#msg").textContent = "Sign-in is down: the settings file (config.js) couldn't be read. Fix the typo in config.js on GitHub, then reload."; return; }
     if (!CFG.GOOGLE_CLIENT_ID || !CFG.SCRIPT_URL) { $("#msg").textContent = "Sign-in isn't set up: add GOOGLE_CLIENT_ID and SCRIPT_URL to config.js."; return; }
     const draw = () => {
       google.accounts.id.initialize({ client_id: CFG.GOOGLE_CLIENT_ID, auto_select: false, ux_mode: "popup", callback: r => route(r.credential) });
@@ -122,7 +133,13 @@
     s.onerror = () => { const m = $("#msg"); m.textContent = (m.textContent ? m.textContent + " " : "") + "Couldn't load Google sign-in. Check the network and try again."; };
     document.head.appendChild(s);
   }
-  const switchAccount = () => { sessionStorage.removeItem("ppc_id_token"); $("#msg").textContent = ""; show("signin"); renderButton(); };
+  // Use a different account: forget this tab's sign-in and any staff pass saved on this computer, and
+  // tell Google not to pick the last account by itself, so its account chooser comes up.
+  const switchAccount = () => {
+    sessionStorage.removeItem("ppc_id_token"); try { localStorage.removeItem("ppc_staff_pass"); } catch (e) {}
+    try { if (window.google && google.accounts) google.accounts.id.disableAutoSelect(); } catch (e) {}
+    $("#msg").textContent = ""; show("signin"); renderButton();
+  };
   $("#switch1").addEventListener("click", switchAccount);
   $("#switch2").addEventListener("click", switchAccount);
 

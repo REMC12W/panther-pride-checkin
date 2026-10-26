@@ -9,9 +9,10 @@ window.PPC_CONFIG = {
   // Admin dashboard sign-in (staff.html). A Google OAuth "Web application" Client ID
   // from Google Cloud Console (README step 5). Must also be set in Code.gs.
   GOOGLE_CLIENT_ID: "680243392561-vod2q88igf1v8mr84uc7b4h075lv6g5p.apps.googleusercontent.com",
-  // Who can sign in: @parchmentschools.org staff listed in the Sheet's "Staff" tab, plus
-  // ADMIN_EMAILS in Code.gs. The script enforces it; these only label the sign-in pages
-  // and hint Google which accounts to offer. Must match ALLOWED_DOMAIN in Code.gs.
+  // Who can sign in: the people on the Sheet's "Access" tab (People & access on the principal
+  // dashboard), plus PRINCIPAL_EMAILS and ADMIN_EMAILS in Code.gs, each with their own school
+  // Google account (@parchmentschools.org, or a partner's such as @kresa.org). The script enforces
+  // it; these only label the sign-in pages. Must match ALLOWED_DOMAIN in Code.gs.
   ALLOWED_DOMAIN: "parchmentschools.org",
   KIOSK_DOMAIN: "parchmentschools.org",
 
@@ -66,10 +67,22 @@ window.PPC_CONFIG = {
   ],
 
   // Alert words: the staff page shows "Staff should go to this student". On the iPad the student
-  // goes on to the station picker like any word. Typed words never alert.
+  // goes on to the station picker like any word and sees nothing different. A student who checks
+  // out with one of these words also raises the alert, again only on the staff page.
   STAFF_FIRST_WORDS: [
     "Enraged", "Livid", "Fuming", "Panicked", "Frightened",
     "Despair", "Hopeless", "Desolate", "Despondent", "Depressed",
+  ],
+  // Worrying words and phrases. If a student TYPES one (their own feeling word, or the story in an
+  // incident report), or types one of the alert words above, the staff page raises the same alert.
+  // The student sees nothing different. Matching ignores capitals and only matches whole words,
+  // so "die" does not match "diet". Add or remove freely.
+  WORRY_WORDS: [
+    "die", "dying", "dead", "death", "kill", "killing", "kill myself", "kms", "kys",
+    "suicide", "suicidal", "end it", "end my life", "want to disappear", "no reason to live",
+    "hurt myself", "hurting myself", "cut myself", "cutting", "self harm", "self-harm", "overdose",
+    "hate myself", "hate my life", "worthless", "not safe", "unsafe", "gun", "weapon",
+    "abuse", "abused", "rape", "raped", "molested",
   ],
 
   // Check-out: what helped. Students can pick more than one.
@@ -98,6 +111,13 @@ window.PPC_CONFIG = {
     { icon: "package-x", label: "Something was taken or broken" },
     { icon: "triangle-alert", label: "Something unsafe" },
     { icon: "circle-help", label: "Something else" },
+  ],
+  // Incident reports with any of these answers show on the staff page as urgent (red), with a
+  // reminder about district reporting rules. The student sees nothing different.
+  // Each must match a label in INCIDENT_TYPES exactly.
+  SERIOUS_INCIDENT_TYPES: [
+    "Someone hit or pushed me", "Someone threatened me",
+    "Someone touched me in a way I didn't like", "Something unsafe",
   ],
   // Where and when, matching the district "Student Incident Report" Google Form.
   INCIDENT_PLACES: [

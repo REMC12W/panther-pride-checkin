@@ -60,6 +60,8 @@
   main { max-width: 1180px; margin: 0 auto; padding: 18px 16px 96px; }
   .status-line { color: var(--ink-3); font-size: 0.88rem; margin: 0 0 14px; }
   .status-line.err { color: var(--st-critical); }
+  .paused { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 14px; margin: 0 0 14px; padding: 10px 14px; border: 1px solid var(--st-critical); border-left-width: 6px; border-radius: var(--radius-sm); background: color-mix(in srgb, var(--st-critical) 7%, var(--panel)); color: var(--ink); font-weight: 600; }
+  .paused a { color: var(--st-critical); font-weight: 700; }
   h2 { font-size: 1.12rem; font-weight: 600; margin: 0 0 4px; }
   .sub { color: var(--ink-3); font-size: 0.86rem; margin: 0 0 12px; }
   section { margin-bottom: 26px; }
@@ -84,6 +86,7 @@
   .alert .lbl { font-size: 0.75rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.04em; color: var(--ink-2); }
   .alert .t { font-weight: 600; font-size: 1rem; margin-top: 1px; }
   .alert .d { color: var(--ink-2); font-size: 0.9rem; margin-top: 2px; line-height: 1.35; }
+  .alert .d.note { color: var(--ink); font-weight: 600; }
   .alert .acts { display: flex; gap: 6px; flex-wrap: wrap; }
   @media (max-width: 600px) {
     .alert { grid-template-columns: 34px 1fr; }
@@ -326,6 +329,7 @@
   </div>
 
   <div id="dash" class="hidden">
+    <div class="paused hidden" id="paused" role="alert"><span>Alerts are paused: your sign-in ran out.</span><a href="login.html?next=staff">Sign in again</a></div>
     <p class="status-line" id="status"></p>
 
     <!-- 1. Act now -->
@@ -514,10 +518,18 @@
 <script src="config.js"></script>
 <script>
 (function () {
-  const CFG = Object.assign({ SCRIPT_URL: "", GOOGLE_CLIENT_ID: "", ALLOWED_DOMAIN: "parchmentschools.org", DASHBOARD_DAYS: 14 }, window.PPC_CONFIG || {});
+  const CFG = Object.assign({ SCRIPT_URL: "", GOOGLE_CLIENT_ID: "", ALLOWED_DOMAIN: "parchmentschools.org", DASHBOARD_DAYS: 14,
+    STAFF_FIRST_WORDS: [], WORRY_WORDS: [], SERIOUS_INCIDENT_TYPES: [] }, window.PPC_CONFIG || {});
   const $ = s => document.querySelector(s);
-  const TEST = !CFG.SCRIPT_URL;
+  // config.js missing or broken: say so, and never fall back to test mode (which needs no sign-in).
+  const CONFIG_OK = !!window.PPC_CONFIG;
+  const TEST = CONFIG_OK && !CFG.SCRIPT_URL;
   let idToken = sessionStorage.getItem("ppc_id_token") || "";
+  // Staff pass: Google's sign-in lasts an hour, so the script trades it for a pass that keeps this
+  // computer signed in. Each day it's used renews it; unused for 30 days, or Sign out, ends it.
+  // Taking someone off People & access ends it at once (checked on every request).
+  const PASS_KEY = "ppc_staff_pass";
+  let pass = (() => { try { const p = JSON.parse(localStorage.getItem(PASS_KEY) || "null"); return p && p.pass ? p : null; } catch { return null; } })();
   let data = { checkins: [], incidents: [] };
 
   // Mood meter quadrants, in the validated order.
@@ -536,20 +548,35 @@
   const FU_ACTIONS = ["Talked it through", "Contacted family", "Sent to office", "Referred to counselor", "Other"];
   const FU_STATUSES = ["Resolved", "Needs more follow-up"];
   const isOpen = r => !r.reviewed || r.status === "Needs more follow-up";
-  // A student tapped an alert word (config.js STAFF_FIRST_WORDS). Older rows stored it as the station.
-  const needsStaff = r => (r.stationSuggested === "Staff first" || r.station === "Staff first") && r.outcome !== "Incident Report";
+  // Worrying words (config.js STAFF_FIRST_WORDS and WORRY_WORDS), as a whole word anywhere in the text.
+  const plain = t => " " + String(t || "").toLowerCase().replace(/[\u2018\u2019]/g, "'").replace(/[^a-z0-9']+/g, " ").trim() + " ";
+  const WORRY = (CFG.STAFF_FIRST_WORDS || []).concat(CFG.WORRY_WORDS || []).map(w => plain(w).trim()).filter(Boolean);
+  const worrying = text => { const t = plain(text); return t.trim() !== "" && WORRY.some(k => t.includes(" " + k + " ")); };
+  // A student tapped an alert word or typed a worrying word. Older rows stored it as the station.
+  const needsStaff = r => (r.stationSuggested === "Staff first" || r.station === "Staff first" || worrying(r.moodWord)) && r.outcome !== "Incident Report";
+  // Incident reports that are urgent for staff: a serious kind (config.js SERIOUS_INCIDENT_TYPES) or a worrying story.
+  const SERIOUS = (CFG.SERIOUS_INCIDENT_TYPES || []).map(t => String(t).trim().toLowerCase());
+  const seriousKind = r => String(r.types || "").split(",").some(t => SERIOUS.includes(t.trim().toLowerCase()));
+  const serious = r => seriousKind(r) || worrying(r.story);
+  const unfinished = r => String(r.unfinished || "") === "Yes";
+  // Once the school uses the name list, a visit with no Student ID was typed by a student whose name wasn't found.
+  const notListed = r => !r.studentId && (data.checkins || []).some(x => x.studentId);
   const DISMISS_KEY = "ppc_dismissed";
 
   // ---------- Sign-in ----------
   function start() {
     const w = String(CFG.DASHBOARD_DAYS);
     if ([...$("#win").options].some(o => o.value === w)) $("#win").value = w;
+    if (!CONFIG_OK) { $("#gateMsg").textContent = "The dashboard is down: the settings file (config.js) couldn't be read. Fix the typo in config.js on GitHub, then reload."; return; }
     if (TEST) { $("#who").textContent = "Test mode · this device only"; openDash(); load(); return; }
     if (!CFG.GOOGLE_CLIENT_ID) {
       $("#gateMsg").textContent = "Sign-in isn't set up yet: add GOOGLE_CLIENT_ID to config.js (README step 5).";
       return;
     }
-    if (idToken) { openDash(); load(); return; }
+    // Someone just signed in with Google on this tab: if the saved pass is another person's, theirs replaces it.
+    if (idToken && idTokenFresh() && (!pass || String(pass.email || "").toLowerCase() !== tokenEmail())) { forgetPass(); openDash(); getPass().then(load); return; }
+    if (pass) { openDash(); load(); return; }
+    if (idToken) { openDash(); getPass().then(load); return; }
     // One sign-in page for everyone: it sends people back here if they have staff access.
     if (CFG.SCRIPT_URL) { location.replace("login.html?next=staff"); return; }
     const s = document.createElement("script");
@@ -570,9 +597,36 @@
   function onCredential(resp) {
     idToken = resp.credential;
     sessionStorage.setItem("ppc_id_token", idToken);
-    openDash(); load();
+    openDash(); getPass().then(load);
+  }
+  // Trades this tab's Google sign-in for a staff pass. An older script, or no Wi-Fi: keep using the
+  // Google sign-in for now (it lasts an hour).
+  let passUnsupported = false; // the deployed script is older and has no staff passes
+  async function getPass() {
+    if (!idToken || TEST || passUnsupported) return;
+    try {
+      const d = await post({ type: "staffSignIn" });
+      if (d.ok && d.pass) { pass = { pass: d.pass, email: d.email, expires: d.expires }; try { localStorage.setItem(PASS_KEY, JSON.stringify(pass)); } catch {} }
+      else if (/Unknown request/i.test(d.error || "")) passUnsupported = true;
+    } catch {}
+  }
+  function forgetPass() { pass = null; try { localStorage.removeItem(PASS_KEY); } catch {} }
+  const claims = () => { try { const b = idToken.split(".")[1].replace(/-/g, "+").replace(/_/g, "/"); return JSON.parse(atob(b + "=".repeat((4 - b.length % 4) % 4))); } catch { return {}; } };
+  const idTokenFresh = () => (claims().exp || 0) * 1000 > Date.now() + 60000;
+  const tokenEmail = () => String(claims().email || "").toLowerCase();
+  // The sign-in ran out (an older script without passes, or a pass unused for a month). Try this tab's
+  // Google sign-in; otherwise keep the page, and anything half-typed, on screen and ask for a new sign-in.
+  let paused = false;
+  async function signInLost() {
+    if (pass) { forgetPass(); if (idTokenFresh()) { await getPass(); if (pass) return load(); } }
+    paused = true;
+    $("#paused").classList.remove("hidden");
+    $("#status").className = "status-line err";
+    $("#status").textContent = "Not updating. Sign in again to see new check-ins and alerts.";
   }
   function signOut(msg) {
+    if (pass && CFG.SCRIPT_URL) { try { fetch(CFG.SCRIPT_URL, { method: "POST", keepalive: true, headers: { "Content-Type": "text/plain;charset=utf-8" }, body: JSON.stringify({ type: "staffSignOut", pass: pass.pass }) }).catch(() => {}); } catch {} }
+    forgetPass();
     idToken = ""; sessionStorage.removeItem("ppc_id_token");
     if (msg) sessionStorage.setItem("ppc_signin_msg", msg);
     location.replace(CFG.SCRIPT_URL ? "login.html?next=staff" : location.href);
@@ -592,6 +646,8 @@
   document.addEventListener("click", e => { if (!acctMenu.contains(e.target)) closeAcct(); });
   document.addEventListener("keydown", e => { if (e.key === "Escape" && acctMenu.classList.contains("open")) { closeAcct(); acctBtn.focus(); } });
   $("#signOutBtn").addEventListener("click", () => signOut());
+  // The kiosk opens in place of this page, so Back on a check-in iPad can't return to the dashboard.
+  document.querySelectorAll('a[href="index.html"]').forEach(a => a.addEventListener("click", e => { e.preventDefault(); location.replace(a.href); }));
   // People who can also open the principal dashboard get a link to it (asked once per page load).
   let principalChecked = false;
   async function showPrincipalLink() {
@@ -611,7 +667,7 @@
   async function post(body) {
     const res = await fetch(CFG.SCRIPT_URL, {
       method: "POST", headers: { "Content-Type": "text/plain;charset=utf-8" },
-      body: JSON.stringify(Object.assign({ idToken }, body)), redirect: "follow"
+      body: JSON.stringify(Object.assign(pass ? { pass: pass.pass } : { idToken }, body)), redirect: "follow"
     });
     return res.json();
   }
@@ -619,13 +675,17 @@
     $("#status").className = "status-line";
     $("#status").textContent = "Loading…";
     if (TEST) { loadLocal(); return; }
+    if (!pass && idToken && idTokenFresh()) await getPass(); // the first try may have failed for a moment
     try {
       const d = await post({ type: "dashboard", days: Math.max(win(), 14) });
       if (!d.ok) {
-        if (/token|sign|expired|authorized|domain|can't open|ask the principal/i.test(d.error || "")) return signOut(d.error);
+        // Taken off the list: leave at once. Only a sign-in that ran out keeps the page.
+        if (/authorized|domain|can't open|ask the principal/i.test(d.error || "")) return signOut(d.error);
+        if (/token|sign|expired/i.test(d.error || "")) return signInLost();
         throw new Error(d.error || "Could not load");
       }
-      data = d;
+      if (paused) { paused = false; $("#paused").classList.add("hidden"); }
+      data = tidy(d);
       $("#who").textContent = "Signed in as " + d.email;
       showPrincipalLink();
       if (d.sheetUrl) { $("#sheetLink").href = d.sheetUrl; $("#sheetLink").classList.remove("hidden"); }
@@ -652,7 +712,7 @@
     ins.forEach(r => { if (confirms[r.timestamp]) r.confirmed = confirms[r.timestamp]; });
     let reviews = {}; try { reviews = JSON.parse(localStorage.getItem("ppc_local_reviews") || "{}"); } catch {}
     const incs = raw.filter(r => r.type === "incident").map(r => Object.assign({}, r, reviews[r.timestamp] || {}));
-    data = { checkins: ins, incidents: incs };
+    data = tidy({ checkins: ins, incidents: incs });
     $("#status").textContent = "Test mode: showing check-ins saved on this device only.";
     renderAll();
   }
@@ -669,36 +729,67 @@
   const ago = ts => { const m = Math.round((Date.now() - new Date(ts)) / 60000); return m < 1 ? "just now" : m < 60 ? `${m} min ago` : m < 1440 ? `${Math.floor(m / 60)} hr ${m % 60} min ago` : when(ts); };
   const inWindow = (ts, days) => Date.now() - new Date(ts) <= days * 86400000;
   const dot = g => MOOD[g] ? `<i style="background:${MOOD[g].v}"></i>` : "";
+  // Mood color for any value: an unknown mood or station is gray instead of breaking the page.
+  const mv = g => MOOD[g] ? MOOD[g].v : "var(--ink-3)";
+  // Rows as they come from the Sheet, tidied: spaces trimmed, "red" or "Red " read as Red, and rows
+  // without a usable time left out, so one hand-edited cell can't blank the dashboard.
+  const CANON = { red: "Red", yellow: "Yellow", blue: "Blue", green: "Green", "staff first": "Staff first" };
+  const canon = v => { const t = String(v ?? "").trim(); return CANON[t.toLowerCase()] || t; };
+  const okTime = r => r && r.timestamp && !isNaN(new Date(r.timestamp).getTime());
+  const trimAll = r => { const x = Object.assign({}, r); Object.keys(x).forEach(k => { if (typeof x[k] === "string") x[k] = x[k].trim(); }); return x; };
+  // Rows written while setting up or demoing the kiosk, not by students (the same rule as the principal page).
+  const isTestRow = r => /^(SAMPLE DATA|Setup check)$/i.test(String(r.kiosk || "").trim()) || /\(sample\)\s*$/i.test(String(r.name || "")) || /^connection test/i.test(String(r.name || ""));
+  function tidy(d) {
+    d.checkins = (Array.isArray(d.checkins) ? d.checkins : []).filter(r => okTime(r) && !isTestRow(r)).map(trimAll).map(r => {
+      ["moodGroup", "outMoodGroup", "station", "stationSuggested"].forEach(k => { r[k] = canon(r[k]); });
+      if (r.checkoutTime && isNaN(new Date(r.checkoutTime).getTime())) r.checkoutTime = "";
+      return r;
+    });
+    d.incidents = (Array.isArray(d.incidents) ? d.incidents : []).filter(r => okTime(r) && !isTestRow(r)).map(trimAll);
+    return d;
+  }
   const pill = (g, word) => g ? `<span class="pill">${dot(g)}${esc(word || g)}</span>` : "";
   const unpleasant = g => g === "Red" || g === "Blue";
   function getDismissed() { try { return JSON.parse(localStorage.getItem(DISMISS_KEY) || "{}"); } catch { return {}; } }
   function dismiss(key) { const d = getDismissed(); d[key] = Date.now(); try { localStorage.setItem(DISMISS_KEY, JSON.stringify(d)); } catch {} renderAll(); }
 
   // ---------- Render ----------
+  // Each section draws on its own: a problem in one shows a note there instead of blanking the page.
+  function section(sel, fn, what) {
+    try { fn(); }
+    catch (err) {
+      console.error(what || sel, err);
+      const el = $(sel); if (!el) return;
+      const msg = `Couldn't show ${what || "this part"}: something in the Sheet looks wrong. The rest of the page is fine.${sel === "#alerts" ? " Check new check-ins and incident reports in the Sheet until this is fixed." : ""}`;
+      el.innerHTML = el.tagName === "TBODY" ? `<tr><td colspan="8" class="empty">${esc(msg)}</td></tr>` : `<div class="empty" role="alert">${esc(msg)}</div>`;
+    }
+  }
   function renderAll() {
     const all = data.checkins.slice().sort((a, b) => new Date(a.timestamp) - new Date(b.timestamp));
     const today = all.filter(r => dayKey(r.timestamp) === todayKey());
     const inWin = all.filter(r => inWindow(r.timestamp, win()));
-    renderAlerts(all, today);
-    renderRoom(today);
-    renderTiles(all, today);
-    renderMeter(inWin);
-    renderFlow(inWin);
-    renderDaily(inWin);
-    renderHourly(inWin);
-    bars("#happened", count(inWin, "happened", HAPPENED), "No answers yet.");
-    bars("#needs", countSplit(inWin, "basicNeeds"), "No basic needs requested.");
-    bars("#helped", countSplit(inWin, "helped"), "No check-outs yet.");
-    bars("#referral", count(inWin, "referral", ["Self Referred", "Staff Referred"]), "No check-ins yet.", null, true);
-    bars("#reason", count(inWin.map(r => Object.assign({}, r, { reasonLabel: r.outcome === "Incident Report" ? "Incident report" : r.need === "Basic Need" ? "Basic need" : REASON_SHORT[r.reason] || r.reason })), "reasonLabel", REASON_ORDER), "No check-ins yet.", null, true, REASON_ORDER.length);
-    bars("#energy", count(inWin, "energy", ["Moving Fast", "Moving Ok", "Moving Slow"]), "No check-ins yet.", null, true);
-    const st = inWin.filter(r => r.station);
-    bars("#station", count(st, "station", ["Red", "Yellow", "Blue", "Green", "Staff first"]), "No station picks yet.", g => MOOD[g] ? MOOD[g].v : null, true);
-    const picked = st.filter(r => r.stationSuggested && r.stationSuggested !== "Staff first");
-    if (picked.length) $("#station").insertAdjacentHTML("beforeend", `<div class="empty">${Math.round(100 * picked.filter(r => r.station === r.stationSuggested).length / picked.length)}% went to the suggested station.</div>`);
-    renderLog(inWin);
-    renderIncidents(data.incidents || []);
-    renderTimeline();
+    section("#alerts", () => renderAlerts(all, today), "Needs attention");
+    section("#room", () => renderRoom(today), "who's in the room");
+    section("#tiles", () => renderTiles(all, today), "today's numbers");
+    section("#meter", () => renderMeter(inWin), "the Mood Meter");
+    section("#flow", () => renderFlow(inWin), "arrived and left");
+    section("#daily", () => renderDaily(inWin), "visits by day");
+    section("#hourly", () => renderHourly(inWin), "visits by hour");
+    section("#happened", () => bars("#happened", count(inWin, "happened", HAPPENED), "No answers yet."));
+    section("#needs", () => bars("#needs", countSplit(inWin, "basicNeeds"), "No basic needs requested."));
+    section("#helped", () => bars("#helped", countSplit(inWin, "helped"), "No check-outs yet."));
+    section("#referral", () => bars("#referral", count(inWin, "referral", ["Self Referred", "Staff Referred"]), "No check-ins yet.", null, true));
+    section("#reason", () => bars("#reason", count(inWin.map(r => Object.assign({}, r, { reasonLabel: r.outcome === "Incident Report" ? "Incident report" : r.need === "Basic Need" ? "Basic need" : REASON_SHORT[r.reason] || r.reason })), "reasonLabel", REASON_ORDER), "No check-ins yet.", null, true, REASON_ORDER.length));
+    section("#energy", () => bars("#energy", count(inWin, "energy", ["Moving Fast", "Moving Ok", "Moving Slow"]), "No check-ins yet.", null, true));
+    section("#station", () => {
+      const st = inWin.filter(r => r.station);
+      bars("#station", count(st, "station", ["Red", "Yellow", "Blue", "Green", "Staff first"]), "No station picks yet.", g => MOOD[g] ? MOOD[g].v : null, true);
+      const picked = st.filter(r => r.stationSuggested && r.stationSuggested !== "Staff first");
+      if (picked.length) $("#station").insertAdjacentHTML("beforeend", `<div class="empty">${Math.round(100 * picked.filter(r => r.station === r.stationSuggested).length / picked.length)}% went to the suggested station.</div>`);
+    });
+    section("#tbody", () => renderLog(inWin), "the visit log");
+    section("#incList", () => renderIncidents(data.incidents || []), "incident reports");
+    section("#drBody", () => renderTimeline(), "today's timeline");
   }
 
   // 1. Needs attention: safety first, then follow-ups, then patterns.
@@ -708,23 +799,33 @@
     (data.incidents || []).filter(isOpen).forEach(r => {
       const notSafe = r.urgent === "Yes" && !r.reviewed; // older reports asked "Are you safe?"
       const more = !!r.reviewed;
+      const urgent = !notSafe && serious(r); // a serious kind of report, or a worrying story: red, for staff only
+      const left = unfinished(r) ? " · not finished" : "";
       items.push({
-        key: "inc:" + r.timestamp, rank: notSafe ? 0 : (more || r.talk === "Yes") ? 2 : 3, level: notSafe ? "critical" : "warning",
-        icon: notSafe ? "triangle-alert" : "shield-alert", label: notSafe ? "Said they are not safe" : more ? "Incident · needs more follow-up" : r.talk === "Yes" ? "Incident · wants to talk" : "Incident report",
+        key: "inc:" + r.timestamp, rank: notSafe ? 0 : urgent ? 1 : (more || r.talk === "Yes") ? 2 : 3, level: notSafe || urgent ? "critical" : "warning",
+        icon: notSafe || urgent ? "triangle-alert" : "shield-alert",
+        label: notSafe ? "Said they are not safe" : urgent ? (seriousKind(r) ? "Serious incident · follow up today" : "Report mentions a safety concern") + left : more ? "Incident · needs more follow-up" : (r.talk === "Yes" ? "Incident · wants to talk" : "Incident report") + left,
         title: `${r.name || "A student"}${r.grade ? " · " + r.grade : ""}`,
-        detail: `${r.types || "Incident"}${r.place ? " · " + r.place : ""}${r.period ? " · " + r.period : ""} · reported ${ago(r.timestamp)}`,
+        detail: `${r.types || "Incident"}${r.place ? " · " + r.place : ""}${r.period ? " · " + r.period : ""} · reported ${ago(r.timestamp)}${unfinished(r) ? " · the student left before finishing the report" : ""}`,
+        note: urgent ? "If this may be abuse, harm, or a threat, follow the district's reporting rules." : "",
         incident: r
       });
     });
-    today.filter(needsStaff).forEach(r => items.push({
+    // Alerts stay until a staff member taps Done (up to a week), so one raised after staff left isn't lost overnight.
+    all.filter(r => needsStaff(r) && inWindow(r.timestamp, 7)).forEach(r => items.push({
       key: "sf:" + r.timestamp, rank: 1, level: "critical", icon: "triangle-alert", label: "Staff should go to this student",
-      title: r.name, detail: `Picked "${r.moodWord}" at check-in · ${ago(r.timestamp)}`
+      title: r.name, detail: `Checked in feeling "${r.moodWord}" · ${ago(r.timestamp)}`
+    }));
+    // Left still feeling an alert word or a worrying word: the same alert, for staff only.
+    all.filter(r => r.checkoutTime && inWindow(r.checkoutTime, 7) && worrying(r.outMoodWord)).forEach(r => items.push({
+      key: "outsf:" + r.timestamp, rank: 1, level: "critical", icon: "triangle-alert", label: "Staff should check on this student",
+      title: r.name, detail: `Checked out feeling "${r.outMoodWord}" · ${ago(r.checkoutTime)}`
     }));
     all.filter(r => isNotThem(r) && inWindow(r.timestamp, 7)).forEach(r => items.push({
       key: "nt:" + r.timestamp, rank: 3, level: "warning", icon: "user-x", label: "Check-in not by this student",
       title: r.name, detail: `Staff marked the ${time(r.timestamp)} ${dayKey(r.timestamp) === todayKey() ? "" : "(" + fmtDay(dayKey(r.timestamp)) + ") "}check-in as someone else. Fix the name and Student ID in the Sheet, then tap Done.`
     }));
-    today.filter(r => r.checkoutTime && unpleasant(r.outMoodGroup)).forEach(r => items.push({
+    today.filter(r => r.checkoutTime && unpleasant(r.outMoodGroup) && !worrying(r.outMoodWord)).forEach(r => items.push({
       key: "out:" + r.timestamp, rank: 4, level: "warning", icon: "undo-2", label: "Left still " + r.outMoodGroup.toLowerCase(),
       title: r.name, detail: `Came in ${r.moodGroup ? r.moodGroup.toLowerCase() + " (" + r.moodWord + ")" : "—"}, left ${r.outMoodGroup.toLowerCase()} (${r.outMoodWord}) at ${time(r.checkoutTime)}. Consider a follow-up.`
     }));
@@ -754,7 +855,8 @@
           <div class="lbl">${esc(i.label)}</div>
           <div class="t"><span class="name" data-name="${esc(i.title)}" style="cursor:pointer">${esc(i.title)}</span></div>
           <div class="d">${esc(i.detail)}</div>
-          ${i.dots ? `<div class="dots">${i.dots.map(g => g ? `<i style="background:${MOOD[g].v}" title="${esc(g)}"></i>` : "").join("")}</div>` : ""}
+          ${i.note ? `<div class="d note">${esc(i.note)}</div>` : ""}
+          ${i.dots ? `<div class="dots">${i.dots.map(g => g ? `<i style="background:${mv(g)}" title="${esc(g)}"></i>` : "").join("")}</div>` : ""}
         </div>
         <div class="acts">${i.incident
           ? `<button type="button" class="primary" data-review="${n}">Follow up</button>`
@@ -774,7 +876,7 @@
       const g = r.station || r.moodGroup;
       return `<div class="person">
         <span class="dot" style="background:${MOOD[g] ? MOOD[g].v : "var(--ink-3)"}"></span>
-        <div><div class="n">${esc(r.name)}</div>
+        <div><div class="n">${esc(r.name)}${notListed(r) ? '<span class="tag">Not matched to the name list</span>' : ""}</div>
           <div class="m">${r.station ? esc(r.station) + (r.station === "Staff first" ? "" : " station") : esc(REASON_SHORT[r.reason] || r.outcome || "")}${r.moodWord ? " · " + esc(r.moodWord) : ""}</div>
           ${r.basicNeeds ? `<div class="need">Needs: ${esc(r.basicNeeds)}</div>` : ""}
           <div class="idc">${confirmHtml(r)}</div></div>
@@ -878,7 +980,7 @@
     const stack = key => {
       const c = MOODS.map(g => [g, done.filter(r => r[key] === g).length]).filter(([, n]) => n);
       const summary = c.map(([g, n]) => `${g} ${n} of ${done.length} (${Math.round(100 * n / done.length)}%)`).join(", ");
-      return `<div class="stack" role="img" tabindex="0" aria-label="${key === "moodGroup" ? "Arrived" : "Left"}: ${esc(summary)}" data-tip="${esc(summary)}">${c.map(([g, n]) => { const p = 100 * n / done.length; return `<span class="${MOOD[g].dark ? "dk" : ""}" style="flex:${n};background:${MOOD[g].v}" data-tip="${g}: ${n} of ${done.length} (${Math.round(p)}%)">${p >= 14 ? Math.round(p) + "%" : ""}</span>`; }).join("")}</div>`;
+      return `<div class="stack" role="img" tabindex="0" aria-label="${key === "moodGroup" ? "Arrived" : "Left"}: ${esc(summary)}" data-tip="${esc(summary)}">${c.map(([g, n]) => { const p = 100 * n / done.length; return `<span class="${MOOD[g] && MOOD[g].dark ? "dk" : ""}" style="flex:${n};background:${mv(g)}" data-tip="${g}: ${n} of ${done.length} (${Math.round(p)}%)">${p >= 14 ? Math.round(p) + "%" : ""}</span>`; }).join("")}</div>`;
     };
     $("#flow").innerHTML = `
       <p class="callout">${startedHard ? `<b>${better} of ${startedHard}</b> who came in red or blue left feeling yellow or green.` : `<b>${done.length}</b> check-outs, none arrived red or blue.`}</p>
@@ -981,21 +1083,21 @@
     const outs = v.filter(r => r.outMoodGroup);
     box.innerHTML = `<div class="top"><b>${esc(v.at(-1).name)}</b>${v.at(-1).studentId ? `<span class="facts">ID ${esc(v.at(-1).studentId)}</span>` : ""}
       <span class="facts">${v.length} visit${v.length === 1 ? "" : "s"} in the last ${win()} days · last ${esc(when(v.at(-1).timestamp))}${hard ? ` · came in red or blue ${hard} time${hard === 1 ? "" : "s"}` : ""}${incs.length ? ` · ${incs.length} incident report${incs.length === 1 ? "" : "s"}` : ""}</span></div>
-      <div class="dots" role="img" tabindex="0" aria-label="Mood in, oldest to newest: ${esc(v.filter(r => r.moodGroup).map(r => `${when(r.timestamp)} ${r.moodWord || ""} (${r.moodGroup})`).join(", "))}" data-tip="${esc(v.filter(r => r.moodGroup).map(r => `${when(r.timestamp)}: ${r.moodWord || ""} (${r.moodGroup})`).join(" · "))}"><span class="lab">Mood in, oldest to newest</span>${v.map(r => r.moodGroup ? `<i style="background:${MOOD[r.moodGroup].v}" data-tip="${esc(when(r.timestamp))}: ${esc(r.moodWord)}"></i>` : "").join("")}</div>
-      ${outs.length ? `<div class="dots" role="img" tabindex="0" aria-label="Mood out: ${esc(outs.map(r => `${when(r.checkoutTime)} ${r.outMoodWord || ""} (${r.outMoodGroup})`).join(", "))}" data-tip="${esc(outs.map(r => `${when(r.checkoutTime)}: ${r.outMoodWord || ""} (${r.outMoodGroup})`).join(" · "))}"><span class="lab">Mood out</span>${outs.map(r => `<i style="background:${MOOD[r.outMoodGroup].v}" data-tip="${esc(when(r.checkoutTime))}: ${esc(r.outMoodWord)}"></i>`).join("")}</div>` : ""}`;
+      <div class="dots" role="img" tabindex="0" aria-label="Mood in, oldest to newest: ${esc(v.filter(r => r.moodGroup).map(r => `${when(r.timestamp)} ${r.moodWord || ""} (${r.moodGroup})`).join(", "))}" data-tip="${esc(v.filter(r => r.moodGroup).map(r => `${when(r.timestamp)}: ${r.moodWord || ""} (${r.moodGroup})`).join(" · "))}"><span class="lab">Mood in, oldest to newest</span>${v.map(r => r.moodGroup ? `<i style="background:${mv(r.moodGroup)}" data-tip="${esc(when(r.timestamp))}: ${esc(r.moodWord)}"></i>` : "").join("")}</div>
+      ${outs.length ? `<div class="dots" role="img" tabindex="0" aria-label="Mood out: ${esc(outs.map(r => `${when(r.checkoutTime)} ${r.outMoodWord || ""} (${r.outMoodGroup})`).join(", "))}" data-tip="${esc(outs.map(r => `${when(r.checkoutTime)}: ${r.outMoodWord || ""} (${r.outMoodGroup})`).join(" · "))}"><span class="lab">Mood out</span>${outs.map(r => `<i style="background:${mv(r.outMoodGroup)}" data-tip="${esc(when(r.checkoutTime))}: ${esc(r.outMoodWord)}"></i>`).join("")}</div>` : ""}`;
     box.classList.add("show");
     bindTips(box);
   }
 
   // 9. Incidents
   function renderIncidents(rows) {
-    rows = rows.slice().sort((a, b) => (isOpen(b) - isOpen(a)) || (b.urgent === "Yes") - (a.urgent === "Yes") || new Date(b.timestamp) - new Date(a.timestamp));
+    rows = rows.slice().sort((a, b) => (isOpen(b) - isOpen(a)) || (b.urgent === "Yes") - (a.urgent === "Yes") || serious(b) - serious(a) || new Date(b.timestamp) - new Date(a.timestamp));
     const open = rows.filter(isOpen).length;
     $("#incCount").textContent = rows.length ? `· ${open} to review, ${rows.length} total` : "";
     $("#incList").innerHTML = rows.length ? rows.map((r, i) => `
       <div class="inc">
         <div class="meta">${esc(when(r.timestamp))} · <b>${esc(r.name)}</b>${r.grade ? " · " + esc(r.grade) : ""}
-          ${r.urgent === "Yes" ? `<span class="tag crit">${window.PPC_ICON("triangle-alert", 12)} Said not safe</span>` : ""}${r.talk === "Yes" ? '<span class="tag">Wants to talk</span>' : ""}${r.reviewed ? (isOpen(r) ? '<span class="tag crit">Needs more follow-up</span>' : `<span class="tag ok">${window.PPC_ICON("check", 12)} Followed up</span>`) : ""}</div>
+          ${r.urgent === "Yes" ? `<span class="tag crit">${window.PPC_ICON("triangle-alert", 12)} Said not safe</span>` : serious(r) ? `<span class="tag crit">${window.PPC_ICON("triangle-alert", 12)} Serious</span>` : ""}${unfinished(r) ? '<span class="tag">Not finished</span>' : ""}${r.talk === "Yes" ? '<span class="tag">Wants to talk</span>' : ""}${r.reviewed ? (isOpen(r) ? '<span class="tag crit">Needs more follow-up</span>' : `<span class="tag ok">${window.PPC_ICON("check", 12)} Followed up</span>`) : ""}</div>
         <div class="what">${esc(r.types)}${r.place ? " · " + esc(r.place) : ""}${r.period ? " · " + esc(r.period) : ""}</div>
         ${r.story ? `<div class="story">${esc(r.story)}</div>` : ""}
         ${r.who ? `<div class="meta">Involved: ${esc(r.who)}</div>` : ""}${r.witness ? `<div class="meta">Saw it: ${esc(r.witness)}</div>` : ""}
@@ -1055,7 +1157,7 @@
     data.checkins.filter(r => dayKey(r.timestamp) === t && !(r.outcome === "Incident Report" && incTimes.has(r.timestamp))).forEach(r => {
       const staff = needsStaff(r);
       ev.push({ at: r.timestamp, kind: "in", r, alert: staff, needs: !!r.basicNeeds });
-      if (r.checkoutTime && dayKey(r.checkoutTime) === t) ev.push({ at: r.checkoutTime, kind: "out", r, alert: false, needs: false });
+      if (r.checkoutTime && dayKey(r.checkoutTime) === t) ev.push({ at: r.checkoutTime, kind: "out", r, alert: worrying(r.outMoodWord), needs: false });
     });
     (data.incidents || []).filter(r => dayKey(r.timestamp) === t).forEach(r => ev.push({ at: r.timestamp, kind: "inc", r, alert: true, needs: false }));
     return ev.sort((a, b) => new Date(a.at) - new Date(b.at));
@@ -1072,23 +1174,25 @@
       kind = r.outcome === "Incident Report" ? "checked in to report" : "checked in";
       chips = (crit ? chipH(window.PPC_ICON("triangle-alert", 12) + " Staff should go to them", "crit") : "") +
         moodChip(r.moodGroup, r.moodWord) +
+        (notListed(r) ? chip("Not matched to the name list") : "") +
         chip(r.outcome === "Incident Report" ? "Incident report" : r.need === "Basic Need" ? "Basic need" : REASON_SHORT[r.reason] || r.reason) +
         (r.referral === "Staff Referred" ? chip("Sent by staff") : "") +
         (isNotThem(r) ? chipH(window.PPC_ICON("triangle-alert", 12) + " Staff: not this student", "crit") : /^confirmed/i.test(r.confirmed || "") ? chipH(window.PPC_ICON("check", 12) + " Staff confirmed") : "") +
         (r.happened ? chip(r.happened) : "") +
-        (r.station && r.station !== "Staff first" ? `<span class="chip"><i style="background:${MOOD[r.station].v}"></i>${esc(r.station)} station${r.stationSuggested && r.stationSuggested !== r.station && r.stationSuggested !== "Staff first" ? " (suggested " + esc(r.stationSuggested) + ")" : ""}</span>` : "") +
+        (r.station && r.station !== "Staff first" ? `<span class="chip"><i style="background:${mv(r.station)}"></i>${esc(r.station)} station${r.stationSuggested && r.stationSuggested !== r.station && r.stationSuggested !== "Staff first" ? " (suggested " + esc(r.stationSuggested) + ")" : ""}</span>` : "") +
         (r.basicNeeds ? r.basicNeeds.split(",").map(x => chip("Needs " + x.trim().toLowerCase())).join("") : "");
     } else if (e.kind === "out") {
       sq = true; dotColor = MOOD[r.outMoodGroup] ? MOOD[r.outMoodGroup].v : "var(--ink-3)";
       kind = /^staff/i.test(r.checkedOutBy || "") ? "checked out by staff" : "checked out";
+      crit = worrying(r.outMoodWord);
       const moved = r.moodGroup && r.outMoodGroup ? (unpleasant(r.moodGroup) && !unpleasant(r.outMoodGroup) ? "Felt better" : unpleasant(r.outMoodGroup) ? "Still " + r.outMoodGroup.toLowerCase() : "") : "";
-      chips = moodChip(r.moodGroup, r.moodWord, "in") + (r.outMoodGroup ? moodChip(r.outMoodGroup, r.outMoodWord, "out") : chip("No read given")) +
+      chips = (crit ? chipH(window.PPC_ICON("triangle-alert", 12) + " Staff should check on them", "crit") : "") + moodChip(r.moodGroup, r.moodWord, "in") + (r.outMoodGroup ? moodChip(r.outMoodGroup, r.outMoodWord, "out") : chip("No read given")) +
         (r.minutes !== "" && r.minutes != null ? chip(r.minutes + " min") : "") + chip(moved, moved.startsWith("Still") ? "" : "") +
         (r.helped ? r.helped.split(",").map(x => chip("Helped: " + x.trim().toLowerCase())).join("") : "");
     } else {
-      crit = r.urgent === "Yes"; dotColor = "var(--st-critical)"; sq = true;
+      crit = r.urgent === "Yes" || serious(r); dotColor = "var(--st-critical)"; sq = true;
       kind = "incident report";
-      chips = (crit ? chipH(window.PPC_ICON("triangle-alert", 12) + " Said not safe", "crit") : "") + (r.talk === "Yes" ? chip("Wants to talk") : "") +
+      chips = (crit ? chipH(window.PPC_ICON("triangle-alert", 12) + (r.urgent === "Yes" ? " Said not safe" : " Serious"), "crit") : "") + (unfinished(r) ? chip("Not finished") : "") + (r.talk === "Yes" ? chip("Wants to talk") : "") +
         (r.types ? r.types.split(",").map(x => chip(x.trim())).join("") : "") + chip(r.place) + chip(r.period) +
         (!r.reviewed ? chip("No follow-up yet") : isOpen(r) ? chip("Needs more follow-up", "crit") : chipH(window.PPC_ICON("check", 12) + " Followed up"));
     }

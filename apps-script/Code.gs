@@ -8,9 +8,9 @@
  *   session pass, and every check-in, check-out and incident report it POSTs must
  *   carry that pass (or a staff Google sign-in). Without one nothing is saved;
  *   there is no shared secret in config.js.
- * - The admin dashboard (staff.html on GitHub Pages) POSTs a Google ID token
- *   from "Sign in with Google". It is verified here on every request, and only
- *   people on the approved list get data back.
+ * - The admin dashboard (staff.html on GitHub Pages) signs in with Google once and
+ *   trades that sign-in for a staff pass (STAFF_SESSION_DAYS, renewed while in use).
+ *   Every request is checked here, and only people on the approved list get data back.
  *
  * Who is approved (one list for the iPad, the staff dashboard and the principal
  * dashboard): PRINCIPAL_EMAILS and ADMIN_EMAILS, always; plus any Google Workspace
@@ -34,6 +34,9 @@ const ADMIN_EMAILS = ['ben.tomlinson@kresa.org'];
 
 // How long an iPad stays signed in before a staff member must sign it in again.
 const KIOSK_SESSION_DAYS = 30;
+// The staff dashboard trades Google's one-hour sign-in for a staff pass. Each day the pass is used
+// renews it, so a dashboard in daily use never signs out; unused this many days, it ends.
+const STAFF_SESSION_DAYS = 30;
 
 const ROSTER_NAME = 'Roster';
 // The roster is a tab in this spreadsheet: the tab with this gid (from the URL, #gid=...).
@@ -75,6 +78,8 @@ function doPost(e) {
   try {
     const data = JSON.parse(e.postData.contents);
     if (data.type === 'whoami') return json_(whoami_(data));
+    if (data.type === 'staffSignIn') return json_(staffSignIn_(data));
+    if (data.type === 'staffSignOut') return json_(staffSignOut_(data));
     if (data.type === 'dashboard') return json_(dashboard_(data));
     if (data.type === 'principalAuth') return json_({ ok: true, email: principal_(data), owner: isOwner_(principal_(data)) });
     if (data.type === 'accessList') return json_(accessList_(data));
@@ -94,39 +99,54 @@ function doPost(e) {
     // Writing to the Sheet needs an approved staff member: a kiosk iPad signed in with an
     // approved account (its session pass), or an approved staff Google sign-in. Nothing public.
     staffWriter_(data);
-    if (data.type === 'checkout') return json_(checkout_(data));
-    if (data.type === 'incident') return json_(incident_(data));
-    const sheet = getSheet_();
-    const ts = data.timestamp ? new Date(data.timestamp) : new Date();
-    const tz = Session.getScriptTimeZone();
-    const dateOnly = new Date(Utilities.formatDate(ts, tz, 'yyyy/MM/dd'));
-    const who = resolveStudent_(data);
-
-    sheet.appendRow([
-      ts,
-      dateOnly,
-      Utilities.formatDate(ts, tz, 'h:mm a'),
-      safe_(who.name),
-      data.referral   || '',
-      data.reason     || '',
-      data.energy     || '',
-      data.moodGroup  || '',
-      safe_(String(data.moodWord || '').slice(0, 40)),
-      data.happened   || '',
-      data.need       || '',
-      data.basicNeeds || '',
-      data.outcome    || '',
-      data.kiosk      || '',
-      data.stationSuggested || '',
-      data.station    || '',
-      '', '', '', '', '', '', '',
-      who.id
-    ]);
-    ensureHeader_(sheet, COL_STUDENT_ID, 'Student ID');
-    return json_({ ok: true });
+    // The iPad gives every record its own id and may send it again if Wi-Fi dropped before the reply
+    // came back. A record already saved in the last 6 hours is skipped instead of saved twice.
+    const rid = String(data.rid || '').replace(/[^\w-]/g, '').slice(0, 64);
+    if (!rid) return json_(writeRecord_(data));
+    return json_(withLock_(() => {
+      let cache = null; const key = 'rid_' + rid;
+      try { cache = CacheService.getScriptCache(); if (cache.get(key)) return { ok: true, duplicate: true }; } catch (err) { cache = null; } // no cache: save anyway
+      const out = writeRecord_(data);
+      try { if (cache) cache.put(key, '1', 21600); } catch (err) {}
+      return out;
+    }));
   } catch (err) {
     return json_({ ok: false, error: String(err) });
   }
+}
+
+/** Saves one check-in, check-out or incident report from the iPad. */
+function writeRecord_(data) {
+  if (data.type === 'checkout') return checkout_(data);
+  if (data.type === 'incident') return incident_(data);
+  const sheet = getSheet_();
+  const ts = data.timestamp ? new Date(data.timestamp) : new Date();
+  const tz = Session.getScriptTimeZone();
+  const dateOnly = new Date(Utilities.formatDate(ts, tz, 'yyyy/MM/dd'));
+  const who = resolveStudent_(data);
+
+  sheet.appendRow([
+    ts,
+    dateOnly,
+    Utilities.formatDate(ts, tz, 'h:mm a'),
+    safe_(who.name),
+    data.referral   || '',
+    data.reason     || '',
+    data.energy     || '',
+    data.moodGroup  || '',
+    safe_(String(data.moodWord || '').slice(0, 40)),
+    data.happened   || '',
+    data.need       || '',
+    data.basicNeeds || '',
+    data.outcome    || '',
+    data.kiosk      || '',
+    data.stationSuggested || '',
+    data.station    || '',
+    '', '', '', '', '', '', '',
+    who.id
+  ]);
+  ensureHeader_(sheet, COL_STUDENT_ID, 'Student ID');
+  return { ok: true };
 }
 
 /**
@@ -175,7 +195,7 @@ function checkout_(data, byStaff) {
 
 /** A staff member checks a student out from the dashboard, using their own read of the student. */
 function staffCheckout_(data) {
-  const email = verifyIdToken_(String(data.idToken || ''));
+  const email = staffEmail_(data);
   const sheet = getSheet_();
   const head = sheet.getRange(1, COL_CHECKOUT_TIME + 6);
   if (!head.getValue()) head.setValue('Checked Out By').setFontWeight('bold').setBackground('#d61f26').setFontColor('#ffffff');
@@ -187,7 +207,9 @@ function staffCheckout_(data) {
 const INCIDENT_NAME = 'Incident Reports';
 const INCIDENT_HEADERS = ['Timestamp', 'Date', 'Time', 'Name / ID', 'Grade', 'Safe now?', 'Urgent', 'What happened', 'Where', 'When (hour)',
   'Story', 'Who was involved', 'Witnesses', 'Wants to talk', 'Kiosk', 'Reviewed by', 'Notes', 'Student ID',
-  'Follow-up action', 'Follow-up status'];
+  'Follow-up action', 'Follow-up status', 'Unfinished'];
+// "Unfinished" = Yes: the student picked what happened, then walked away or tapped Start Over.
+const COL_INC_UNFINISHED = 21;
 // Choices on the staff page's incident follow-up form. Anything else is saved blank.
 const FOLLOWUP_ACTIONS = ['Talked it through', 'Contacted family', 'Sent to office', 'Referred to counselor', 'Other'];
 const FOLLOWUP_STATUSES = ['Resolved', 'Needs more follow-up'];
@@ -217,14 +239,19 @@ function incident_(data) {
   sheet.appendRow([
     ts, new Date(Utilities.formatDate(ts, tz, 'yyyy/MM/dd')), Utilities.formatDate(ts, tz, 'h:mm a'),
     safe_(who.name), who.grade || data.grade || '', data.safe || '', data.urgent || '', data.types || '', data.place || '', data.period || '',
-    safe_(data.story), safe_(data.who), safe_(data.witness), data.talk || '', data.kiosk || '', '', '', who.id
+    safe_(data.story), safe_(data.who), safe_(data.witness), data.talk || '', data.kiosk || '', '', '', who.id,
+    '', '', data.unfinished === 'Yes' ? 'Yes' : ''
   ]);
   ensureHeader_(sheet, 18, 'Student ID');
+  if (data.unfinished === 'Yes') ensureHeader_(sheet, COL_INC_UNFINISHED, 'Unfinished');
   return { ok: true };
 }
 
-/** Recent incident reports, newest first. */
-function incidentRows_(days) {
+/**
+ * Recent incident reports, newest first. keepOpen: also every older report that is still open (no
+ * follow-up yet, or "Needs more follow-up"), so it stays on the staff page until someone closes it.
+ */
+function incidentRows_(days, keepOpen) {
   const cutoff = new Date(Date.now() - days * 86400000);
   const sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName(INCIDENT_NAME);
   if (!sheet) return [];
@@ -232,19 +259,21 @@ function incidentRows_(days) {
   const rows = [];
   for (let i = values.length - 1; i >= 1; i--) {
     const r = values[i];
-    if (!(r[0] instanceof Date) || r[0] < cutoff) continue;
+    if (!(r[0] instanceof Date)) continue;
+    const open = !r[15] || String(r[19] || '') === 'Needs more follow-up';
+    if (r[0] < cutoff && !(keepOpen && open)) continue;
     rows.push({ timestamp: r[0].toISOString(), name: r[3], grade: r[4], safe: r[5], urgent: r[6], types: r[7], place: r[8], period: r[9],
       story: r[10], who: r[11], witness: r[12], talk: r[13], reviewed: r[15], notes: r[16], studentId: String(r[17] || ''),
-      action: String(r[18] || ''), status: String(r[19] || '') });
+      action: String(r[18] || ''), status: String(r[19] || ''), unfinished: String(r[20] || '') });
   }
   return rows;
 }
 
 // ---- Admin dashboard: Google sign-in verified on every request ---------------
 
-/** staff.html POSTs { type: 'dashboard', idToken, days }. */
-function dashboard_(data) {
-  const email = verifyIdToken_(String(data.idToken || ''));
+/** staff.html POSTs { type: 'dashboard', pass (or idToken), days }. forPrincipal: charts only, so no older open reports. */
+function dashboard_(data, forPrincipal) {
+  const email = staffEmail_(data);
   const days = Math.min(Math.max(Number(data.days) || 14, 1), 365);
   return {
     ok: true,
@@ -252,7 +281,7 @@ function dashboard_(data) {
     days: days,
     sheetUrl: SpreadsheetApp.getActiveSpreadsheet().getUrl(),
     checkins: checkinRows_(days),
-    incidents: incidentRows_(days)
+    incidents: incidentRows_(days, !forPrincipal)
   };
 }
 
@@ -262,7 +291,7 @@ function dashboard_(data) {
  * staff.html POSTs { type: 'review', idToken, timestamp, name, action, status, notes }.
  */
 function review_(data) {
-  const email = verifyIdToken_(String(data.idToken || ''));
+  const email = staffEmail_(data);
   const sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName(INCIDENT_NAME);
   if (!sheet) throw new Error('No incident reports yet.');
   const target = new Date(data.timestamp).getTime();
@@ -289,10 +318,6 @@ function review_(data) {
   throw new Error('Could not find that report in the Sheet.');
 }
 
-/**
- * Verifies a Google ID token from "Sign in with Google" and returns the email.
- * Throws with a message staff.html shows on the sign-in page.
- */
 /** Checks a Google ID token is genuine, for this app, current, and verified. Returns { email, hd }. No role check. */
 function tokenInfo_(idToken) {
   if (!GOOGLE_CLIENT_ID) throw new Error('Sign-in is not set up: GOOGLE_CLIENT_ID is empty in Code.gs.');
@@ -304,45 +329,60 @@ function tokenInfo_(idToken) {
   if (info.iss !== 'https://accounts.google.com' && info.iss !== 'accounts.google.com') throw new Error('Sign-in token is not from Google.');
   if (Number(info.exp) * 1000 < Date.now()) throw new Error('Your sign-in expired. Please sign in again.');
   if (String(info.email_verified) !== 'true') throw new Error('This Google account is not verified.');
-  return { email: String(info.email || '').toLowerCase(), hd: info.hd };
+  // hd is Google's Workspace domain claim: set (to the organization's primary domain) only for
+  // managed Workspace accounts, never for personal Google accounts. '' means "none".
+  return { email: String(info.email || '').toLowerCase(), hd: String(info.hd || '').toLowerCase() };
 }
 
-/** login.html POSTs { type: 'whoami', idToken }: which pages this person may open. Never throws for a valid sign-in. */
+/**
+ * login.html POSTs { type: 'whoami', idToken }: which pages this person may open. Never throws for a
+ * valid sign-in. When nothing is allowed, `reason` says why, so the page can tell the person what to do:
+ * 'personal' (a personal Google account, not the school one), 'unlisted' (a Workspace account the
+ * principal hasn't added), 'no-list' (the principal hasn't saved a list yet).
+ */
 function whoami_(data) {
-  const t = tokenInfo_(String(data.idToken || ''));
-  const staff = isAdmin_(t.email, String(t.hd || ''));
+  // A staff pass was checked when it was issued; a Google sign-in must carry its Workspace domain (hd).
+  const fromPass = !!(data.pass && !data.idToken);
+  const t = fromPass ? { email: staffPass_(data.pass) } : tokenInfo_(String(data.idToken || ''));
+  const hd = fromPass ? undefined : t.hd;
+  const staff = isAdmin_(t.email, hd);
   const access = accessMap_() || {};
   const principal = staff && (isOwner_(t.email) || !!(access[t.email] && access[t.email].principal));
-  const kiosk = kioskAllowed_(t.email, String(t.hd || ''));
-  return { ok: true, email: t.email, staff, principal, kiosk, listStarted: !!accessMap_() };
+  const kiosk = kioskAllowed_(t.email, hd);
+  const out = { ok: true, email: t.email, staff, principal, kiosk, listStarted: !!accessMap_(), workspace: hd || '' };
+  if (!staff && !kiosk) out.reason = refusal_(t.email, hd).reason;
+  return out;
 }
 
+/**
+ * Verifies a fresh Google sign-in and checks the person is approved: for the kiosk iPad
+ * (forKiosk) or the staff dashboard. Returns the email. Throws with a message the page shows.
+ */
 function verifyIdToken_(idToken, forKiosk) {
-  if (!GOOGLE_CLIENT_ID) throw new Error('Sign-in is not set up: GOOGLE_CLIENT_ID is empty in Code.gs.');
-  if (!idToken) throw new Error('Please sign in.');
-  const res = UrlFetchApp.fetch('https://oauth2.googleapis.com/tokeninfo?id_token=' + encodeURIComponent(idToken), { muteHttpExceptions: true });
-  if (res.getResponseCode() !== 200) throw new Error('Your sign-in expired. Please sign in again.');
-  const info = JSON.parse(res.getContentText());
-  if (info.aud !== GOOGLE_CLIENT_ID) throw new Error('Sign-in token was issued for a different app.');
-  if (info.iss !== 'https://accounts.google.com' && info.iss !== 'accounts.google.com') throw new Error('Sign-in token is not from Google.');
-  if (Number(info.exp) * 1000 < Date.now()) throw new Error('Your sign-in expired. Please sign in again.');
-  if (String(info.email_verified) !== 'true') throw new Error('This Google account is not verified.');
-  const email = String(info.email || '').toLowerCase();
-  // A fresh Google sign-in must carry Google's Workspace domain claim (hd); '' means "none", which a
-  // district address then fails. Only a stored iPad session skips this (it was checked at sign-in).
-  const hd = String(info.hd || '');
-  if (!(forKiosk ? kioskAllowed_(email, hd) : staffAllowed_(email, hd))) {
-    throw new Error(email + (forKiosk ? ' can\'t sign in this iPad.' : ' can\'t open the dashboard.') +
-      ' Only people the principal approved can. Ask the principal to add you under People & access.');
+  const t = tokenInfo_(String(idToken || ''));
+  if (!(forKiosk ? kioskAllowed_(t.email, t.hd) : staffAllowed_(t.email, t.hd))) throw new Error(refusal_(t.email, t.hd, forKiosk).message);
+  return t.email;
+}
+
+/** Why a sign-in was refused, as a code and a sentence the pages can show. */
+function refusal_(email, hd, forKiosk) {
+  const what = forKiosk ? "can't sign in this iPad." : "can't open the dashboard.";
+  const listed = !!((accessMap_() || {})[email]);
+  if (listed && hd === '') {
+    return { reason: 'personal', message: email + ' ' + what + ' That is a personal Google account. Sign in with your school Google account instead (the one your district gave you).' };
   }
-  return email;
+  if (!accessMap_()) {
+    return { reason: 'no-list', message: email + ' ' + what + ' The principal hasn\'t set up People & access yet. Ask the principal to add you there.' };
+  }
+  return { reason: 'unlisted', message: email + ' ' + what + ' Only people the principal approved can. Ask the principal to add you under People & access.' };
 }
 
 /**
  * What this person may do, from the one approved list: PRINCIPAL_EMAILS and ADMIN_EMAILS can do
  * everything; otherwise a Workspace account the principal listed on the Access tab gets what was
- * ticked for it (usually @ALLOWED_DOMAIN staff; partners such as @kresa.org can be listed too). Null means nothing. hd is Google's Workspace domain claim from a fresh
- * sign-in ('' when the account has none, which fails); undefined only for a stored iPad session.
+ * ticked for it (usually @ALLOWED_DOMAIN staff; partners such as @kresa.org can be listed too). Null means nothing.
+ * hd is Google's Workspace domain claim from a fresh sign-in ('' when the account has none, which fails);
+ * undefined only for a stored iPad session or staff pass, which were checked when issued.
  * Checked at every sign-in and on every iPad request, so removing someone takes effect at once.
  */
 function accessFor_(email, hd) {
@@ -351,11 +391,15 @@ function accessFor_(email, hd) {
   if (ADMIN_EMAILS.map(x => String(x).toLowerCase()).indexOf(email) !== -1 || isOwner_(email)) return { staff: true, principal: true, kiosk: true };
   const a = (accessMap_() || {})[email];
   if (!a) return null; // not on the principal's list: refused, students included
-  // Listed people must sign in with the Google Workspace account for their own address (Google sets
-  // hd only for those): a district account, or a partner's like @kresa.org. A personal Google account
-  // that merely uses the same address has no hd and is refused.
-  const own = email.split('@')[1];
-  if (hd !== undefined && String(hd || '').toLowerCase() !== own) return null;
+  // Listed people must sign in with a managed Google Workspace account: Google sets hd only for those,
+  // and Google has already verified that the account owns this exact address. A personal Google
+  // account that merely uses the same address has no hd and is refused.
+  // hd holds the organization's PRIMARY domain, which can differ from the address: a district whose
+  // Workspace is registered as, say, parchment.k12.mi.us issues @parchmentschools.org addresses as a
+  // secondary domain or alias, and its staff then sign in with hd = parchment.k12.mi.us. So hd is
+  // required, but not compared with the address: only the organization that owns the domain can
+  // issue verified Workspace accounts on it.
+  if (hd !== undefined && !String(hd || '')) return null;
   return { staff: !!(a.staff || a.principal), principal: !!a.principal, kiosk: !!(a.kiosk || a.staff || a.principal) };
 }
 /** May open the staff dashboard (and read or change records there). */
@@ -453,7 +497,7 @@ function accessSave_(data) {
 /** principal.html POSTs { type: 'principalData', idToken, days }: the same data as the staff dashboard, for allowed accounts only. */
 function principalData_(data) {
   principal_(data);
-  const d = dashboard_(data);
+  const d = dashboard_(data, true);
   // Only the columns the principal page shows. The free-text story, who was involved, witnesses and notes stay in the Sheet.
   d.incidents = d.incidents.map(r => {
     const m = String(r.reviewed || '').match(/\d{4}-\d{2}-\d{2}/);
@@ -546,7 +590,7 @@ function doGet() {
  * or flag "Not them". Writes "Confirmed · email · time" to the Staff Confirmed column.
  */
 function confirmVisit_(data) {
-  const email = verifyIdToken_(String(data.idToken || ''));
+  const email = staffEmail_(data);
   const result = data.result === 'Not them' ? 'Not them' : 'Confirmed';
   const sheet = getSheet_();
   const target = new Date(data.timestamp).getTime();
@@ -602,6 +646,71 @@ function staffWriter_(data) {
   if (data.session) { try { return kioskSession_(data.session).email; } catch (err) { why = String(err.message || err); } }
   if (data.idToken) return verifyIdToken_(String(data.idToken), true); // approved staff only
   throw new Error(why);
+}
+
+// ---- Staff pass: keeps the staff dashboard signed in ----------------------------
+
+/** staff.html POSTs { type: 'staffSignIn', idToken } right after a Google sign-in and gets a pass back. */
+function staffSignIn_(data) {
+  const email = verifyIdToken_(String(data.idToken || '')); // approved staff only, fresh Google sign-in
+  const pass = Utilities.getUuid() + Utilities.getUuid();
+  const exp = Date.now() + STAFF_SESSION_DAYS * 86400000;
+  const props = PropertiesService.getScriptProperties();
+  sweepSessions_(props);
+  props.setProperty('staff_' + sha_(pass), JSON.stringify({ email: email, exp: exp, at: Date.now() }));
+  return { ok: true, pass: pass, email: email, expires: new Date(exp).toISOString() };
+}
+
+/**
+ * The email behind a staff pass. Refused if the pass is unknown, unused for STAFF_SESSION_DAYS, or the
+ * person is no longer allowed the staff dashboard (checked every time, so removal takes effect at once).
+ * Each day it is used pushes the end date out again.
+ */
+function staffPass_(pass) {
+  const props = PropertiesService.getScriptProperties();
+  const key = 'staff_' + sha_(String(pass || ''));
+  const raw = pass ? props.getProperty(key) : null;
+  if (!raw) throw new Error('Your sign-in expired. Please sign in again.');
+  const s = JSON.parse(raw);
+  if (s.exp < Date.now()) { props.deleteProperty(key); throw new Error('Your sign-in expired. Please sign in again.'); }
+  // Taken off the list: the pass is marked, not deleted, so every tab using it is sent to sign-in
+  // (a deleted pass would only read as "expired"). It is cleared when it would have expired.
+  if (s.removed || !staffAllowed_(s.email)) {
+    if (!s.removed) { s.removed = true; props.setProperty(key, JSON.stringify(s)); }
+    throw new Error(s.email + " can't open the dashboard. Only people the principal approved can. Ask the principal to add you under People & access.");
+  }
+  const renewed = Date.now() + STAFF_SESSION_DAYS * 86400000;
+  if (renewed - s.exp > 86400000) { s.exp = renewed; props.setProperty(key, JSON.stringify(s)); }
+  return s.email;
+}
+
+/** Who is asking on the staff dashboard: a staff pass, or a fresh Google sign-in (older pages). */
+function staffEmail_(data) {
+  if (data.pass) return staffPass_(data.pass);
+  return verifyIdToken_(String(data.idToken || ''));
+}
+
+/** Sign out on the staff page ends that computer's pass. */
+function staffSignOut_(data) {
+  if (data.pass) PropertiesService.getScriptProperties().deleteProperty('staff_' + sha_(String(data.pass)));
+  return { ok: true };
+}
+
+/** Drops expired staff passes and iPad sessions so Script Properties never fill up. */
+function sweepSessions_(props) {
+  const all = props.getProperties(), now = Date.now();
+  Object.keys(all).forEach(k => {
+    if (k.indexOf('staff_') !== 0 && k.indexOf('kiosk_') !== 0) return;
+    try { if (JSON.parse(all[k]).exp < now) props.deleteProperty(k); } catch (err) {}
+  });
+}
+
+/** Run from the editor to sign every staff dashboard out (for example, if a computer is lost). */
+function signOutAllStaff() {
+  const props = PropertiesService.getScriptProperties();
+  const keys = props.getKeys().filter(k => k.indexOf('staff_') === 0);
+  keys.forEach(k => props.deleteProperty(k));
+  Logger.log('Signed out ' + keys.length + ' staff dashboard sign-in(s).');
 }
 
 function kioskStatus_(data) {
