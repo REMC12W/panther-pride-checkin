@@ -48,7 +48,7 @@ Every check-in is saved the moment the end screen appears. If Wi-Fi drops, it's 
 
 ## Who can enter data
 
-Nothing about a student is saved unless an approved staff member has signed the iPad in. The approved list is the **Access** tab in the Google Sheet, which the principal manages from **People & access** on the principal dashboard: one @parchmentschools.org staff Google account per row (Pride Center staff, anyone who should run the iPad or see a dashboard). The same list gates the kiosk iPad, the staff dashboard and the principal dashboard. Students also have @parchmentschools.org accounts, so being on the domain is never enough on its own.
+Nothing about a student is saved unless an approved staff member has signed the iPad in. The approved list is the **Access** tab in the Google Sheet, which the principal manages from **People & access** on the principal dashboard: one Google account per row: @parchmentschools.org staff, or a partner's Workspace account such as @kresa.org (Pride Center staff, anyone who should run the iPad or see a dashboard). Each person must sign in with their organization's account, not a personal Gmail. The same list gates the kiosk iPad, the staff dashboard and the principal dashboard. Students also have @parchmentschools.org accounts, so being on the domain is never enough on its own.
 
 - **Not signed in?** The iPad start screen shows "Check-in is off" with a staff sign-in button instead of Get Started. Students can't begin.
 - **Signed in?** The iPad holds its own pass for about 30 days (`KIOSK_SESSION_DAYS`) and sends it with every check-in, check-out and incident report. The script refuses anything without a valid pass. There is no shared secret in `config.js` to find.

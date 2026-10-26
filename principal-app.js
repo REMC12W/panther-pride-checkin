@@ -824,7 +824,7 @@
     if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(e)) { $("#accErr").textContent = "Type a full email address."; return; }
     if (e.split("@")[0].includes("+")) { $("#accErr").textContent = "Use the person's main address, without a + part."; return; }
     const okDomains = [acc.domain].concat((acc.owners || []).map(o => o.split("@")[1])).filter(Boolean).map(x => x.toLowerCase());
-    if (!okDomains.includes(e.split("@")[1]) && !confirm(`${e} isn't a @${acc.domain} account, so they may not be able to sign in. Add them anyway?`)) return;
+    if (!okDomains.includes(e.split("@")[1]) && !confirm(`${e} isn't a @${acc.domain} address. They can sign in only with that organization's Google Workspace account, not a personal Gmail. Add them?`)) return;
     if (acc.people.some(p => p.email === e) || (acc.owners || []).map(x => x.toLowerCase()).includes(e)) { $("#accErr").textContent = e + " is already on the list."; return; }
     acc.people.push({ email: e, staff: true, principal: false }); $("#accEmail").value = ""; $("#accErr").textContent = ""; renderAccess();
   };

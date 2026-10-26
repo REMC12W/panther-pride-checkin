@@ -13,10 +13,10 @@
  *   people on the approved list get data back.
  *
  * Who is approved (one list for the iPad, the staff dashboard and the principal
- * dashboard): PRINCIPAL_EMAILS and ADMIN_EMAILS, always; plus any @ALLOWED_DOMAIN
- * Workspace account the principal has put on the Access tab (People & access on
- * principal.html). Students have district accounts too, so the domain alone is
- * never enough.
+ * dashboard): PRINCIPAL_EMAILS and ADMIN_EMAILS, always; plus any Google Workspace
+ * account the principal has put on the Access tab (People & access on principal.html),
+ * signed in with that organization's account, not a personal one. Students have
+ * district accounts too, so being on the domain is never enough.
  */
 
 // ---- Settings ---------------------------------------------------------------
@@ -25,8 +25,8 @@
 // GOOGLE_CLIENT_ID in config.js (README step 5).
 const GOOGLE_CLIENT_ID = '680243392561-vod2q88igf1v8mr84uc7b4h075lv6g5p.apps.googleusercontent.com';
 
-// Approved staff must be real Google Workspace accounts on this domain (students have
-// domain accounts too, so the domain alone is never enough) AND be on the Access tab below.
+// The district's domain, used in messages and sign-in hints. Being on it is never enough by
+// itself (students have accounts too): everyone except the owners must be on the Access tab below.
 const ALLOWED_DOMAIN = 'parchmentschools.org';
 // Always allowed, from any domain, even if the Access tab is empty. Keeps the owner from
 // ever being locked out.
@@ -333,15 +333,15 @@ function verifyIdToken_(idToken, forKiosk) {
   const hd = String(info.hd || '');
   if (!(forKiosk ? kioskAllowed_(email, hd) : staffAllowed_(email, hd))) {
     throw new Error(email + (forKiosk ? ' can\'t sign in this iPad.' : ' can\'t open the dashboard.') +
-      ' Only approved @' + ALLOWED_DOMAIN + ' staff can. Ask the principal to add you under People & access.');
+      ' Only people the principal approved can. Ask the principal to add you under People & access.');
   }
   return email;
 }
 
 /**
  * What this person may do, from the one approved list: PRINCIPAL_EMAILS and ADMIN_EMAILS can do
- * everything; otherwise an @ALLOWED_DOMAIN Workspace account gets what the principal ticked for
- * them on the Access tab. Null means nothing. hd is Google's Workspace domain claim from a fresh
+ * everything; otherwise a Workspace account the principal listed on the Access tab gets what was
+ * ticked for it (usually @ALLOWED_DOMAIN staff; partners such as @kresa.org can be listed too). Null means nothing. hd is Google's Workspace domain claim from a fresh
  * sign-in ('' when the account has none, which fails); undefined only for a stored iPad session.
  * Checked at every sign-in and on every iPad request, so removing someone takes effect at once.
  */
@@ -349,13 +349,13 @@ function accessFor_(email, hd) {
   email = String(email || '').toLowerCase();
   if (!email) return null;
   if (ADMIN_EMAILS.map(x => String(x).toLowerCase()).indexOf(email) !== -1 || isOwner_(email)) return { staff: true, principal: true, kiosk: true };
-  const domain = String(ALLOWED_DOMAIN || '').toLowerCase();
-  if (!domain || !email.endsWith('@' + domain)) return null;
-  // Must be a real Workspace account on that domain: Google sets hd only for those. A personal
-  // Google account that merely uses an @parchmentschools.org address is refused.
-  if (hd !== undefined && String(hd || '').toLowerCase() !== domain) return null;
   const a = (accessMap_() || {})[email];
-  if (!a) return null;
+  if (!a) return null; // not on the principal's list: refused, students included
+  // Listed people must sign in with the Google Workspace account for their own address (Google sets
+  // hd only for those): a district account, or a partner's like @kresa.org. A personal Google account
+  // that merely uses the same address has no hd and is refused.
+  const own = email.split('@')[1];
+  if (hd !== undefined && String(hd || '').toLowerCase() !== own) return null;
   return { staff: !!(a.staff || a.principal), principal: !!a.principal, kiosk: !!(a.kiosk || a.staff || a.principal) };
 }
 /** May open the staff dashboard (and read or change records there). */
