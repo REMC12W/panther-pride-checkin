@@ -34,6 +34,13 @@
   .ctl { display: inline-flex; align-items: center; gap: 6px; font-size: 14px; font-weight: 700; padding: 8px 14px; border: 1px solid var(--border-2); border-radius: var(--radius-sm); background: var(--panel); color: var(--fg-1); text-decoration: none; cursor: pointer; transition: background var(--duration-fast) var(--ease-standard); }
   .ctl:hover { background: var(--psd-gray-100); color: var(--fg-1); }
   select.ctl { font-weight: 600; }
+  /* Sample / Live switch, same as the principal dashboard's. */
+  .seg { display: inline-flex; border: 1px solid var(--border-2); border-radius: var(--radius-sm); overflow: hidden; }
+  .seg button { border: 0; background: var(--panel); color: var(--fg-1); padding: 8px 14px; font: inherit; font-weight: 700; font-size: 14px; cursor: pointer; }
+  .seg button + button { border-left: 1px solid var(--border-2); }
+  .seg button.on { background: var(--psd-maroon); color: #fff; }
+  .sample-note { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin: 0 0 12px; padding: 10px 14px; border-radius: var(--radius-sm); background: var(--psd-maroon-50); border: 1px solid var(--psd-maroon-100); color: var(--psd-maroon-800); font-weight: 600; }
+  .sample-note button { border: 0; background: none; padding: 0; color: var(--psd-maroon); font: inherit; font-weight: 800; text-decoration: underline; cursor: pointer; }
   /* Account menu: same pop-up as the principal dashboard's */
   .popmenu { position: fixed; margin: 0; padding: 6px; list-style: none; background: var(--panel); border: 1px solid var(--line); border-radius: var(--radius-md); box-shadow: var(--shadow-md); z-index: 40; min-width: 210px; display: none; }
   .popmenu.open { display: block; }
@@ -297,6 +304,7 @@
   <div class="spacer"></div>
   <button class="ctl" id="helpBtn" type="button" aria-haspopup="dialog"><i data-icon="circle-help" data-size="16"></i>Help</button>
   <div id="controls" class="hidden" style="display:contents">
+    <div class="seg hidden" id="sourceSwitch" role="group" aria-label="Data source"><button type="button" data-src="sample">Sample</button><button type="button" data-src="live">Live</button></div>
     <button class="ctl today" id="todayBtn" type="button" aria-controls="drawer" aria-expanded="false"><i data-icon="clock-3" data-size="16"></i>Today <b id="todayCount">0</b></button>
     <select class="ctl" id="win" aria-label="Time window for charts and the visit log">
       <option value="7">Last 7 days</option>
@@ -330,6 +338,7 @@
 
   <div id="dash" class="hidden">
     <div class="paused hidden" id="paused" role="alert"><span>Alerts are paused: your sign-in ran out.</span><a href="login.html?next=staff">Sign in again</a></div>
+    <div class="sample-note hidden" id="sampleNote" role="status"><span>Sample data: made-up students. Nothing you do here is saved to the Sheet.</span><button type="button" id="sampleToLive">Show live data</button></div>
     <p class="status-line" id="status"></p>
 
     <!-- 1. Act now -->
@@ -516,6 +525,7 @@
 
 <script src="icons.js"></script>
 <script src="config.js"></script>
+<script src="principal-data.js"></script>
 <script>
 (function () {
   const CFG = Object.assign({ SCRIPT_URL: "", GOOGLE_CLIENT_ID: "", ALLOWED_DOMAIN: "parchmentschools.org", DASHBOARD_DAYS: 14,
@@ -530,6 +540,27 @@
   // Taking someone off People & access ends it at once (checked on every request).
   const PASS_KEY = "ppc_staff_pass";
   let pass = (() => { try { const p = JSON.parse(localStorage.getItem(PASS_KEY) || "null"); return p && p.pass ? p : null; } catch { return null; } })();
+  // Sample (made-up students, the principal dashboard's sample school year) or Live (the Sheet).
+  // Live is the default; the header switch remembers the choice per browser. Sample still needs an
+  // approved sign-in, and nothing done in sample mode is sent to the Sheet.
+  const SOURCE_KEY = "ppc_staff_source";
+  let source = (() => { try { return localStorage.getItem(SOURCE_KEY) === "sample" ? "sample" : "live"; } catch { return "live"; } })();
+  const isSample = () => !TEST && source === "sample";
+  let sampleRaw = null; // built once per page; confirms, follow-ups and check-outs change it in memory only
+  function sampleData() {
+    if (sampleRaw) return sampleRaw;
+    const now = Date.now(), cutoff = now - 95 * 86400000;
+    const d = window.PPD.demoData(new Date(now));
+    const checkins = d.checkins.filter(r => new Date(r.timestamp) >= cutoff).map(r => {
+      // The generator decides each visit's check-out up front. One that hasn't happened yet, or any visit
+      // from the last hour, means the student is still here, so "In the room now" has someone in it.
+      if (r.checkoutTime && (new Date(r.checkoutTime) > now || now - new Date(r.timestamp) < 3600000)) ["checkoutTime", "minutes", "checkedOutBy", "outEnergy", "outMoodGroup", "outMoodWord", "helped"].forEach(k => delete r[k]);
+      return r;
+    });
+    sampleRaw = { checkins, incidents: d.incidents.filter(r => new Date(r.timestamp) >= cutoff) };
+    return sampleRaw;
+  }
+  const sampleFind = (list, ts) => sampleData()[list].find(r => r.timestamp === ts);
   let data = { checkins: [], incidents: [] };
 
   // Mood meter quadrants, in the validated order.
@@ -655,6 +686,7 @@
     try { const w = await post({ type: "whoami" }); if (w.ok && w.principal) $("#principalLink").classList.remove("hidden"); } catch {}
   }
   function openDash() {
+    renderSource();
     $("#gate").classList.add("hidden");
     $("#dash").classList.remove("hidden");
     $("#controls").classList.remove("hidden");
@@ -677,7 +709,7 @@
     if (TEST) { loadLocal(); return; }
     if (!pass && idToken && idTokenFresh()) await getPass(); // the first try may have failed for a moment
     try {
-      const d = await post({ type: "dashboard", days: Math.max(win(), 14) });
+      const d = isSample() ? await sampleResponse() : await post({ type: "dashboard", days: Math.max(win(), 14) });
       if (!d.ok) {
         // Taken off the list: leave at once. Only a sign-in that ran out keeps the page.
         if (/authorized|domain|can't open|ask the principal/i.test(d.error || "")) return signOut(d.error);
@@ -686,16 +718,43 @@
       }
       if (paused) { paused = false; $("#paused").classList.add("hidden"); }
       data = tidy(d);
-      $("#who").textContent = "Signed in as " + d.email;
+      $("#who").textContent = "Signed in as " + d.email + (isSample() ? " · Sample data" : "");
       showPrincipalLink();
       if (d.sheetUrl) { $("#sheetLink").href = d.sheetUrl; $("#sheetLink").classList.remove("hidden"); }
-      $("#status").textContent = `Updated ${new Date().toLocaleTimeString([], { hour: "numeric", minute: "2-digit" })} · refreshes every minute`;
+      renderSource();
+      $("#status").textContent = isSample() ? "" // the sample notice above says it
+        : `Updated ${new Date().toLocaleTimeString([], { hour: "numeric", minute: "2-digit" })} · refreshes every minute`;
       renderAll();
     } catch (err) {
       $("#status").className = "status-line err";
       $("#status").textContent = "Could not load: " + (err.message || err);
     }
   }
+  // Sample mode: the same sign-in check as live (an approved staff account), then made-up rows.
+  async function sampleResponse() {
+    const w = await post({ type: "whoami" });
+    if (!w.ok) return w;
+    if (!w.staff) return { ok: false, error: w.email + " can't open the dashboard. Only people the principal approved can. Ask the principal to add you under People & access." };
+    const d = sampleData();
+    // Copies, so tidy() never changes the sample itself.
+    return { ok: true, email: w.email, checkins: d.checkins.map(r => Object.assign({}, r)), incidents: d.incidents.map(r => Object.assign({}, r)) };
+  }
+  function renderSource() {
+    const box = $("#sourceSwitch");
+    box.classList.toggle("hidden", TEST);
+    box.querySelectorAll("[data-src]").forEach(b => { const on = b.dataset.src === source; b.classList.toggle("on", on); b.setAttribute("aria-pressed", String(on)); });
+    $("#sampleNote").classList.toggle("hidden", !isSample());
+    if (isSample()) $("#sheetLink").classList.add("hidden");
+  }
+  function switchTo(next) {
+    if (next === source || TEST) return;
+    source = next; try { localStorage.setItem(SOURCE_KEY, source); } catch {}
+    data = { checkins: [], incidents: [] }; renderAll(); // never show one source's rows under the other's label
+    renderSource(); load();
+  }
+  document.querySelectorAll("#sourceSwitch [data-src]").forEach(b => b.addEventListener("click", () => switchTo(b.dataset.src)));
+  $("#sampleToLive").addEventListener("click", () => switchTo("live"));
+
   function loadLocal() {
     let raw = [];
     try { raw = JSON.parse(localStorage.getItem("ppc_local") || "[]"); } catch {}
@@ -901,6 +960,10 @@
     if (!r) return;
     if (result === "Not them" && !confirm(`Mark this check-in as not ${r.name}? It stays in the Sheet, flagged so you can fix the name.`)) return;
     btn.disabled = true; btn.textContent = "Saving…";
+    if (isSample()) {
+      const x = sampleFind("checkins", r.timestamp); if (x) x.confirmed = result + " · Sample · " + new Date().toLocaleTimeString([], { hour: "numeric", minute: "2-digit" });
+      return load();
+    }
     if (TEST) {
       let c = {}; try { c = JSON.parse(localStorage.getItem("ppc_local_confirms") || "{}"); } catch {}
       c[r.timestamp] = result + " · Test mode · " + new Date().toLocaleTimeString([], { hour: "numeric", minute: "2-digit" });
@@ -1130,6 +1193,12 @@
     const inc = fuInc, notes = $("#fuNote").value.trim();
     if (!inc || !fuPick.action) return;
     $("#fuSave").disabled = true; $("#fuSave").textContent = "Saving…";
+    if (isSample()) {
+      const x = sampleFind("incidents", inc.timestamp);
+      if (x) Object.assign(x, { reviewed: "Sample · " + new Date().toLocaleDateString(), notes: notes ? (x.notes ? x.notes + "\n" + notes : notes) : (x.notes || ""), action: fuPick.action, status: fuPick.status });
+      $("#fuDlg").close(); $("#fuSave").disabled = false; $("#fuSave").textContent = "Save follow-up";
+      return load();
+    }
     if (TEST) {
       let rv = {}; try { rv = JSON.parse(localStorage.getItem("ppc_local_reviews") || "{}"); } catch {}
       const before = (rv[inc.timestamp] && rv[inc.timestamp].notes) || "";
@@ -1281,6 +1350,12 @@
       ? { name: co.r.name, studentId: co.r.studentId || "", checkinTimestamp: co.r.timestamp, energy: "", moodGroup: "", moodWord: "", helped: "" }
       : { name: co.r.name, studentId: co.r.studentId || "", checkinTimestamp: co.r.timestamp, energy: ENERGY_OF[co.group], moodGroup: co.group, moodWord: co.word || co.group, helped: co.helped.join(", ") };
     try {
+      if (isSample()) {
+        const x = sampleFind("checkins", co.r.timestamp), now = new Date();
+        if (x) Object.assign(x, { checkoutTime: now.toISOString(), minutes: Math.round((now - new Date(x.timestamp)) / 60000), checkedOutBy: "Staff (sample)",
+          outEnergy: rec.energy, outMoodGroup: rec.moodGroup, outMoodWord: rec.moodWord, helped: rec.helped });
+        $("#coDlg").close(); load(); return;
+      }
       if (TEST) {
         const raw = JSON.parse(localStorage.getItem("ppc_local") || "[]");
         raw.push(Object.assign({ type: "checkout", timestamp: new Date().toISOString(), checkedOutBy: "Staff (test mode)" }, rec));
