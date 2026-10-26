@@ -210,6 +210,40 @@
 
   /* Station suggestion */
   .lead { font-size: clamp(1.05rem, 2.2vw, 1.35rem); font-weight: 500; color: var(--fg-2); text-align: center; margin: -12px 0 var(--space-5); max-width: 820px; }
+  /* ---------- Menu colors (look D, Oct 2026, from trial feedback) ----------
+     Every choice card except the Mood Meter ones (energy, stations) wears one of five menu colors, in turn.
+     The palette avoids the Mood Meter red / yellow / blue / green so a menu color never reads as a feeling.
+     Unchosen: a 45% shade with dark labels (7:1 or better) and darkened icons. Tapped or selected: solid
+     color with white text (5:1 or better) plus the check mark, so selection never relies on color alone. */
+  :root { --menu-1: #842D46; --menu-2: #0B7576; --menu-3: #6B3FA0; --menu-4: #B4500F; --menu-5: #A2246A; }
+  .cards:not(.stations) > .card:not(.e-fast):not(.e-slow):not(.e-ok) { --c: var(--menu-1); background: color-mix(in srgb, var(--c) 45%, white); border: 2px solid var(--c); color: var(--fg-1);
+    transition: transform 120ms ease, background 150ms ease, border-color 150ms ease, box-shadow 150ms ease; }
+  .cards:not(.stations) > .card:not(.e-fast):not(.e-slow):not(.e-ok):nth-child(5n+2) { --c: var(--menu-2); }
+  .cards:not(.stations) > .card:not(.e-fast):not(.e-slow):not(.e-ok):nth-child(5n+3) { --c: var(--menu-3); }
+  .cards:not(.stations) > .card:not(.e-fast):not(.e-slow):not(.e-ok):nth-child(5n+4) { --c: var(--menu-4); }
+  .cards:not(.stations) > .card:not(.e-fast):not(.e-slow):not(.e-ok):nth-child(5n+5) { --c: var(--menu-5); }
+  .cards:not(.stations) > .card:not(.e-fast):not(.e-slow):not(.e-ok) .ic, .cards:not(.stations) > .card:not(.e-fast):not(.e-slow):not(.e-ok) b { color: color-mix(in srgb, var(--c) 70%, black); }
+  .cards:not(.stations) > .card:not(.e-fast):not(.e-slow):not(.e-ok) small { color: color-mix(in srgb, var(--c) 45%, black); }
+  @media (hover: hover) { .cards:not(.stations) > .card:not(.e-fast):not(.e-slow):not(.e-ok):hover { border-color: color-mix(in srgb, var(--c) 75%, black); } }
+  .cards:not(.stations) > .card:not(.e-fast):not(.e-slow):not(.e-ok):active { transform: scale(0.97); }
+  .cards:not(.stations) > .card:not(.e-fast):not(.e-slow):not(.e-ok):active, .cards:not(.stations) > .card:not(.e-fast):not(.e-slow):not(.e-ok).selected { background: var(--c); border-color: var(--c); color: #fff; }
+  .cards:not(.stations) > .card:not(.e-fast):not(.e-slow):not(.e-ok):active .ic, .cards:not(.stations) > .card:not(.e-fast):not(.e-slow):not(.e-ok).selected .ic, .cards:not(.stations) > .card:not(.e-fast):not(.e-slow):not(.e-ok):active b, .cards:not(.stations) > .card:not(.e-fast):not(.e-slow):not(.e-ok).selected b { color: #fff; }
+  .cards:not(.stations) > .card:not(.e-fast):not(.e-slow):not(.e-ok):active small, .cards:not(.stations) > .card:not(.e-fast):not(.e-slow):not(.e-ok).selected small { color: rgba(255,255,255,.88); }
+  .cards:not(.stations) > .card:not(.e-fast):not(.e-slow):not(.e-ok).selected { box-shadow: 0 4px 12px color-mix(in srgb, var(--c) 45%, transparent); }
+  .cards.needs > .card .chk { background: #fff; }
+  .cards.needs > .card .chk .ic { color: var(--c) !important; }
+  .cards.needs > .card.selected .chk { animation: chk-pop 180ms ease-out; }
+  @keyframes chk-pop { from { transform: scale(0.4); } to { transform: scale(1); } }
+  /* Primary buttons: a little depth and a press-in. Disabled ones stay in the brand color, just pale. */
+  .btn-primary { box-shadow: 0 4px 0 var(--psd-maroon-800); transition: transform 100ms ease, box-shadow 100ms ease, background var(--duration-fast) var(--ease-standard); }
+  .btn-primary:active:not(:disabled) { transform: translateY(3px); box-shadow: 0 1px 0 var(--psd-maroon-800); }
+  .btn-primary:disabled { opacity: 1; background: var(--psd-maroon-100); border-color: var(--psd-maroon-100); color: color-mix(in srgb, var(--psd-maroon) 55%, white); box-shadow: none; }
+  @media (prefers-reduced-motion: reduce) {
+    .cards:not(.stations) > .card:not(.e-fast):not(.e-slow):not(.e-ok), .btn-primary { transition: none; }
+    .cards:not(.stations) > .card:not(.e-fast):not(.e-slow):not(.e-ok):active, .btn-primary:active:not(:disabled) { transform: none; }
+    .cards.needs > .card.selected .chk { animation: none; }
+  }
+
   .cards.stations { grid-template-columns: repeat(4, 1fr); gap: var(--space-3); width: min(96vw, 1000px); }
   .cards.stations .card { min-height: clamp(130px, 24vh, 200px); border: 0; color: var(--psd-white); position: relative; padding-top: var(--space-6); gap: var(--space-1); }
   .cards.stations .card.dk { color: #2b1d00; }
@@ -534,7 +568,7 @@
 <script src="config.js"></script>
 <script>
 (function () {
-  const APP_VERSION = "2026.10.25-lock.4";
+  const APP_VERSION = "2026.10.25-colors.1";
   const CFG = Object.assign({
     SCRIPT_URL: "", KIOSK_NAME: "Kiosk", KIOSK_DOMAIN: "",
     RESET_SECONDS: 8, IDLE_SECONDS: 120,
