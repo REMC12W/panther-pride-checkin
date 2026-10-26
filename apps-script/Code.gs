@@ -46,10 +46,13 @@ const ROSTER_SPREADSHEET_ID = '';
 // Principal dashboard owners. They can always open both dashboards and manage the Access list.
 const PRINCIPAL_EMAILS = ['jeremy.andrick@parchmentschools.org', 'ben.tomlinson@kresa.org'];
 // Everyone else must be on the Access tab, managed from principal.html ("People & access").
-// Anyone listed there (Staff dashboard or Principal dashboard) may sign in the kiosk iPad and
-// open the staff dashboard. Until the principal saves that list, only the owners and ADMIN_EMAILS can.
+// Three permissions: Staff dashboard, Principal dashboard, Check-in iPad. Either dashboard also lets
+// the person sign in the kiosk iPad; Check-in iPad alone lets them run the iPad (and save the
+// check-ins entered on it) without seeing any dashboard. Until the principal saves the list,
+// only the owners and ADMIN_EMAILS can do anything.
 const ACCESS_NAME = 'Access';
-const ACCESS_HEADERS = ['Email', 'Staff dashboard', 'Principal dashboard', 'Updated by', 'Updated'];
+// 'Check-in iPad' is last so lists saved before it existed still read correctly.
+const ACCESS_HEADERS = ['Email', 'Staff dashboard', 'Principal dashboard', 'Updated by', 'Updated', 'Check-in iPad'];
 
 const SHEET_NAME   = 'Check-Ins';
 const SUMMARY_NAME = 'Summary';
@@ -307,10 +310,10 @@ function tokenInfo_(idToken) {
 /** login.html POSTs { type: 'whoami', idToken }: which pages this person may open. Never throws for a valid sign-in. */
 function whoami_(data) {
   const t = tokenInfo_(String(data.idToken || ''));
-  const staff = isAdmin_(t.email, t.hd);
+  const staff = isAdmin_(t.email, String(t.hd || ''));
   const access = accessMap_() || {};
   const principal = staff && (isOwner_(t.email) || !!(access[t.email] && access[t.email].principal));
-  const kiosk = !!t.hd && kioskAllowed_(t.email, t.hd);
+  const kiosk = kioskAllowed_(t.email, String(t.hd || ''));
   return { ok: true, email: t.email, staff, principal, kiosk, listStarted: !!accessMap_() };
 }
 
@@ -325,7 +328,10 @@ function verifyIdToken_(idToken, forKiosk) {
   if (Number(info.exp) * 1000 < Date.now()) throw new Error('Your sign-in expired. Please sign in again.');
   if (String(info.email_verified) !== 'true') throw new Error('This Google account is not verified.');
   const email = String(info.email || '').toLowerCase();
-  if (!staffAllowed_(email, info.hd)) {
+  // A fresh Google sign-in must carry Google's Workspace domain claim (hd); '' means "none", which a
+  // district address then fails. Only a stored iPad session skips this (it was checked at sign-in).
+  const hd = String(info.hd || '');
+  if (!(forKiosk ? kioskAllowed_(email, hd) : staffAllowed_(email, hd))) {
     throw new Error(email + (forKiosk ? ' can\'t sign in this iPad.' : ' can\'t open the dashboard.') +
       ' Only approved @' + ALLOWED_DOMAIN + ' staff can. Ask the principal to add you under People & access.');
   }
@@ -333,27 +339,31 @@ function verifyIdToken_(idToken, forKiosk) {
 }
 
 /**
- * The one approved list, for the iPad, the staff dashboard and the principal dashboard:
- * PRINCIPAL_EMAILS and ADMIN_EMAILS always; otherwise an @ALLOWED_DOMAIN Workspace account
- * (hd claim, when we have one) that the principal put on the Access tab with either box ticked.
+ * What this person may do, from the one approved list: PRINCIPAL_EMAILS and ADMIN_EMAILS can do
+ * everything; otherwise an @ALLOWED_DOMAIN Workspace account gets what the principal ticked for
+ * them on the Access tab. Null means nothing. hd is Google's Workspace domain claim from a fresh
+ * sign-in ('' when the account has none, which fails); undefined only for a stored iPad session.
  * Checked at every sign-in and on every iPad request, so removing someone takes effect at once.
  */
-function staffAllowed_(email, hd) {
+function accessFor_(email, hd) {
   email = String(email || '').toLowerCase();
-  if (!email) return false;
-  if (ADMIN_EMAILS.map(x => String(x).toLowerCase()).indexOf(email) !== -1) return true;
-  if (isOwner_(email)) return true;
+  if (!email) return null;
+  if (ADMIN_EMAILS.map(x => String(x).toLowerCase()).indexOf(email) !== -1 || isOwner_(email)) return { staff: true, principal: true, kiosk: true };
   const domain = String(ALLOWED_DOMAIN || '').toLowerCase();
-  if (!domain || !email.endsWith('@' + domain)) return false;
+  if (!domain || !email.endsWith('@' + domain)) return null;
   // Must be a real Workspace account on that domain: Google sets hd only for those. A personal
   // Google account that merely uses an @parchmentschools.org address is refused.
-  if (hd !== undefined && String(hd || '').toLowerCase() !== domain) return false;
-  const access = accessMap_() || {};
-  return !!(access[email] && (access[email].staff || access[email].principal));
+  if (hd !== undefined && String(hd || '').toLowerCase() !== domain) return null;
+  const a = (accessMap_() || {})[email];
+  if (!a) return null;
+  return { staff: !!(a.staff || a.principal), principal: !!a.principal, kiosk: !!(a.kiosk || a.staff || a.principal) };
 }
-// Older names, kept for the login page and the kiosk sign-in: same list.
+/** May open the staff dashboard (and read or change records there). */
+function staffAllowed_(email, hd) { const a = accessFor_(email, hd); return !!(a && a.staff); }
+/** May sign in the kiosk iPad and save the check-ins, check-outs and incident reports entered on it. */
+function kioskAllowed_(email, hd) { const a = accessFor_(email, hd); return !!(a && a.kiosk); }
+// Older name, kept for the login page: the staff dashboard check.
 function isAdmin_(email, hd) { return staffAllowed_(email, hd); }
-function kioskAllowed_(email, hd) { return staffAllowed_(email, hd); }
 
 /** Recent check-ins, oldest first, with check-out columns. */
 function checkinRows_(days) {
@@ -398,7 +408,7 @@ function accessMap_() {
   const yes = v => v === true || /^(yes|y|true|1|x|✓|ok)$/i.test(String(v).trim());
   sheet.getDataRange().getValues().slice(1).forEach(r => {
     const e = String(r[0] || '').trim().toLowerCase();
-    if (e) map[e] = { staff: yes(r[1]), principal: yes(r[2]), by: String(r[3] || ''), at: r[4] instanceof Date ? r[4].toISOString() : String(r[4] || '') };
+    if (e) map[e] = { staff: yes(r[1]), principal: yes(r[2]), kiosk: yes(r[5]), by: String(r[3] || ''), at: r[4] instanceof Date ? r[4].toISOString() : String(r[4] || '') };
   });
   return map;
 }
@@ -409,20 +419,20 @@ function accessList_(data) {
   return { ok: true, started: !!map, owners: PRINCIPAL_EMAILS, admins: ADMIN_EMAILS, domain: ALLOWED_DOMAIN,
     people: Object.keys(map || {}).sort().map(e => Object.assign({ email: e }, map[e])) };
 }
-/** principal.html POSTs { type: 'accessSave', idToken, people: [{ email, staff, principal }] }. Replaces the list. */
+/** principal.html POSTs { type: 'accessSave', idToken, people: [{ email, staff, principal, kiosk }] }. Replaces the list. */
 function accessSave_(data) {
   const who = principal_(data);
   const before = accessMap_() || {};
   const seen = {}, rows = [];
   (Array.isArray(data.people) ? data.people : []).forEach(p => {
-    if (!p || (!p.staff && !p.principal)) return; // no access at all = not on the list (and a stray junk row can't block the save)
+    if (!p || (!p.staff && !p.principal && !p.kiosk)) return; // no access at all = not on the list (and a stray junk row can't block the save)
     const e = String(p.email || '').trim().toLowerCase().replace(/\.+$/, '');
     if (!e || seen[e]) return;
     if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(e)) throw new Error('"' + e + '" is not an email address.');
     seen[e] = true;
     // Someone whose access didn't change keeps their original "Updated by" and date, so the list still says who added whom.
-    const old = before[e], same = old && !!old.staff === !!p.staff && !!old.principal === !!p.principal;
-    rows.push([e, p.staff ? 'Yes' : '', p.principal ? 'Yes' : '', same ? old.by : who, same && old.at ? new Date(old.at) : new Date()]);
+    const old = before[e], same = old && !!old.staff === !!p.staff && !!old.principal === !!p.principal && !!old.kiosk === !!p.kiosk;
+    rows.push([e, p.staff ? 'Yes' : '', p.principal ? 'Yes' : '', same ? old.by : who, same && old.at ? new Date(old.at) : new Date(), p.kiosk ? 'Yes' : '']);
   });
   if (rows.length > 500) throw new Error('The list is limited to 500 people.');
   return withLock_(() => {
@@ -433,6 +443,8 @@ function accessSave_(data) {
       sheet.getRange(1, 1, 1, ACCESS_HEADERS.length).setValues([ACCESS_HEADERS]).setFontWeight('bold').setBackground('#d61f26').setFontColor('#ffffff');
       sheet.setFrozenRows(1); sheet.setColumnWidth(1, 280);
     }
+    // Headers every time, so a tab saved before the Check-in iPad column existed gains it.
+    sheet.getRange(1, 1, 1, ACCESS_HEADERS.length).setValues([ACCESS_HEADERS]).setFontWeight('bold').setBackground('#d61f26').setFontColor('#ffffff');
     if (sheet.getLastRow() > 1) sheet.getRange(2, 1, sheet.getLastRow() - 1, ACCESS_HEADERS.length).clearContent();
     if (rows.length) sheet.getRange(2, 1, rows.length, ACCESS_HEADERS.length).setValues(rows);
     return { ok: true, saved: rows.length };
@@ -578,7 +590,7 @@ function kioskSession_(session) {
   if (!raw) throw new Error('iPad not signed in.');
   const s = JSON.parse(raw);
   if (s.exp < Date.now()) { props.deleteProperty('kiosk_' + sha_(String(session))); throw new Error('iPad sign-in expired.'); }
-  if (!staffAllowed_(s.email)) { props.deleteProperty('kiosk_' + sha_(String(session))); throw new Error('iPad not signed in.'); }
+  if (!kioskAllowed_(s.email)) { props.deleteProperty('kiosk_' + sha_(String(session))); throw new Error('iPad not signed in.'); }
   return s;
 }
 

@@ -751,7 +751,7 @@
   // The list lives on the Access tab in the Sheet; the script enforces it on every request.
   let acc = null;
   async function openAccess() {
-    $("#accErr").textContent = ""; $("#accRows").innerHTML = `<tr><td colspan="4" class="empty">Loading…</td></tr>`; $("#accessDlg").showModal();
+    $("#accErr").textContent = ""; $("#accRows").innerHTML = `<tr><td colspan="5" class="empty">Loading…</td></tr>`; $("#accessDlg").showModal();
     try {
       const d = await post({ type: "accessList" });
       if (!d.ok) throw fail(d);
@@ -761,20 +761,24 @@
   function renderAccess() {
     const owners = (acc.owners || []).map(e => e.toLowerCase());
     $("#accIntro").innerHTML = (acc.started
-      ? `Only the people below can open the staff dashboard or this page. Changes apply on their next page load.`
-      : `<b>Right now any @${esc(acc.domain || "district")} staff account can open the staff dashboard.</b> Saving this list limits it to the people below.`)
+      ? `Only the people below can open the dashboards or sign in the check-in iPad. Changes apply on their next page load.`
+      : `<b>Nobody but the owners can sign in yet.</b> Add the people who need the dashboards or the check-in iPad, then save.`)
       + ` Each person signs in with their school Google account.`;
-    const fixed = owners.map(e => `<tr><td>${esc(e)}</td><td class="c">${IC("check", 18, "Yes")}</td><td class="c">${IC("check", 18, "Yes")}</td><td class="fixed">Owner</td></tr>`).join("");
+    const fixed = owners.map(e => `<tr><td>${esc(e)}</td><td class="c">${IC("check", 18, "Yes")}</td><td class="c">${IC("check", 18, "Yes")}</td><td class="c">${IC("check", 18, "Yes")}</td><td class="fixed">Owner</td></tr>`).join("");
     $("#accRows").innerHTML = fixed + acc.people.filter(p => !owners.includes(p.email)).map((p, i) => `<tr data-i="${i}"><td>${esc(p.email)}</td>
       <td class="c"><input type="checkbox" data-k="staff" ${p.staff ? "checked" : ""} aria-label="Staff dashboard for ${esc(p.email)}"></td>
       <td class="c"><input type="checkbox" data-k="principal" ${p.principal ? "checked" : ""} aria-label="Principal dashboard for ${esc(p.email)}"></td>
+      <td class="c">${(p.staff || p.principal)
+        ? `<input type="checkbox" checked disabled title="Included with dashboard access" aria-label="Check-in iPad for ${esc(p.email)}, included with dashboard access">`
+        : `<input type="checkbox" data-k="kiosk" ${p.kiosk ? "checked" : ""} aria-label="Check-in iPad for ${esc(p.email)}">`}</td>
       <td><button type="button" class="btn sm" data-rm="${i}">Remove</button></td></tr>`).join("");
     const list = acc.people.filter(p => !owners.includes(p.email));
-    $("#accRows").querySelectorAll("input[data-k]").forEach(cb => cb.addEventListener("change", () => { list[Number(cb.closest("tr").dataset.i)][cb.dataset.k] = cb.checked; }));
+    // A dashboard box includes the iPad, so redraw to show that when one changes.
+    $("#accRows").querySelectorAll("input[data-k]").forEach(cb => cb.addEventListener("change", () => { list[Number(cb.closest("tr").dataset.i)][cb.dataset.k] = cb.checked; if (cb.dataset.k !== "kiosk") renderAccess(); }));
     $("#accRows").querySelectorAll("[data-rm]").forEach(b => b.addEventListener("click", () => { const p = list[Number(b.dataset.rm)]; acc.people = acc.people.filter(x => x !== p); renderAccess(); }));
   }
   $("#accessBtn").addEventListener("click", openAccess);
-  const sigOf = ps => JSON.stringify((ps || []).map(p => [p.email, !!p.staff, !!p.principal]).sort());
+  const sigOf = ps => JSON.stringify((ps || []).map(p => [p.email, !!p.staff, !!p.principal, !!p.kiosk]).sort());
   const accDirty = () => !!acc && sigOf(acc.people) !== acc.original;
   $("#accClose").addEventListener("click", () => { if (accDirty() && !confirm("Close without saving your changes?")) return; $("#accessDlg").close(); });
   $("#accessDlg").addEventListener("cancel", e => { if (accDirty() && !confirm("Close without saving your changes?")) e.preventDefault(); });
@@ -792,9 +796,9 @@
   $("#accSave").addEventListener("click", async () => {
     const owners = (acc.owners || []).map(e => e.toLowerCase());
     const people = acc.people.filter(p => !owners.includes(p.email));
-    const listed = people.filter(p => p.staff || p.principal).map(p => p.email);
-    const lost = JSON.parse(acc.original || "[]").filter(([email, s, pr]) => (s || pr) && !listed.includes(email)).map(x => x[0]);
-    if (!acc.started) { if (!confirm(`After saving, only these people can open the staff dashboard:\n\n${owners.concat(listed).join("\n")}\n\nAnyone else, including other Pride Center staff, will be locked out. Save?`)) return; }
+    const listed = people.filter(p => p.staff || p.principal || p.kiosk).map(p => p.email);
+    const lost = JSON.parse(acc.original || "[]").filter(([email, s, pr, k]) => (s || pr || k) && !listed.includes(email)).map(x => x[0]);
+    if (!acc.started) { if (!confirm(`After saving, only these people can sign in to the dashboards or the check-in iPad:\n\n${owners.concat(listed).join("\n")}\n\nSave?`)) return; }
     else if (lost.length && !confirm(`These people will lose access:\n\n${lost.join("\n")}\n\nSave?`)) return;
     $("#accSave").disabled = true; $("#accSave").textContent = "Saving…";
     try {

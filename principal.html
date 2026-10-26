@@ -192,6 +192,8 @@
   .acc-table input[type=checkbox] { width: 20px; height: 20px; accent-color: var(--brand); }
   .acc-table tbody tr { cursor: default; }
   .acc-table .fixed { color: var(--ink-3); font-size: 0.82rem; }
+  .acc-table input[type=checkbox]:disabled { opacity: .55; }
+  .acc-key { color: var(--ink-3); font-size: 0.82rem; margin: 8px 0 0; }
   .acc-add { display: flex; gap: 8px; margin-top: 12px; } .acc-add input { flex: 1; }
   .acc-err { color: var(--st-critical); font-size: 0.88rem; min-height: 1.2em; margin: 8px 0 0; }
 
@@ -376,8 +378,9 @@
 <dialog id="accessDlg" aria-labelledby="accTitle"><div class="gallery acc">
   <h2 id="accTitle">People &amp; access</h2>
   <p class="acc-intro" id="accIntro"></p>
-  <table class="tile-table acc-table"><thead><tr><th>Email</th><th>Staff dashboard</th><th>Principal dashboard</th><th></th></tr></thead><tbody id="accRows"></tbody></table>
+  <table class="tile-table acc-table"><thead><tr><th>Email</th><th class="c">Staff dashboard</th><th class="c">Principal dashboard</th><th class="c">Check-in iPad</th><th></th></tr></thead><tbody id="accRows"></tbody></table>
   <div class="acc-add"><input class="ctl" id="accEmail" type="email" placeholder="name@parchmentschools.org" autocomplete="off"><button class="btn" id="accAdd" type="button">+ Add person</button></div>
+  <p class="acc-key">Check-in iPad lets someone sign in the Pride Center iPad so students can check in, without seeing either dashboard. Anyone with a dashboard can already sign in the iPad.</p>
   <p class="acc-err" id="accErr"></p>
   <div class="foot"><button class="btn" id="accClose" type="button">Cancel</button><button class="btn primary" id="accSave" type="button">Save list</button></div>
 </div></dialog>

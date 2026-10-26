@@ -106,7 +106,7 @@
     sessionStorage.removeItem("ppc_id_token");
     $("#whoNone").textContent = d.email;
     $("#noneMsg").textContent = d.kiosk
-      ? "You don't have access to the dashboards yet. Ask the principal to add you under People & access. You can still set up the check-in iPad."
+      ? "Your account can sign in the Pride Center check-in iPad so students can check in. Ask the principal if you also need a dashboard."
       : "This account doesn't have access. Sign in with your @" + (CFG.KIOSK_DOMAIN || CFG.ALLOWED_DOMAIN || "school") + " Google account, or ask the principal to add you.";
     $("#noneChoices").innerHTML = d.kiosk ? link("kiosk") : "";
     show("none");
