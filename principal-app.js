@@ -395,12 +395,13 @@
       d.dataset.id = t.id; d.dataset.w = String(t.w || 6); d.dataset.chart = t.chart;
       if (b.layout !== "list") { d.style.gridColumn = `span ${Math.min(12, Math.max(2, t.w || 6))}`; d.style.gridRow = `span ${Math.max(t.chart === "research" ? 1 : 2, t.h || 4)}`; }
       d.innerHTML = `<div class="head"><span class="grip" title="Drag to move">${IC("grip-vertical", 18)}</span><h3 title="${esc(t.hint || tileTitle(t))}">${esc(tileTitle(t))}</h3>${tileChips(t)}
-        <span class="order"><button type="button" data-mv="-1" title="Move up" aria-label="Move up">${IC("arrow-up", 16)}</button><button type="button" data-mv="1" title="Move down" aria-label="Move down">${IC("arrow-down", 16)}</button></span>
+        <span class="order"><button type="button" data-mv="-1" title="Move earlier" aria-label="Move ${esc(tileTitle(t))} earlier">${IC("arrow-up", 16)}</button><button type="button" data-mv="1" title="Move later" aria-label="Move ${esc(tileTitle(t))} later">${IC("arrow-down", 16)}</button></span>
         <div class="menu"><button type="button" class="kebab" aria-label="Tile menu">${IC("ellipsis", 18)}</button><ul>
           <li><button type="button" data-act="edit">Edit…</button></li><li><button type="button" data-act="dup">Duplicate</button></li>
           <li><button type="button" data-act="csv">Download numbers (CSV)</button></li><li><button type="button" data-act="img">Copy as image</button></li>
+          <li><button type="button" data-act="nums">Show the numbers</button></li>
           <li><button type="button" data-act="drill">See the records</button></li><li><button type="button" data-act="del">Delete</button></li></ul></div></div>
-        <div class="take"></div><div class="body"><div class="vis"></div></div><div class="resize" title="Drag to resize"></div>`;
+        <div class="take"></div><div class="body"><div class="vis"></div></div><div class="resize" title="Drag to resize, or focus it and use the arrow keys" tabindex="0" role="button"></div>`;
       el.appendChild(d);
       wireTile(d, t, i);
       renderTile(d, t);
@@ -408,8 +409,29 @@
     const add = document.createElement("button"); add.type = "button"; add.className = "add-tile"; add.innerHTML = IC("plus", 18) + "Add tile"; add.addEventListener("click", openGallery); el.appendChild(add);
   }
 
+  // A chart's numbers as a table: read by screen readers under each chart (charts are drawn on a canvas,
+  // which they can't read), and shown to everyone from the tile menu's "Show the numbers" (WCAG 1.1.1).
+  function numbersTable(t, agg, caption) {
+    const rows = C.numbersFor(agg, t); if (!rows || rows.length < 2) return "";
+    const [head, ...body] = rows;
+    return `<table class="tile-table nums"><caption>${esc(caption)}</caption><thead><tr>${head.map(h => `<th scope="col">${esc(h)}</th>`).join("")}</tr></thead><tbody>${body.map(r => `<tr>${r.map((c, i) => i === 0 ? `<th scope="row">${esc(c)}</th>` : `<td>${esc(c)}</td>`).join("")}</tr>`).join("")}</tbody></table>`;
+  }
+  function addNumbers(d, t, agg) {
+    let sr = d.querySelector(".sr-nums");
+    if (!sr) { sr = document.createElement("div"); sr.className = "sr-only sr-nums"; d.querySelector(".body").appendChild(sr); }
+    sr.innerHTML = numbersTable(t, agg, `Numbers for ${tileTitle(t)}`);
+  }
+  function showNumbers(t) {
+    const agg = aggs[t.id]; if (!agg) return;
+    $("#drTitle").firstChild.textContent = tileTitle(t);
+    $("#drSub").textContent = "The numbers behind this chart";
+    $("#drCompare").classList.add("hidden");
+    $("#drBody").innerHTML = numbersTable(t, agg, tileTitle(t)) || `<div class="empty">No numbers to show.</div>`;
+    openDrawer();
+  }
   async function renderTile(d, t) {
     const vis = d.querySelector(".vis"), body = d.querySelector(".body");
+    const old = d.querySelector(".sr-nums"); if (old) old.innerHTML = "";
     body.classList.toggle("scroll", t.chart === "table");
     if (t.chart === "research") return renderResearch(vis, t);
     let agg;
@@ -418,15 +440,16 @@
     if (!agg.totalN) { vis.innerHTML = `<div class="empty">${hasFilters(t) ? "No records match these filters." : "No records in this date range."}</div>`; return; }
     if (board().layout === "list") return renderRow(d, t, agg);
     if (t.chart === "number") { vis.innerHTML = C.numberHTML(agg, t); vis.style.cursor = "pointer"; vis.onclick = () => drill(t, agg, null, null); return; }
-    if (t.chart === "sankey") { vis.innerHTML = C.sankeySVG(agg.current, body.clientWidth - 20, body.clientHeight - 10); return; }
+    if (t.chart === "sankey") { vis.innerHTML = C.sankeySVG(agg.current, body.clientWidth - 20, body.clientHeight - 10); addNumbers(d, t, agg); return; }
     if (t.chart === "table") { vis.innerHTML = C.tableHTML(agg); vis.querySelectorAll("tbody tr").forEach(tr => tr.addEventListener("click", () => drill(t, agg, tr.dataset.key, null))); return; }
     try {
       const k = C.takeaway(agg, t);
-      vis.setAttribute("role", "img"); vis.setAttribute("aria-label", `${tileTitle(t)}. ${k.value}${k.label ? " " + k.label : ""}${k.delta ? ", " + k.delta.text : ""}. Open the tile menu and choose See the records for the details.`);
+      vis.setAttribute("role", "img"); vis.setAttribute("aria-label", `${tileTitle(t)}. ${k.value}${k.label ? " " + k.label : ""}${k.delta ? ", " + k.delta.text : ""}. The chart's numbers follow in a table.`);
       const spec = C.spec(agg, t);
       const res = await vegaEmbed(vis, spec, { actions: false, renderer: "canvas", tooltip: { theme: "light" } });
       views[t.id] = res.view;
       markClick(res.view, vis, t, agg);
+      addNumbers(d, t, agg);
     } catch (err) { console.error(err); vis.innerHTML = `<div class="empty">This tile couldn't be drawn. Try Refresh, or Edit the tile.</div>`; }
   }
   /** Tap or click a mark to see the records behind it. */
@@ -446,6 +469,7 @@
     take.innerHTML = `<button type="button" class="go" aria-label="See the records">
       <span class="tv">${esc(k.value)}</span><span class="tl">${esc(k.label || "")}</span>${k.delta ? C.deltaHTML(k.delta) : ""}${IC("chevron-right", 18)}</button>`;
     take.querySelector(".go").addEventListener("click", () => drill(t, agg, k.key != null ? k.key : null, k.series != null ? k.series : null));
+    vis.setAttribute("aria-hidden", "true"); addNumbers(d, t, agg);
     if (t.chart === "sankey") { vis.innerHTML = moodBars(agg.current); return; }
     if (t.chart === "table") {
       const live = agg.rows.filter(r => !r.previous && !r.secondary).sort((a, b) => (b.value || 0) - (a.value || 0)).slice(0, 4);
@@ -495,6 +519,7 @@
       if (act === "csv") { const a = aggs[t.id]; if (!a) return; if (a.dim === "student" && !confirm("This file lists student names. Keep it somewhere private. Download it?")) return; download(safeName(tileTitle(t)) + ".csv", C.csvFor(a, t), "text/csv;charset=utf-8"); }
       if (act === "img") copyImage(t);
       if (act === "drill") { const a = aggs[t.id]; if (a) drill(t, a, null, null); }
+      if (act === "nums") showNumbers(t);
     }));
     d.querySelectorAll("[data-mv]").forEach(b => b.addEventListener("click", () => { const bd = board(), j = i + Number(b.dataset.mv); if (j < 0 || j >= bd.tiles.length) return; [bd.tiles[i], bd.tiles[j]] = [bd.tiles[j], bd.tiles[i]]; persist(); renderBoard(); }));
     // Drag to reorder (grid layout, unlocked). Pointer events so it works with a finger on a tablet.
@@ -518,8 +543,20 @@
       };
       grip.addEventListener("pointermove", move); grip.addEventListener("pointerup", up); grip.addEventListener("pointercancel", up);
     });
-    // Drag the corner to resize.
+    // Drag the corner to resize. Keyboard: focus the corner, then arrow keys (WCAG 2.1.1).
     const rs = d.querySelector(".resize");
+    const sizeLabel = () => rs.setAttribute("aria-label", `Resize ${tileTitle(t)}: ${t.w || 6} of 12 columns wide, ${t.h || 4} rows tall. Use the arrow keys.`);
+    sizeLabel();
+    let rsRedraw;
+    rs.addEventListener("keydown", e => {
+      if (state.locked) return;
+      const dw = e.key === "ArrowRight" ? 1 : e.key === "ArrowLeft" ? -1 : 0, dh = e.key === "ArrowDown" ? 1 : e.key === "ArrowUp" ? -1 : 0;
+      if (!dw && !dh) return;
+      e.preventDefault();
+      t.w = Math.min(12, Math.max(2, (t.w || 6) + dw)); t.h = Math.min(10, Math.max(2, (t.h || 4) + dh));
+      d.style.gridColumn = `span ${t.w}`; d.style.gridRow = `span ${t.h}`; sizeLabel();
+      clearTimeout(rsRedraw); rsRedraw = setTimeout(() => { persist(); renderTile(d, t); }, 300);
+    });
     rs.addEventListener("pointerdown", e => {
       if (state.locked) return;
       e.preventDefault(); rs.setPointerCapture(e.pointerId);

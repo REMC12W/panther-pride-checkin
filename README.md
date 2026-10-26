@@ -315,6 +315,24 @@ The kiosk registers a service worker. After the first successful load, the app o
 
 With `SCRIPT_URL` empty, the kiosk saves check-ins in the browser on that device only, and `staff.html` shows them. The iPad lock is off in test mode. Good for a first look and for training staff before the Sheet is connected.
 
+## Accessibility
+
+Target: WCAG 2.1 Level AA, the standard the U.S. Department of Justice's 2024 ADA Title II rule sets for public school districts' web content. Checked on 2026-10-25.
+
+What the app does for it:
+
+- **Contrast.** Every text and icon meets AA contrast. Mood Meter tiles and station cards pick white or dark text automatically for each color, so the Mood Meter colors never change. The menu colors (maroon, teal, plum, orange, berry) were chosen to pass with dark labels on the shade and white text when tapped.
+- **Not color alone.** Selected cards keep a check mark; mood strips and dots on the dashboard carry text labels.
+- **Zoom.** The kiosk allows pinch-zoom; nothing scrolls sideways at 320 px wide or at 200% zoom.
+- **Keyboard and screen readers.** Every step works with a keyboard and shows a focus ring. Each new kiosk question receives focus so screen readers announce it. Fields have labels; save messages are announced. The name suggestions work with arrow keys.
+- **Time limits.** Twenty seconds before the idle reset the kiosk asks "Are you still there?" and any tap keeps going. End screens count down from at least 20 seconds and have a **More time** button (+30 seconds).
+- **Charts.** Staff dashboard charts have a written summary (screen readers read it; keyboard users get it as a tooltip). Principal dashboard charts have a hidden data table for screen readers and **Show the numbers** in each tile's menu for everyone. Tiles can be moved with the arrow buttons and resized with the arrow keys.
+- **Motion.** Press animations turn off when the device is set to reduce motion.
+
+How it was checked: axe-core 4.13 (WCAG 2.1 A and AA rules) on 82 screens and states across every kiosk path, the login page and both dashboards, with zero violations; a keyboard-only check-in; sideways-scroll checks at 320 px and 200% zoom; WCAG text-spacing overrides; and the iPad no-scroll check at six sizes.
+
+Not covered by those checks: a full pass with VoiceOver on the actual iPad (recommended once a year or after big changes), Google's own sign-in button (Google's responsibility), and the separate demo site.
+
 ## Privacy notes
 
 - **Sample data:** rows whose Kiosk column says `SAMPLE DATA` (names end in "(sample)") are demo rows for staff to explore. Run **deleteSampleData** in Apps Script to remove them all; real rows are untouched.

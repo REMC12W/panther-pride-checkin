@@ -8,3 +8,5 @@ _demo_card.html
 *.mp4
 !assets/overview.mp4
 design-preview/
+_t_*.html
+_prototype_*.html

@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
 <meta name="apple-mobile-web-app-title" content="Pride Center">
@@ -117,13 +117,17 @@
   /* Name entry */
   .field {
     width: min(90vw, 560px); font-size: clamp(1.3rem, 3vw, 1.8rem); font-weight: 500;
-    text-align: center; padding: 16px 20px; border: 2px solid var(--border-2); border-radius: var(--radius-md);
+    text-align: center; padding: 16px 20px; border: 2px solid var(--psd-gray); border-radius: var(--radius-md);
     outline: none; color: var(--fg-1); background: var(--surface-card); margin: 0 0 var(--space-5); -webkit-user-select: text; user-select: text;
   }
+  .screen h1[tabindex="-1"]:focus { outline: none; }
   .field:focus { border-color: var(--psd-maroon); box-shadow: 0 0 0 3px var(--psd-maroon-100); }
   .field::placeholder { color: var(--psd-gray); font-size: 0.72em; font-weight: 500; }
   .hint { color: var(--fg-3); font-size: 1rem; margin: -8px 0 var(--space-4); text-align: center; }
   .field.area { text-align: left; min-height: 130px; font-size: clamp(1.05rem, 2.2vw, 1.25rem); resize: none; font-weight: 400; line-height: 1.4; margin-bottom: var(--space-3); }
+  .flabel { align-self: stretch; width: min(90vw, 560px); margin: 0 auto 4px; font-weight: 700; font-size: clamp(0.95rem, 1.9vw, 1.05rem); color: var(--fg-1); text-align: left; }
+  .flabel span { font-weight: 500; color: var(--fg-3); }
+  #inc5 .field.area { min-height: 100px; }
   .field.small { text-align: left; font-size: clamp(1rem, 2vw, 1.12rem); padding: 12px 16px; margin: 0 0 var(--space-3); font-weight: 400; }
   .name-msg { min-height: 1.4em; font-size: 1.05rem; color: var(--psd-maroon); font-weight: 600; text-align: center; margin: -12px 0 var(--space-3); }
   .greet { color: var(--psd-maroon); }
@@ -247,7 +251,7 @@
   .cards.stations { grid-template-columns: repeat(4, 1fr); gap: var(--space-3); width: min(96vw, 1000px); }
   .cards.stations .card { min-height: clamp(130px, 24vh, 200px); border: 0; color: var(--psd-white); position: relative; padding-top: var(--space-6); gap: var(--space-1); }
   .cards.stations .card.dk { color: #2b1d00; }
-  .cards.stations .card .hint { font-size: 0.68em; font-weight: 500; line-height: 1.3; margin: 0; color: inherit; opacity: .92; }
+  .cards.stations .card .hint { font-size: 0.68em; font-weight: 500; line-height: 1.3; margin: 0; color: inherit; }
   .cards.stations .card .tag { position: absolute; top: 10px; left: 50%; transform: translateX(-50%); background: var(--psd-black); color: var(--psd-white); font-size: 11px; font-weight: 700; padding: 3px 9px; border-radius: var(--radius-sm); text-transform: uppercase; letter-spacing: var(--tracking-caps); white-space: nowrap; }
   .cards.stations .card.suggested { outline: 4px solid var(--psd-black); outline-offset: 3px; }
   .staff-first { display: none; text-align: center; margin: auto 0; }
@@ -275,6 +279,13 @@
   .done .status { margin-top: var(--space-5); color: var(--fg-3); font-size: 0.95rem; }
   .done .countdown { margin-top: var(--space-1); color: var(--fg-3); font-size: 0.95rem; }
   .done .finish { margin-top: var(--space-4); min-width: 200px; }
+  .still { position: fixed; inset: 0; z-index: 60; background: rgba(35,31,32,.55); display: flex; align-items: center; justify-content: center; padding: 16px; }
+  .still[hidden] { display: none; }
+  .still-card { background: var(--surface-card); border-top: 6px solid var(--psd-maroon); border-radius: var(--radius-md); padding: var(--space-6) var(--space-5); max-width: 520px; text-align: center; box-shadow: 0 12px 40px rgba(0,0,0,.3); }
+  .still-card h2 { margin: 0 0 var(--space-3); font-size: clamp(1.5rem, 3.4vw, 2rem); }
+  .still-card p { margin: 0 0 var(--space-5); font-size: clamp(1.05rem, 2.2vw, 1.25rem); color: var(--fg-2); line-height: 1.45; }
+  .end-acts { display: flex; gap: var(--space-3); justify-content: center; flex-wrap: wrap; }
+  .done .more-time { min-width: 0; text-decoration: underline; text-underline-offset: 4px; }
 
   #visit, #confirm, #kiosk { justify-content: center; }
   #visit p { font-size: clamp(1.1rem, 2.4vw, 1.45rem); text-align: center; margin: -8px 0 var(--space-5); max-width: 760px; color: var(--fg-2); }
@@ -292,8 +303,8 @@
   .dock { position: fixed; left: 0; right: 0; bottom: 0; z-index: 40; pointer-events: none; }
   .dock-row { display: flex; align-items: flex-end; justify-content: space-between; gap: var(--space-3); padding: 0 var(--space-4) var(--space-3) 8px; }
   .dock .banner { pointer-events: auto; }
-  .ver { font-size: 10px; line-height: 1; color: var(--psd-gray-300); padding-bottom: 2px; }
-  body[data-screen="start"] .ver { color: rgba(255,255,255,0.5); }
+  .ver { font-size: 10px; line-height: 1; color: var(--fg-3); padding-bottom: 2px; }
+  body[data-screen="start"] .ver { color: rgba(255,255,255,0.9); }
 
   /* Status banner: Panther Black utility strip */
   .banner { display: none; padding: 10px 16px; padding-bottom: max(10px, env(safe-area-inset-bottom)); background: var(--surface-dark); color: var(--fg-on-dark); font-size: 14px; font-weight: 600; text-align: center; }
@@ -394,7 +405,7 @@
   <!-- 2. Name -->
   <section class="screen" id="name" data-step="1">
     <h1 id="nameTitle">First, who are you?</h1>
-    <input class="field" id="nameInput" type="text" autocomplete="off" autocorrect="off" autocapitalize="words" spellcheck="false" placeholder="Start typing your name" enterkeyhint="go" role="combobox" aria-autocomplete="list" aria-controls="nameList">
+    <input class="field" id="nameInput" type="text" autocomplete="off" autocorrect="off" autocapitalize="words" spellcheck="false" placeholder="Start typing your name" enterkeyhint="go" role="combobox" aria-autocomplete="list" aria-controls="nameList" aria-expanded="false" aria-labelledby="nameTitle" aria-describedby="nameHint">
     <div class="name-list" id="nameList" role="listbox" aria-label="Students" hidden></div>
     <div class="name-msg" id="nameMsg" aria-live="polite"></div>
     <div class="hint" id="nameHint">Type your first name, then tap your name.</div>
@@ -452,8 +463,8 @@
 
   <!-- 5b. The student's own feeling word -->
   <section class="screen" id="ownWord" data-step="5">
-    <h1>Type your own word<span class="sub">One word, or a few.</span></h1>
-    <input class="field" id="ownWordInput" type="text" maxlength="30" autocomplete="off" autocapitalize="sentences" enterkeyhint="next" placeholder="Your word">
+    <h1 id="ownWordTitle">Type your own word<span class="sub">One word, or a few.</span></h1>
+    <input class="field" id="ownWordInput" aria-labelledby="ownWordTitle" type="text" maxlength="30" autocomplete="off" autocapitalize="sentences" enterkeyhint="next" placeholder="Your word">
     <button class="btn btn-primary big-btn" type="button" id="ownWordNext" disabled>Next</button>
   </section>
 
@@ -502,9 +513,12 @@
   </section>
   <section class="screen" id="inc5" data-step="8">
     <h1>Tell us what happened<span class="sub">Use your own words. A staff member will read this.</span></h1>
-    <textarea class="field area" id="incStory" placeholder="What happened?" autocapitalize="sentences"></textarea>
-    <input class="field small" id="incWho" type="text" autocomplete="off" placeholder="Who was involved? (optional)">
-    <input class="field small" id="incWitness" type="text" autocomplete="off" placeholder="Did anyone else see it? (optional)">
+    <label class="flabel" for="incStory">What happened?</label>
+    <textarea class="field area" id="incStory" autocapitalize="sentences"></textarea>
+    <label class="flabel" for="incWho">Who was involved? <span>(optional)</span></label>
+    <input class="field small" id="incWho" type="text" autocomplete="off">
+    <label class="flabel" for="incWitness">Did anyone else see it? <span>(optional)</span></label>
+    <input class="field small" id="incWitness" type="text" autocomplete="off">
     <div class="hint">If typing is hard right now, you can skip this and tell a staff member instead.</div>
     <button class="btn btn-primary big-btn" type="button" id="incStoryNext">Next</button>
   </section>
@@ -535,9 +549,9 @@
     <div class="dest" id="coDest" hidden></div>
     <h1 id="coTitle">You're checked out.</h1>
     <p id="coMsg"></p>
-    <div class="status" id="coStatus"></div>
+    <div class="status" id="coStatus" role="status"></div>
     <div class="countdown" id="coCountdown"></div>
-    <button class="btn btn-outline btn-lg finish" type="button" id="coFinishBtn">Done</button>
+    <div class="end-acts"><button class="btn btn-outline btn-lg finish" type="button" id="coFinishBtn">Done</button><button class="btn btn-ghost btn-lg finish more-time" type="button">More time</button></div>
   </section>
 
   <!-- 10. Done -->
@@ -548,12 +562,20 @@
     <p id="doneMsg"></p>
     <div class="badge" id="doneBadge"></div>
     <a class="btn btn-primary btn-lg form-link" id="formLink" target="_blank" rel="noopener"></a>
-    <div class="status" id="saveStatus"></div>
+    <div class="status" id="saveStatus" role="status"></div>
     <div class="countdown" id="countdown"></div>
-    <button class="btn btn-outline btn-lg finish" type="button" id="finishBtn">Done</button>
+    <div class="end-acts"><button class="btn btn-outline btn-lg finish" type="button" id="finishBtn">Done</button><button class="btn btn-ghost btn-lg finish more-time" type="button">More time</button></div>
   </section>
 
 </main>
+
+<div class="still" id="still" role="alertdialog" aria-modal="true" aria-labelledby="stillTitle" aria-describedby="stillMsg" hidden>
+  <div class="still-card">
+    <h2 id="stillTitle">Are you still there?</h2>
+    <p id="stillMsg">To keep your answers private, this will start over in <b id="stillN">20</b> seconds.</p>
+    <button class="btn btn-primary big-btn" type="button" id="stillBtn">Keep going</button>
+  </div>
+</div>
 
 <div class="dock" id="dock">
   <div class="dock-row">
@@ -568,7 +590,7 @@
 <script src="config.js"></script>
 <script>
 (function () {
-  const APP_VERSION = "2026.10.25-colors.1";
+  const APP_VERSION = "2026.10.25-a11y.1";
   const CFG = Object.assign({
     SCRIPT_URL: "", KIOSK_NAME: "Kiosk", KIOSK_DOMAIN: "",
     RESET_SECONDS: 8, IDLE_SECONDS: 120,
@@ -681,7 +703,12 @@
       $("#nameHint").textContent = rosterReady() ? "Type your first name, then tap your name." : "Type your first and last name.";
       setTimeout(() => $("#nameInput").focus(), 120);
     }
-    else if (id !== "ownWord") document.activeElement && document.activeElement.blur();
+    else if (id !== "ownWord") {
+      document.activeElement && document.activeElement.blur(); // closes the iPad keyboard
+      // Then put focus on the new question so screen readers announce it (WCAG 2.4.3). A heading opens no keyboard.
+      const h = document.getElementById(id).querySelector("h1");
+      if (h && id !== "start") { h.setAttribute("tabindex", "-1"); h.focus({ preventScroll: true }); }
+    }
     if (id === "start") loadRoster();
     touch();
   }
@@ -711,11 +738,32 @@
     show(prev, false);
   }
 
-  // Idle: quietly return to start so the next student never sees old answers.
+  // Idle: return to start so the next student never sees old answers. Twenty seconds before that,
+  // ask "Are you still there?"; any tap keeps going (WCAG 2.2.1 needs a warning and 20 seconds to extend).
+  const WARN_SECONDS = 20;
+  let stillTimer = null, stillReturn = null;
+  function hideStill() {
+    clearInterval(stillTimer); stillTimer = null;
+    if ($("#still").hidden) return;
+    $("#still").hidden = true;
+    document.querySelectorAll("body > header, main, #dock").forEach(el => el.inert = false);
+    if (stillReturn && document.contains(stillReturn)) stillReturn.focus({ preventScroll: true });
+  }
+  function warnIdle() {
+    if (END_SCREENS.includes(current)) return;
+    let n = WARN_SECONDS;
+    stillReturn = document.activeElement;
+    $("#stillN").textContent = n;
+    $("#still").hidden = false;
+    document.querySelectorAll("body > header, main, #dock").forEach(el => el.inert = true);
+    $("#stillBtn").focus();
+    stillTimer = setInterval(() => { n -= 1; $("#stillN").textContent = n; if (n <= 0) { hideStill(); reset(); } }, 1000);
+  }
   function touch() {
     clearTimeout(idleTimer);
+    hideStill();
     if (END_SCREENS.includes(current)) return;
-    idleTimer = setTimeout(reset, CFG.IDLE_SECONDS * 1000);
+    idleTimer = setTimeout(warnIdle, Math.max(CFG.IDLE_SECONDS - WARN_SECONDS, 10) * 1000);
   }
   ["pointerdown", "keydown", "touchstart"].forEach(ev => document.addEventListener(ev, touch, { passive: true }));
 
@@ -758,7 +806,7 @@
     const list = $("#nameList");
     list.innerHTML = "";
     const q = $("#nameInput").value;
-    if (!rosterReady() || fold(q).length < 2) { list.hidden = true; return; }
+    if (!rosterReady() || fold(q).length < 2) { list.hidden = true; $("#nameInput").setAttribute("aria-expanded", "false"); return; }
     const m = matchRoster(q);
     m.slice(0, 6).forEach(r => {
       const b = document.createElement("button");
@@ -769,13 +817,14 @@
     });
     if (m.length > 6) { const more = document.createElement("div"); more.className = "name-more"; more.textContent = "Keep typing to find your name."; list.appendChild(more); }
     list.hidden = !m.length;
+    $("#nameInput").setAttribute("aria-expanded", String(!list.hidden));
   }
   function pickStudent(r) {
     answers.rosterKey = r.key;
     answers.firstName = r.first;
     answers.name = r.name;
     $("#nameInput").value = r.name;
-    $("#nameList").hidden = true;
+    $("#nameList").hidden = true; $("#nameInput").setAttribute("aria-expanded", "false");
     $("#nameMsg").textContent = "";
     routeAfterName();
   }
@@ -840,7 +889,17 @@
     show("visit");
   }
   $("#nameNext").addEventListener("click", () => submitName());
-  $("#nameInput").addEventListener("keydown", e => { if (e.key === "Enter") { e.preventDefault(); submitName(); } });
+  $("#nameInput").addEventListener("keydown", e => {
+    if (e.key === "Enter") { e.preventDefault(); submitName(); }
+    // Arrow down moves into the name suggestions; arrows move between them, Escape returns to the box.
+    if (e.key === "ArrowDown") { const o = $("#nameList").querySelector(".name-opt"); if (o && !$("#nameList").hidden) { e.preventDefault(); o.focus(); } }
+  });
+  $("#nameList").addEventListener("keydown", e => {
+    const opts = [...$("#nameList").querySelectorAll(".name-opt")], i = opts.indexOf(document.activeElement);
+    if (e.key === "ArrowDown" && i < opts.length - 1) { e.preventDefault(); opts[i + 1].focus(); }
+    if (e.key === "ArrowUp") { e.preventDefault(); (i > 0 ? opts[i - 1] : $("#nameInput")).focus(); }
+    if (e.key === "Escape") { e.preventDefault(); $("#nameInput").focus(); }
+  });
   $("#nameInput").addEventListener("input", e => {
     e.target.style.borderColor = "";
     delete answers.rosterKey; delete answers.firstName; // typing again un-picks a name
@@ -955,6 +1014,16 @@
   // ---------- Station suggestion ----------
   // Mood Meter colors (ds.css). Yellow takes dark text for contrast.
   const STATION_COLORS = { Red: "var(--mood-red)", Yellow: "var(--mood-yellow)", Blue: "var(--mood-blue)", Green: "var(--mood-green)" };
+  const STATION_HEX = { Red: "#c1272d", Yellow: "#eda232", Blue: "#2b5090", Green: "#4c9a47" };
+  // Text on a Mood Meter color: white or near-black, whichever reads better (WCAG 1.4.3), so the
+  // Mood Meter colors themselves never have to change.
+  const INK_DARK = "#2b1d00";
+  function inkFor(hex) {
+    const lum = h => { const c = [1, 3, 5].map(i => parseInt(h.slice(i, i + 2), 16) / 255).map(v => v <= 0.03928 ? v / 12.92 : Math.pow((v + 0.055) / 1.055, 2.4)); return 0.2126 * c[0] + 0.7152 * c[1] + 0.0722 * c[2]; };
+    const L = lum(hex), onWhite = 1.05 / (L + 0.05), onDark = (L + 0.05) / (lum(INK_DARK) + 0.05);
+    if (Math.max(onWhite, onDark) < 4.5) return onWhite >= (L + 0.05) / 0.05 ? "#ffffff" : "#000000"; // e.g. #d9532b needs pure black
+    return onWhite >= onDark ? "#ffffff" : INK_DARK;
+  }
   const iconHtml = icon => icon ? (/^[a-z0-9-]+$/.test(icon) ? window.PPC_ICON(icon, 34) : `<span class="icon">${escapeHtml(icon)}</span>`) : "";
 
   function goStation() {
@@ -975,8 +1044,9 @@
     (CFG.STATIONS || []).forEach(st => {
       const b = document.createElement("button");
       b.type = "button";
-      b.className = "card" + (st.color === suggested ? " suggested" : "") + (st.color === "Yellow" ? " dk" : "");
+      b.className = "card" + (st.color === suggested ? " suggested" : "");
       b.style.background = STATION_COLORS[st.color] || "#eee";
+      b.style.color = STATION_HEX[st.color] ? inkFor(STATION_HEX[st.color]) : "";
       b.innerHTML = `${st.color === suggested ? `<span class="tag">Suggested for you</span>` : ""}<span>${escapeHtml(st.label)}</span>${st.hint ? `<span class="hint">${escapeHtml(st.hint)}</span>` : ""}`;
       b.addEventListener("click", () => { answers.station = st.color; next("station"); });
       grid.appendChild(b);
@@ -999,6 +1069,7 @@
         b.type = "button";
         b.className = "word" + (g.dark ? " dark" : "") + (w.replace(/ /g, "").length >= 10 ? " long" : "");
         b.style.background = g.cols[i % 5];
+        b.style.color = inkFor(g.cols[i % 5]);
         b.textContent = w;
         b.addEventListener("click", () => {
           answers.moodWord = w;
@@ -1015,6 +1086,7 @@
       whole.type = "button";
       whole.className = "whole" + (g.dark ? " dark" : "");
       whole.style.background = g.cols[2];
+      whole.style.color = inkFor(g.cols[2]);
       whole.textContent = "Type my own word";
       whole.addEventListener("click", () => {
         answers.moodGroup = g.group;
@@ -1105,15 +1177,19 @@
   $("#finishBtn").addEventListener("click", reset);
   $("#coFinishBtn").addEventListener("click", reset);
 
+  // End screens count down to the next student. At least 20 seconds, and "More time" adds 30 (WCAG 2.2.1).
+  let countLeft = 0;
   function countdown(el, seconds) {
-    let n = seconds;
+    clearTimeout(resetTimer);
+    countLeft = Math.max(seconds, WARN_SECONDS);
     const tick = () => {
-      el.textContent = `Starting over for the next student in ${n}…`;
-      if (n-- <= 0) return reset();
+      el.textContent = `Starting over for the next student in ${countLeft}…`;
+      if (countLeft-- <= 0) return reset();
       resetTimer = setTimeout(tick, 1000);
     };
     tick();
   }
+  document.querySelectorAll(".more-time").forEach(b => b.addEventListener("click", () => { countLeft += 30; }));
 
   // ---------- Check-out ----------
   function finishCheckout() {

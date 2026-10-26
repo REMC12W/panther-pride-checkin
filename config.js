@@ -18,11 +18,12 @@ window.PPC_CONFIG = {
   // A label for this device so staff can tell kiosks apart in the Sheet.
   KIOSK_NAME: "Pride Center iPad",
 
-  // Seconds the "You're checked in" screen stays up before returning to start.
+  // Seconds the "You're checked in" screen stays up before returning to start. The kiosk never uses
+  // less than 20 (an accessibility rule: people need time to read it), and "More time" adds 30.
   RESET_SECONDS: 8,
 
-  // Seconds of no taps mid-flow before the app quietly returns to start,
-  // so the next student never sees a previous student's answers.
+  // Seconds of no taps mid-flow before the app returns to start, so the next student never sees a
+  // previous student's answers. 20 seconds before that it asks "Are you still there?"; any tap keeps going.
   IDLE_SECONDS: 120,
 
   // The Google Forms the original slide deck linked to. Leave a URL empty to hide

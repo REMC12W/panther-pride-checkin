@@ -429,7 +429,7 @@
         <input id="search" type="search" placeholder="Find a student by name or student ID" autocomplete="off">
       </div>
       <div class="panel student" id="student"></div>
-      <div class="table">
+      <div class="table" tabindex="0" role="region" aria-label="Visit log">
         <table>
           <thead><tr><th>When</th><th>Student</th><th>Why</th><th>Mood in</th><th>Station</th><th>Minutes</th><th>Mood out</th><th>Needs</th></tr></thead>
           <tbody id="tbody"></tbody>
@@ -447,7 +447,7 @@
 </main>
 
 <div class="scrim" id="scrim"></div>
-<aside class="drawer" id="drawer" aria-label="Today's timeline" aria-hidden="true">
+<aside class="drawer" id="drawer" aria-label="Today's timeline" aria-hidden="true" inert>
   <div class="dr-head">
     <div class="dr-top"><h2 id="drTitle">Today</h2><button type="button" id="drClose" aria-label="Close"><i data-icon="x" data-size="18"></i></button></div>
     <div class="dr-sum" id="drSum"></div>
@@ -459,7 +459,7 @@
       <button type="button" data-f="needs" aria-pressed="false">Basic needs</button>
     </div>
   </div>
-  <div class="dr-body" id="drBody"></div>
+  <div class="dr-body" id="drBody" tabindex="0" role="region" aria-label="Today, in order"></div>
 </aside>
 
 <dialog class="co-dlg" id="coDlg" aria-labelledby="coTitle">
@@ -525,7 +525,7 @@
     Red:    { v: "var(--m-red)",    dark: false, name: "Red",    desc: "high energy, unpleasant" },
     Yellow: { v: "var(--m-yellow)", dark: true,  name: "Yellow", desc: "high energy, pleasant" },
     Blue:   { v: "var(--m-blue)",   dark: false, name: "Blue",   desc: "low energy, unpleasant" },
-    Green:  { v: "var(--m-green)",  dark: false, name: "Green",  desc: "low energy, pleasant" },
+    Green:  { v: "var(--m-green)",  dark: true,  name: "Green",  desc: "low energy, pleasant" },
     "Staff first": { v: "var(--m-staff)", dark: false, name: "Staff first", desc: "" }
   };
   const HAPPENED = ["At Home", "With my Teacher", "With a friend", "Just with myself", "Nothing happened", "Not sure"];
@@ -833,7 +833,8 @@
     const x = i => 3 + i * (W - 6) / (n - 1), y = v => H - 4 - v / max * (H - 8);
     const pts = s.map((v, i) => `${x(i).toFixed(1)},${y(v).toFixed(1)}`).join(" ");
     const hits = s.map((v, i) => `<rect x="${(x(i) - (W / n) / 2).toFixed(1)}" y="0" width="${(W / n).toFixed(1)}" height="${H}" fill="transparent" data-tip="${esc(fmtDay(days[i]))}: ${v}"/>`).join("");
-    return `<svg viewBox="0 0 ${W} ${H}" preserveAspectRatio="none" role="img" aria-label="Last ${n} school days"><polyline points="${pts}" fill="none" stroke="var(--series)" stroke-width="2" vector-effect="non-scaling-stroke" stroke-linejoin="round" stroke-linecap="round"/><circle cx="${x(n - 1)}" cy="${y(s.at(-1))}" r="3" fill="var(--series)"/>${hits}</svg>`;
+    const summary = `Last ${n} school days: ` + s.map((v, i) => `${fmtDay(days[i])} ${v}`).join(", ");
+    return `<svg viewBox="0 0 ${W} ${H}" preserveAspectRatio="none" role="img" tabindex="0" aria-label="${esc(summary)}" data-tip="${esc(summary)}"><polyline points="${pts}" fill="none" stroke="var(--series)" stroke-width="2" vector-effect="non-scaling-stroke" stroke-linejoin="round" stroke-linecap="round"/><circle cx="${x(n - 1)}" cy="${y(s.at(-1))}" r="3" fill="var(--series)"/>${hits}</svg>`;
   }
   function schoolDays(all, n) {
     // The last n weekdays up to today, plus any weekend day that had visits.
@@ -875,7 +876,8 @@
     const median = mins.length ? mins[Math.floor(mins.length / 2)] : null;
     const stack = key => {
       const c = MOODS.map(g => [g, done.filter(r => r[key] === g).length]).filter(([, n]) => n);
-      return `<div class="stack">${c.map(([g, n]) => { const p = 100 * n / done.length; return `<span class="${MOOD[g].dark ? "dk" : ""}" style="flex:${n};background:${MOOD[g].v}" data-tip="${g}: ${n} of ${done.length} (${Math.round(p)}%)">${p >= 14 ? Math.round(p) + "%" : ""}</span>`; }).join("")}</div>`;
+      const summary = c.map(([g, n]) => `${g} ${n} of ${done.length} (${Math.round(100 * n / done.length)}%)`).join(", ");
+      return `<div class="stack" role="img" tabindex="0" aria-label="${key === "moodGroup" ? "Arrived" : "Left"}: ${esc(summary)}" data-tip="${esc(summary)}">${c.map(([g, n]) => { const p = 100 * n / done.length; return `<span class="${MOOD[g].dark ? "dk" : ""}" style="flex:${n};background:${MOOD[g].v}" data-tip="${g}: ${n} of ${done.length} (${Math.round(p)}%)">${p >= 14 ? Math.round(p) + "%" : ""}</span>`; }).join("")}</div>`;
     };
     $("#flow").innerHTML = `
       <p class="callout">${startedHard ? `<b>${better} of ${startedHard}</b> who came in red or blue left feeling yellow or green.` : `<b>${done.length}</b> check-outs, none arrived red or blue.`}</p>
@@ -920,7 +922,8 @@
       const lbl = i % every === 0 || i === n - 1 ? `<text x="${x + w / 2}" y="${H - 8}" text-anchor="middle" font-size="11" fill="var(--ink-3)">${esc(labels[i])}</text>` : "";
       return `${path ? `<path d="${path}" fill="var(--series)"/>` : ""}<rect x="${L + i * bw}" y="${T}" width="${bw}" height="${H - T - B}" fill="transparent" data-tip="${esc(tips[i])}: ${v} ${unit}"/>${lbl}`;
     }).join("");
-    return `<svg viewBox="0 0 ${W} ${H}" role="img" aria-label="Column chart">${grid}<line x1="${L}" x2="${W - R}" y1="${y(0)}" y2="${y(0)}" stroke="var(--ink-3)" stroke-width="1"/>${bars}</svg>`;
+    const summary = `${unit[0].toUpperCase() + unit.slice(1)}: ` + vals.map((v, i) => `${tips[i]} ${v}`).join(", ");
+    return `<svg viewBox="0 0 ${W} ${H}" role="img" tabindex="0" aria-label="${esc(summary)}" data-tip="${esc(summary)}">${grid}<line x1="${L}" x2="${W - R}" y1="${y(0)}" y2="${y(0)}" stroke="var(--ink-3)" stroke-width="1"/>${bars}</svg>`;
   }
   function chartW(sel) { return Math.max(300, Math.round($(sel).clientWidth || 600)); }
   function niceStep(max) { const raw = max / 4, p = Math.pow(10, Math.floor(Math.log10(raw))); const m = raw / p; return (m <= 1 ? 1 : m <= 2 ? 2 : m <= 5 ? 5 : 10) * p; }
@@ -977,8 +980,8 @@
     const outs = v.filter(r => r.outMoodGroup);
     box.innerHTML = `<div class="top"><b>${esc(v.at(-1).name)}</b>${v.at(-1).studentId ? `<span class="facts">ID ${esc(v.at(-1).studentId)}</span>` : ""}
       <span class="facts">${v.length} visit${v.length === 1 ? "" : "s"} in the last ${win()} days · last ${esc(when(v.at(-1).timestamp))}${hard ? ` · came in red or blue ${hard} time${hard === 1 ? "" : "s"}` : ""}${incs.length ? ` · ${incs.length} incident report${incs.length === 1 ? "" : "s"}` : ""}</span></div>
-      <div class="dots"><span class="lab">Mood in, oldest to newest</span>${v.map(r => r.moodGroup ? `<i style="background:${MOOD[r.moodGroup].v}" data-tip="${esc(when(r.timestamp))}: ${esc(r.moodWord)}"></i>` : "").join("")}</div>
-      ${outs.length ? `<div class="dots"><span class="lab">Mood out</span>${outs.map(r => `<i style="background:${MOOD[r.outMoodGroup].v}" data-tip="${esc(when(r.checkoutTime))}: ${esc(r.outMoodWord)}"></i>`).join("")}</div>` : ""}`;
+      <div class="dots" role="img" tabindex="0" aria-label="Mood in, oldest to newest: ${esc(v.filter(r => r.moodGroup).map(r => `${when(r.timestamp)} ${r.moodWord || ""} (${r.moodGroup})`).join(", "))}" data-tip="${esc(v.filter(r => r.moodGroup).map(r => `${when(r.timestamp)}: ${r.moodWord || ""} (${r.moodGroup})`).join(" · "))}"><span class="lab">Mood in, oldest to newest</span>${v.map(r => r.moodGroup ? `<i style="background:${MOOD[r.moodGroup].v}" data-tip="${esc(when(r.timestamp))}: ${esc(r.moodWord)}"></i>` : "").join("")}</div>
+      ${outs.length ? `<div class="dots" role="img" tabindex="0" aria-label="Mood out: ${esc(outs.map(r => `${when(r.checkoutTime)} ${r.outMoodWord || ""} (${r.outMoodGroup})`).join(", "))}" data-tip="${esc(outs.map(r => `${when(r.checkoutTime)}: ${r.outMoodWord || ""} (${r.outMoodGroup})`).join(" · "))}"><span class="lab">Mood out</span>${outs.map(r => `<i style="background:${MOOD[r.outMoodGroup].v}" data-tip="${esc(when(r.checkoutTime))}: ${esc(r.outMoodWord)}"></i>`).join("")}</div>` : ""}`;
     box.classList.add("show");
     bindTips(box);
   }
@@ -1112,8 +1115,8 @@
     $("#drBody").innerHTML = html;
     $("#drBody").querySelectorAll("[data-name]").forEach(el => el.addEventListener("click", () => { closeDrawer(); lookup(el.dataset.name); }));
   }
-  function openDrawer() { renderTimeline(); $("#drawer").classList.add("on"); $("#scrim").classList.add("on"); $("#drawer").setAttribute("aria-hidden", "false"); $("#todayBtn").setAttribute("aria-expanded", "true"); const b = $("#drBody"); b.scrollTop = b.scrollHeight; $("#drClose").focus(); }
-  function closeDrawer() { $("#drawer").classList.remove("on"); $("#scrim").classList.remove("on"); $("#drawer").setAttribute("aria-hidden", "true"); $("#todayBtn").setAttribute("aria-expanded", "false"); }
+  function openDrawer() { renderTimeline(); $("#drawer").classList.add("on"); $("#scrim").classList.add("on"); $("#drawer").setAttribute("aria-hidden", "false"); $("#drawer").inert = false; $("#todayBtn").setAttribute("aria-expanded", "true"); const b = $("#drBody"); b.scrollTop = b.scrollHeight; $("#drClose").focus(); }
+  function closeDrawer() { $("#drawer").classList.remove("on"); $("#scrim").classList.remove("on"); $("#drawer").setAttribute("aria-hidden", "true"); $("#drawer").inert = true; $("#todayBtn").setAttribute("aria-expanded", "false"); }
   $("#todayBtn").addEventListener("click", () => $("#drawer").classList.contains("on") ? closeDrawer() : openDrawer());
   $("#drClose").addEventListener("click", closeDrawer);
   $("#scrim").addEventListener("click", closeDrawer);
@@ -1200,8 +1203,13 @@
     root.querySelectorAll("[data-tip]").forEach(el => {
       el.addEventListener("mousemove", e => { tip.textContent = el.dataset.tip; tip.classList.add("on"); tip.style.left = Math.min(e.clientX + 12, innerWidth - 270) + "px"; tip.style.top = (e.clientY + 14) + "px"; });
       el.addEventListener("mouseleave", () => tip.classList.remove("on"));
+      if (el.getAttribute("tabindex") === "0") {
+        el.addEventListener("focus", () => { const r = el.getBoundingClientRect(); tip.textContent = el.dataset.tip; tip.classList.add("on"); tip.style.left = Math.max(8, Math.min(r.left, innerWidth - 270)) + "px"; tip.style.top = Math.min(r.bottom + 8, innerHeight - 60) + "px"; });
+        el.addEventListener("blur", () => tip.classList.remove("on"));
+      }
     });
   }
+  document.addEventListener("keydown", e => { if (e.key === "Escape") tip.classList.remove("on"); });
 
   // ---------- CSV ----------
   $("#csv").addEventListener("click", () => {

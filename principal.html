@@ -128,7 +128,9 @@
   .tile .resize::after { content: ""; position: absolute; right: 5px; bottom: 5px; width: 10px; height: 10px; border-right: 3px solid var(--fg-3); border-bottom: 3px solid var(--fg-3); border-radius: 2px; }
   .board.unlocked:not(.list) .tile .resize { display: block; }
   .tile .order { display: none; gap: 4px; }
-  .board.unlocked.list .tile .order { display: inline-flex; }
+  .board.unlocked .tile .order { display: inline-flex; }
+  .sr-only { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0, 0, 0, 0); white-space: nowrap; border: 0; }
+  table.nums caption { text-align: left; font-weight: 700; padding: 0 0 8px; }
   .tile .order button { border: 1px solid var(--ctl-border); background: var(--panel); border-radius: var(--radius-sm); padding: 3px 6px; line-height: 0; }
   .bignum { height: 100%; display: flex; flex-direction: column; justify-content: center; padding: 4px 8px; }
   .bignum .v { font-size: clamp(2rem, 5vw, 3.4rem); font-weight: 700; line-height: 1; color: var(--ink); }

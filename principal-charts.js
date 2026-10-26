@@ -462,20 +462,24 @@ window.PPC_CHARTS = (function () {
   // A spreadsheet runs a cell that starts with = + - or @ as a formula, and the text here comes from what students typed.
   const cell = v => { if (typeof v === "number") return String(v); let s = String(v == null ? "" : v); if (/^[=+\-@\t\r]/.test(s)) s = "'" + s; return `"${s.replace(/"/g, '""')}"`; };
   const sheet = rows => "\uFEFF" + rows.map(r => r.map(cell).join(",")).join("\r\n") + "\r\n";
-  function csv(agg) {
+  function csv(agg) { return sheet(numberRows(agg)); }
+  /** The chart's numbers as rows (header first): the same rows the CSV download and the "Show the numbers" table use. */
+  function numberRows(agg) {
     const dim = DIMENSIONS[agg.dim], withEarlier = agg.rows.some(r => r.prevKey);
     const rows = [[dim ? dim.label : "Group", "Group", agg.measure.label, "Records"].concat(withEarlier ? ["Earlier date"] : [])];
     agg.rows.forEach(r => rows.push([keyLabel(agg.dim, r.key), agg.breakdown ? keyLabel(agg.breakdown, r.series) : r.series, r.value == null ? "" : r.value, r.n].concat(withEarlier ? [r.prevKey || ""] : [])));
-    return sheet(rows);
+    return rows;
   }
   /** The flow chart's own numbers: how many visits went from each arrival mood to each check-out mood. */
-  function csvFlow(rows) {
+  function csvFlow(rows) { return sheet(flowRows(rows)); }
+  function flowRows(rows) {
     const n = {}; rows.filter(r => r.moodIn && r.moodOut).forEach(r => { const k = r.moodIn + "|" + r.moodOut; n[k] = (n[k] || 0) + 1; });
     const out = [["Mood on arrival", "Mood at check-out", "Visits"]];
     D.MOODS.forEach(a => D.MOODS.forEach(b => { if (n[a + "|" + b]) out.push([a, b, n[a + "|" + b]]); }));
-    return sheet(out);
+    return out;
   }
   const csvFor = (agg, tile) => tile && tile.chart === "sankey" ? csvFlow(agg.current) : csv(agg);
+  const numbersFor = (agg, tile) => tile && tile.chart === "sankey" ? flowRows(agg.current) : numberRows(agg);
 
-  return { DIMENSIONS, MEASURES, CHARTS, DATASETS, FILTERABLE, RANGE_LABELS, MOOD_COLOR, range, aggregate, spec, takeaway, sankeySVG, tableHTML, numberHTML, deltaHTML, csv, csvFor, fmt, esc, keyLabel };
+  return { DIMENSIONS, MEASURES, CHARTS, DATASETS, FILTERABLE, RANGE_LABELS, MOOD_COLOR, range, aggregate, spec, takeaway, sankeySVG, tableHTML, numberHTML, deltaHTML, csv, csvFor, numbersFor, fmt, esc, keyLabel };
 })();
