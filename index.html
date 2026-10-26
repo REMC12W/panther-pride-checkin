@@ -534,7 +534,7 @@
 <script src="config.js"></script>
 <script>
 (function () {
-  const APP_VERSION = "2026.10.24-lock.3";
+  const APP_VERSION = "2026.10.25-lock.4";
   const CFG = Object.assign({
     SCRIPT_URL: "", KIOSK_NAME: "Kiosk", KIOSK_DOMAIN: "",
     RESET_SECONDS: 8, IDLE_SECONDS: 120,
@@ -1199,12 +1199,13 @@
     $("#kioskSignOut").hidden = !s;
     $("#kioskMsg").innerHTML = s
       ? `This iPad is signed in as <b>${escapeHtml(s.email)}</b> until ${new Date(s.expires).toLocaleDateString()}. Students can check in, and the name list is on${rosterReady() ? ` (${roster.length} students)` : ""}.`
-      : `Sign in with your <b>@${escapeHtml(CFG.KIOSK_DOMAIN || "district")}</b> staff Google account to turn on check-in and the roster name list. Only staff on the Pride Center's approved list can. Students never see this sign-in, and the iPad stays signed in for about a month.${readJSON(QUEUE_KEY).length ? ` <b>${readJSON(QUEUE_KEY).length} check-in${readJSON(QUEUE_KEY).length > 1 ? "s" : ""}</b> saved on this iPad will be sent as soon as you sign in.` : ""}`;
+      : `Sign in with your <b>@${escapeHtml(CFG.KIOSK_DOMAIN || "district")}</b> staff Google account to turn on check-in and the roster name list. Only people on the Pride Center's approved list can (the principal, Pride Center staff, and the setup admin). Students never see this sign-in, and the iPad stays signed in for about a month.${readJSON(QUEUE_KEY).length ? ` <b>${readJSON(QUEUE_KEY).length} check-in${readJSON(QUEUE_KEY).length > 1 ? "s" : ""}</b> saved on this iPad will be sent as soon as you sign in.` : ""}`;
     if (!s && !CFG.GOOGLE_CLIENT_ID) $("#kioskMsg").textContent = "Sign-in isn't set up yet: add GOOGLE_CLIENT_ID to config.js (README step 5).";
     $("#kioskGsi").innerHTML = "";
     if (!s && CFG.GOOGLE_CLIENT_ID) {
       const render = () => {
-        google.accounts.id.initialize({ client_id: CFG.GOOGLE_CLIENT_ID, hd: CFG.KIOSK_DOMAIN || undefined, auto_select: false, ux_mode: "popup", callback: kioskCredential });
+        // No domain hint: approved people outside the district domain (ADMIN_EMAILS, PRINCIPAL_EMAILS) must be able to pick their account. The script enforces the list.
+        google.accounts.id.initialize({ client_id: CFG.GOOGLE_CLIENT_ID, auto_select: false, ux_mode: "popup", callback: kioskCredential });
         google.accounts.id.renderButton($("#kioskGsi"), { theme: "outline", size: "large", text: "signin_with", shape: "rectangular", width: 300 });
       };
       if (window.google && google.accounts) render();
